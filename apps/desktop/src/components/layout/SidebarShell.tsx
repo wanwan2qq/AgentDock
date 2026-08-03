@@ -14,6 +14,7 @@ import { FileTree } from "../../features/vault/FileTree";
 import { TagsPanel } from "../../features/tags/TagsPanel";
 import { BookmarksPanel } from "../../features/bookmarks/BookmarksPanel";
 import { MapsPanel } from "../../features/maps/MapsPanel";
+import { GitPanel } from "../../features/git/GitPanel";
 import { AgentsSidebarPanel } from "../../features/ai/AgentsSidebarPanel";
 import { VaultSwitcher } from "../../features/vault/VaultSwitcher";
 
@@ -29,13 +30,14 @@ const IS_MACOS = getDesktopPlatform() === "macos";
 // Primary tabs are labeled; secondary ones stay compact (icon-only) so all
 // fit on a single row without truncation at default sidebar width.
 const PRIMARY_TABS: SidebarView[] = ["files", "agents"];
-const SECONDARY_TABS: SidebarView[] = ["tags", "bookmarks", "maps"];
+const SECONDARY_TABS: SidebarView[] = ["tags", "bookmarks", "maps", "git"];
 
 const TAB_LABELS: Record<SidebarView, string> = {
     files: "Files",
     tags: "Tags",
     bookmarks: "Bookmarks",
     maps: "Maps",
+    git: "Git",
     agents: "Agents",
 };
 
@@ -84,6 +86,16 @@ function SidebarTabIcon({ view }: { view: SidebarView }) {
                     <circle cx="17" cy="7" r="2.5" />
                     <circle cx="17" cy="17" r="2.5" />
                     <path d="M9.5 12L14.5 7.5M9.5 12L14.5 16.5" />
+                </svg>
+            );
+        case "git":
+            return (
+                <svg {...common}>
+                    <circle cx="6" cy="6" r="2.2" />
+                    <circle cx="18" cy="6" r="2.2" />
+                    <circle cx="12" cy="18" r="2.2" />
+                    <path d="M6 8.2v3.3c0 2 1.5 3.5 3.5 3.5H12" />
+                    <path d="M18 8.2v1.8c0 2-1.5 3.5-3.5 3.5H12" />
                 </svg>
             );
         case "agents":
@@ -265,6 +277,8 @@ export function SidebarShell({ onOpenSettings }: SidebarShellProps) {
                     <BookmarksPanel />
                 ) : currentView === "agents" ? (
                     <AgentsSidebarPanel />
+                ) : currentView === "git" ? (
+                    <GitPanel />
                 ) : (
                     <MapsPanel />
                 )}

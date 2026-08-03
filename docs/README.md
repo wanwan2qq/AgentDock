@@ -14,6 +14,17 @@ polish and hardening.
 - [Deep Links](deep-links.md): `neverwrite://open` and `neverwrite://clip` behavior, path safety boundaries, line fragments, platform delivery, and manual QA notes.
 - [Settings Scope](settings-scope.md): inventory of global, per-vault, and mixed-scope settings, preferences, local UI state, migrations, and storage keys.
 
+## AgentDock Product (Fork Direction)
+
+Product requirements and analysis for evolving this fork beyond upstream NeverWrite.
+Start at [product/README.md](product/README.md).
+
+- [Requirements](product/requirements.md): positioning, must-haves, non-goals, V1 success criteria.
+- [Feasibility and Market](product/feasibility-and-market.md): value, market landscape, recommended approach.
+- [Gap vs NeverWrite](product/neverwrite-gap.md): what is already covered, what to build (Git, templates).
+- [Built-in Agent vs Mainstream Assistants](product/agent-capability.md): ACP host vs Claude Code / OpenCode CLI.
+- [Trial Checklist](product/trial-checklist.md): NeverWrite / Foam / StashBase evaluation tasks and scoring.
+
 ## AI And Change Control
 
 - [AI Change Control](ai-change-control.md): the ActionLog model, tracked files, pending review, keep/reject flows, inline review, conflicts, persistence, and known limits.

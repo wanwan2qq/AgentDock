@@ -10,6 +10,7 @@ export type SidebarView =
     | "tags"
     | "bookmarks"
     | "maps"
+    | "git"
     | "agents";
 
 const SIDEBAR_WIDTH_KEY = "neverwrite.sidebar.width";
@@ -33,6 +34,7 @@ const SIDEBAR_VIEWS: SidebarView[] = [
     "tags",
     "bookmarks",
     "maps",
+    "git",
     "agents",
 ];
 const RIGHT_PANEL_VIEWS = ["links", "outline"] as const;

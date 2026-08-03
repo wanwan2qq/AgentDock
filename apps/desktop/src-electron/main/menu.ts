@@ -41,7 +41,7 @@ const nativeMenuCommands = new Set([
     "editor:heading-6",
     "editor:heading-0",
     "editor:toggle-live-preview",
-    "developer:new-terminal-tab",
+    "workspace:new-terminal-tab",
     "layout:toggle-sidebar",
     "layout:toggle-right-panel",
     "nav:command-palette",
@@ -182,7 +182,7 @@ function buildApplicationMenu() {
             commandItem("vault:new-note", "New Note", "CommandOrControl+N"),
             commandItem("editor:new-tab", "New Tab", "CommandOrControl+T"),
             commandItem(
-                "developer:new-terminal-tab",
+                "workspace:new-terminal-tab",
                 "New Terminal",
                 "CommandOrControl+R",
             ),
