@@ -1219,7 +1219,7 @@ describe("AIChatMessageList streaming run indicator", () => {
             view.container.querySelectorAll("[data-tool-activity-id]"),
         ).toHaveLength(0);
 
-        fireEvent.change(screen.getByRole("textbox", { name: "Find in chat" }), {
+        fireEvent.change(screen.getByRole("textbox", { name: "在对话中查找" }), {
             target: { value: "hidden context" },
         });
 

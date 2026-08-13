@@ -112,9 +112,9 @@ function deriveActivityIndicator(
         case "streaming":
         case "waiting_permission":
         case "waiting_user_input":
-            return { tone: "working", title: "Agent busy" };
+            return { tone: "working", title: "Agent 忙碌" };
         case "error":
-            return { tone: "danger", title: "Agent error" };
+            return { tone: "danger", title: "Agent 出错" };
         default:
             return null;
     }
@@ -582,15 +582,15 @@ export function AgentsSidebarPanel() {
             const childCount = countAiSessionChildren(session, sessions);
             const preservedAgents =
                 childCount === 1
-                    ? "1 subagent will stay in the sidebar as a detached agent."
-                    : `${childCount} subagents will stay in the sidebar as detached agents.`;
+                    ? "1 个子代理将作为独立条目保留在侧栏中。"
+                    : `${childCount} 个子代理将作为独立条目保留在侧栏中。`;
             const message =
                 childCount > 0
-                    ? `Delete "${title}"?\n\nThis deletes only this thread's history and workspace snapshot. ${preservedAgents}\n\nThis cannot be undone.`
-                    : `Delete "${title}"?\n\nThis deletes the thread history and workspace snapshot.\n\nThis cannot be undone.`;
+                    ? `删除「${title}」？\n\n仅删除此对话的历史记录与工作区快照。${preservedAgents}\n\n此操作无法撤销。`
+                    : `删除「${title}」？\n\n将删除对话历史记录与工作区快照。\n\n此操作无法撤销。`;
 
             const approved = await confirm(message, {
-                title: "Delete thread?",
+                title: "删除对话？",
                 kind: "warning",
             });
             if (!approved) return;
@@ -605,9 +605,9 @@ export function AgentsSidebarPanel() {
         async (session: AIChatSession) => {
             const title = getSessionTitleText(session);
             const approved = await confirm(
-                `Close terminal "${title}"?\n\nThis closes the Claude Code terminal backing this Agents entry. The entry will disappear from the sidebar when the terminal closes.`,
+                `关闭终端「${title}」？\n\n将关闭支撑此 Agents 条目的 Claude Code 终端。终端关闭后，该条目会从侧栏消失。`,
                 {
-                    title: "Close terminal?",
+                    title: "关闭终端？",
                     kind: "warning",
                 },
             );
@@ -787,7 +787,7 @@ export function AgentsSidebarPanel() {
         });
 
         if (sortedRuntimes.length === 0) {
-            return [{ label: "No providers available", disabled: true }];
+            return [{ label: "暂无可用提供商", disabled: true }];
         }
 
         return sortedRuntimes.map((runtime) => ({
@@ -818,11 +818,11 @@ export function AgentsSidebarPanel() {
     );
 
     const handleCreateFolder = useCallback(() => {
-        const folderId = createFolder("New Folder");
+        const folderId = createFolder("新建文件夹");
         if (folderId) {
             setEditingFolder({
                 folderId,
-                name: "New Folder",
+                name: "新建文件夹",
             });
         }
     }, [createFolder]);
@@ -1098,7 +1098,7 @@ export function AgentsSidebarPanel() {
                         fontSize: metrics.header.fontSize,
                         padding: `${scaleMetric(4, agentsSidebarScale / 100, 3)}px ${metrics.header.paddingX}px ${scaleMetric(3, agentsSidebarScale / 100, 2)}px`,
                     }}
-                    title={collapsed ? "Expand folder" : "Collapse folder"}
+                    title={collapsed ? "展开文件夹" : "折叠文件夹"}
                     onClick={() => {
                         if (suppressFolderClickRef.current) return;
                         toggleFolderCollapsed(folder.id);
@@ -1152,7 +1152,7 @@ export function AgentsSidebarPanel() {
                     {isRenaming ? (
                         <input
                             autoFocus
-                            aria-label="Folder name"
+                            aria-label="文件夹名称"
                             className="min-w-0 flex-1 rounded px-1 py-0.5 text-[10px] font-semibold normal-case tracking-normal outline-none"
                             style={{
                                 color: "var(--text-primary)",
@@ -1207,7 +1207,7 @@ export function AgentsSidebarPanel() {
                                 className="px-3 py-1 text-[10.5px]"
                                 style={{ color: "var(--text-secondary)" }}
                             >
-                                Drop chats here from their menu.
+                                请从菜单将对话拖到此处。
                             </p>
                         )}
                     </div>
@@ -1222,8 +1222,8 @@ export function AgentsSidebarPanel() {
                 <SidebarFilterInput
                     value={filterText}
                     onChange={setFilterText}
-                    placeholder="Filter threads..."
-                    ariaLabel="Filter threads"
+                    placeholder="筛选对话…"
+                    ariaLabel="筛选对话"
                 />
             </div>
 
@@ -1237,10 +1237,10 @@ export function AgentsSidebarPanel() {
             >
                 <span>
                     {hasFilter
-                        ? `${filteredCount} of ${totalCount}`
+                        ? `${filteredCount} / ${totalCount}`
                         : totalCount === 1
-                          ? "1 thread"
-                          : `${totalCount} threads`}
+                          ? "1 个对话"
+                          : `${totalCount} 个对话`}
                 </span>
                 <div className="flex items-center gap-1">
                     <button
@@ -1359,14 +1359,14 @@ export function AgentsSidebarPanel() {
                 ) : (
                     <>
                         <AgentsSidebarSection
-                            title="Pinned"
+                            title="已固定"
                             count={pinnedGroups.length}
                             headerMetrics={metrics.header}
                         >
                             {pinnedGroups.map(renderGroup)}
                         </AgentsSidebarSection>
                         <AgentsSidebarSection
-                            title="Open"
+                            title="已打开"
                             count={openGroups.length}
                             showHeader={showOpenAllHeaders}
                             headerMetrics={metrics.header}
@@ -1375,7 +1375,7 @@ export function AgentsSidebarPanel() {
                         </AgentsSidebarSection>
                         {orderedFolders.map(renderFolder)}
                         <AgentsSidebarSection
-                            title="All"
+                            title="全部"
                             count={unfiledGroups.length}
                             showHeader={showOpenAllHeaders || orderedFolders.length > 0}
                             showWhenEmpty={orderedFolders.length > 0}
@@ -1396,26 +1396,26 @@ export function AgentsSidebarPanel() {
                     entries={[
                         {
                             label: pinnedEntries[contextMenu.payload.sessionId]
-                                ? "Unpin from Sidebar"
-                                : "Pin to Sidebar",
+                                ? "取消固定"
+                                : "固定到侧栏",
                             disabled: isSubagentSession(contextMenu.payload),
                             action: () =>
                                 togglePinnedChat(contextMenu.payload.sessionId),
                         },
                         {
-                            label: "Rename",
+                            label: "重命名",
                             disabled: isSubagentSession(contextMenu.payload),
                             action: () =>
                                 handleStartRename(contextMenu.payload),
                         },
                         {
-                            label: "Move to Folder",
+                            label: "移到文件夹",
                             disabled: isSubagentSession(contextMenu.payload),
                             children: [
                                 {
-                                    label: "New Folder…",
+                                    label: "新建文件夹…",
                                     action: () => {
-                                        const folderId = createFolder("New Folder");
+                                        const folderId = createFolder("新建文件夹");
                                         if (!folderId) return;
                                         moveSessionToFolder(
                                             contextMenu.payload.sessionId,
@@ -1423,13 +1423,13 @@ export function AgentsSidebarPanel() {
                                         );
                                         setEditingFolder({
                                             folderId,
-                                            name: "New Folder",
+                                            name: "新建文件夹",
                                         });
                                     },
                                 },
                                 { type: "separator" },
                                 {
-                                    label: "No Folder",
+                                    label: "无文件夹",
                                     disabled: !sessionFolderIds[
                                         contextMenu.payload.sessionId
                                     ],
@@ -1457,7 +1457,7 @@ export function AgentsSidebarPanel() {
                             ? []
                             : [
                                   {
-                                      label: "Open in New Tab",
+                                      label: "在新标签页打开",
                                       action: () => {
                                           void openChatSessionInWorkspace(
                                               contextMenu.payload.sessionId,
@@ -1469,7 +1469,7 @@ export function AgentsSidebarPanel() {
                         { type: "separator" },
                         isClaudeTerminalAgentSession(contextMenu.payload)
                             ? {
-                                  label: "Close Terminal",
+                                  label: "关闭终端",
                                   danger: true,
                                   action: () => {
                                       void handleCloseClaudeTerminal(
@@ -1478,7 +1478,7 @@ export function AgentsSidebarPanel() {
                                   },
                               }
                             : {
-                                  label: "Delete",
+                                  label: "删除",
                                   danger: true,
                                   action: () => {
                                       void handleDelete(contextMenu.payload);
@@ -1501,12 +1501,12 @@ export function AgentsSidebarPanel() {
                     onClose={() => setFolderMenu(null)}
                     entries={[
                         {
-                            label: "Rename Folder",
+                            label: "重命名文件夹",
                             action: () => startFolderRename(folderMenu.payload),
                         },
                         { type: "separator" },
                         {
-                            label: "Delete Folder",
+                            label: "删除文件夹",
                             danger: true,
                             action: () =>
                                 deleteFolder(folderMenu.payload.id),

@@ -300,7 +300,7 @@ export function HistorySessionList({
                     </svg>
                     <input
                         type="text"
-                        placeholder="Search chats…"
+                        placeholder="搜索对话…"
                         value={search}
                         onChange={(e) => {
                             setSearch(e.target.value);
@@ -358,7 +358,7 @@ export function HistorySessionList({
                         className="min-w-0 flex-1 text-[10px] font-medium"
                         style={{ color: "var(--text-primary)" }}
                     >
-                        {batchSelectedSessionIds.length} chats selected
+                        已选择 {batchSelectedSessionIds.length} 个对话
                     </span>
                     <button
                         type="button"
@@ -372,7 +372,7 @@ export function HistorySessionList({
                             color: "#fff",
                         }}
                     >
-                        Delete selected
+                        删除所选
                     </button>
                     <button
                         type="button"
@@ -384,7 +384,7 @@ export function HistorySessionList({
                             color: "var(--text-primary)",
                         }}
                     >
-                        Clear
+                        清除
                     </button>
                 </div>
             )}
@@ -399,7 +399,7 @@ export function HistorySessionList({
                         className="px-3 py-8 text-center text-xs"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        Searching…
+                        搜索中…
                     </div>
                 )}
 
@@ -419,8 +419,8 @@ export function HistorySessionList({
                                 style={{ color: "var(--text-secondary)" }}
                             >
                                 {search
-                                    ? "No chats match your search."
-                                    : "No chat history yet."}
+                                    ? "没有匹配的对话。"
+                                    : "暂无聊天记录。"}
                             </div>
                         )}
 
@@ -450,7 +450,7 @@ export function HistorySessionList({
                                                     depth: 0,
                                                     badgeLabel:
                                                         hierarchyGroup.isDetachedAgent
-                                                            ? "Agent"
+                                                            ? "助手"
                                                             : undefined,
                                                     canRename:
                                                         !hierarchyGroup.isDetachedAgent,
@@ -463,7 +463,7 @@ export function HistorySessionList({
                                                     (session) => ({
                                                         session,
                                                         depth: 1,
-                                                        badgeLabel: "Agent",
+                                                        badgeLabel: "助手",
                                                         canRename: false,
                                                         childCount: 0,
                                                         parentTitle,
@@ -590,7 +590,7 @@ function ContentSearchResults({
                 className="px-3 py-8 text-center text-xs"
                 style={{ color: "var(--text-secondary)" }}
             >
-                No results found in message content.
+                消息内容中未找到结果。
             </div>
         );
     }
@@ -604,8 +604,7 @@ function ContentSearchResults({
                     opacity: 0.6,
                 }}
             >
-                {results.length} {results.length === 1 ? "session" : "sessions"}{" "}
-                found
+                找到 {results.length} 个会话
             </div>
             {results.map((result) => (
                 <SearchResultCard
@@ -630,7 +629,7 @@ function SearchResultCard({
 }) {
     const [hovered, setHovered] = useState(false);
     const title =
-        result.custom_title?.trim() || result.title?.trim() || "New chat";
+        result.custom_title?.trim() || result.title?.trim() || "新对话";
 
     return (
         <div
@@ -688,7 +687,7 @@ function SearchResultCard({
                                     "color-mix(in srgb, var(--text-secondary) 12%, transparent)",
                             }}
                         >
-                            {msg.role === "user" ? "you" : "ai"}
+                            {msg.role === "user" ? "你" : "AI"}
                         </span>
                         <span
                             className="min-w-0 flex-1"

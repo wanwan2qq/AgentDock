@@ -367,7 +367,7 @@ describe("AIChatSessionView", () => {
         renderComponent(<AIChatSessionView paneId="primary" />);
 
         const findButton = screen.getByRole("button", {
-            name: "Find in chat",
+            name: "在对话中查找",
         });
         fireEvent.click(findButton);
         expect(findButton).toHaveAttribute("aria-pressed", "true");
@@ -531,7 +531,7 @@ describe("AIChatSessionView", () => {
         renderComponent(<AIChatSessionView paneId="primary" />);
 
         const findButton = screen.getByRole("button", {
-            name: "Find in chat",
+            name: "在对话中查找",
         });
         fireEvent.click(findButton);
         expect(findButton).toHaveAttribute("aria-pressed", "true");

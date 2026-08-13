@@ -400,9 +400,9 @@ export function AgentsSidebarItem({
             {hasChildren ? (
                 <button
                     type="button"
-                    title={isCollapsed ? "Expand agents" : "Collapse agents"}
+                    title={isCollapsed ? "展开子代理" : "折叠子代理"}
                     aria-label={
-                        isCollapsed ? "Expand agents" : "Collapse agents"
+                        isCollapsed ? "展开子代理" : "折叠子代理"
                     }
                     onClick={(event) => {
                         event.preventDefault();
@@ -451,10 +451,10 @@ export function AgentsSidebarItem({
                     <button
                         type="button"
                         title={
-                            isPinned ? "Unpin from sidebar" : "Pin to sidebar"
+                            isPinned ? "取消固定" : "固定到侧栏"
                         }
                         aria-label={
-                            isPinned ? "Unpin from sidebar" : "Pin to sidebar"
+                            isPinned ? "取消固定" : "固定到侧栏"
                         }
                         onClick={(event) => {
                             event.stopPropagation();
@@ -504,9 +504,9 @@ export function AgentsSidebarItem({
                 }}
             >
                 {indicator?.tone === "working"
-                    ? "Working…"
+                    ? "运行中…"
                     : indicator?.tone === "danger"
-                      ? "Error"
+                      ? "出错"
                       : timestampLabel}
             </span>
         </div>

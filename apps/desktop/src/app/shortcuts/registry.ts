@@ -65,7 +65,7 @@ export interface ShortcutSettingsEntry {
 const shortcutDefinitions = [
     {
         id: "command_palette",
-        label: "Command Palette",
+        label: "命令面板",
         category: "Navigation",
         bindings: {
             macos: [{ key: "k", modifiers: ["meta"] }],
@@ -74,7 +74,7 @@ const shortcutDefinitions = [
     },
     {
         id: "quick_switcher",
-        label: "Quick Switcher",
+        label: "快速切换",
         category: "Navigation",
         bindings: {
             macos: [{ key: "o", modifiers: ["meta"] }],
@@ -83,7 +83,7 @@ const shortcutDefinitions = [
     },
     {
         id: "search_in_vault",
-        label: "Search in Vault",
+        label: "在仓库中搜索",
         category: "Navigation",
         bindings: {
             macos: [{ key: "f", modifiers: ["meta", "shift"] }],
@@ -92,7 +92,7 @@ const shortcutDefinitions = [
     },
     {
         id: "find_in_note",
-        label: "Find in Note",
+        label: "在笔记中查找",
         category: "Editor",
         bindings: {
             macos: [{ key: "f", modifiers: ["meta"] }],
@@ -101,7 +101,7 @@ const shortcutDefinitions = [
     },
     {
         id: "open_vault",
-        label: "Open Vault",
+        label: "打开仓库",
         category: "Vault",
         bindings: {
             macos: [{ key: "o", modifiers: ["meta", "shift"] }],
@@ -110,7 +110,7 @@ const shortcutDefinitions = [
     },
     {
         id: "new_note",
-        label: "New Note",
+        label: "新建笔记",
         category: "Vault",
         bindings: {
             macos: [{ key: "n", modifiers: ["meta"] }],
@@ -119,7 +119,7 @@ const shortcutDefinitions = [
     },
     {
         id: "new_agent",
-        label: "New Agent",
+        label: "新建助手",
         category: "AI",
         bindings: {
             macos: [{ key: "n", modifiers: ["meta", "shift"] }],
@@ -128,7 +128,7 @@ const shortcutDefinitions = [
     },
     {
         id: "stop_active_agent",
-        label: "Stop active agent",
+        label: "停止当前助手",
         category: "AI",
         bindings: {
             macos: [{ key: "Escape" }],
@@ -137,7 +137,7 @@ const shortcutDefinitions = [
     },
     {
         id: "new_terminal",
-        label: "New Terminal",
+        label: "新建终端",
         category: "Workspace",
         bindings: {
             macos: [{ key: "r", modifiers: ["meta"] }],
@@ -146,7 +146,7 @@ const shortcutDefinitions = [
     },
     {
         id: "new_tab",
-        label: "New Tab",
+        label: "新建标签",
         category: "Editor",
         bindings: {
             macos: [{ key: "t", modifiers: ["meta"] }],
@@ -155,7 +155,7 @@ const shortcutDefinitions = [
     },
     {
         id: "close_tab",
-        label: "Close Tab",
+        label: "关闭标签",
         category: "Editor",
         bindings: {
             macos: [{ key: "w", modifiers: ["meta"] }],
@@ -164,7 +164,7 @@ const shortcutDefinitions = [
     },
     {
         id: "reopen_closed_tab",
-        label: "Reopen Closed Tab",
+        label: "重新打开关闭的标签",
         category: "Editor",
         bindings: {
             macos: [{ key: "t", modifiers: ["meta", "shift"] }],
@@ -173,7 +173,7 @@ const shortcutDefinitions = [
     },
     {
         id: "next_tab",
-        label: "Next Tab",
+        label: "下一个标签",
         category: "Navigation",
         bindings: {
             macos: [{ key: "tab", modifiers: ["ctrl"] }],
@@ -182,7 +182,7 @@ const shortcutDefinitions = [
     },
     {
         id: "previous_tab",
-        label: "Previous Tab",
+        label: "上一个标签",
         category: "Navigation",
         bindings: {
             macos: [{ key: "t", modifiers: ["meta", "alt"] }],
@@ -194,7 +194,7 @@ const shortcutDefinitions = [
     },
     {
         id: "next_file",
-        label: "Next File",
+        label: "下一个文件",
         category: "Navigation",
         bindings: {
             macos: [{ key: "ArrowDown", modifiers: ["meta", "shift"] }],
@@ -203,7 +203,7 @@ const shortcutDefinitions = [
     },
     {
         id: "previous_file",
-        label: "Previous File",
+        label: "上一个文件",
         category: "Navigation",
         bindings: {
             macos: [{ key: "ArrowUp", modifiers: ["meta", "shift"] }],
@@ -212,7 +212,7 @@ const shortcutDefinitions = [
     },
     {
         id: "go_back",
-        label: "Back",
+        label: "后退",
         category: "Navigation",
         bindings: {
             macos: [{ key: "[", modifiers: ["meta"] }],
@@ -221,7 +221,7 @@ const shortcutDefinitions = [
     },
     {
         id: "go_forward",
-        label: "Forward",
+        label: "前进",
         category: "Navigation",
         bindings: {
             macos: [{ key: "]", modifiers: ["meta"] }],
@@ -230,7 +230,7 @@ const shortcutDefinitions = [
     },
     {
         id: "toggle_left_sidebar",
-        label: "Toggle Sidebar",
+        label: "切换侧边栏",
         category: "View",
         bindings: {
             macos: [{ key: "s", modifiers: ["meta"] }],
@@ -239,7 +239,7 @@ const shortcutDefinitions = [
     },
     {
         id: "toggle_right_panel",
-        label: "Toggle Right Panel",
+        label: "切换右侧面板",
         category: "View",
         bindings: {
             macos: [{ key: "j", modifiers: ["meta"] }],
@@ -248,7 +248,7 @@ const shortcutDefinitions = [
     },
     {
         id: "zoom_in",
-        label: "Zoom In",
+        label: "放大",
         category: "View",
         bindings: {
             macos: [{ key: "=", modifiers: ["meta"] }],
@@ -261,7 +261,7 @@ const shortcutDefinitions = [
     },
     {
         id: "zoom_out",
-        label: "Zoom Out",
+        label: "缩小",
         category: "View",
         bindings: {
             macos: [{ key: "-", modifiers: ["meta"] }],
@@ -274,7 +274,7 @@ const shortcutDefinitions = [
     },
     {
         id: "reset_zoom",
-        label: "Actual Size",
+        label: "实际大小",
         category: "View",
         bindings: {
             macos: [{ key: "0", modifiers: ["meta"] }],
@@ -283,7 +283,7 @@ const shortcutDefinitions = [
     },
     {
         id: "open_settings",
-        label: "Open Settings",
+        label: "打开设置",
         category: "View",
         bindings: {
             macos: [{ key: ",", modifiers: ["meta"] }],
@@ -292,7 +292,7 @@ const shortcutDefinitions = [
     },
     {
         id: "toggle_live_preview",
-        label: "Toggle Live Preview",
+        label: "切换实时预览",
         category: "Editor",
         bindings: {
             macos: [{ key: "e", modifiers: ["meta"] }],
@@ -301,7 +301,7 @@ const shortcutDefinitions = [
     },
     {
         id: "heading_1",
-        label: "Heading 1",
+        label: "标题 1",
         category: "Editor",
         bindings: {
             macos: [{ key: "1", modifiers: ["meta"] }],
@@ -310,7 +310,7 @@ const shortcutDefinitions = [
     },
     {
         id: "heading_2",
-        label: "Heading 2",
+        label: "标题 2",
         category: "Editor",
         bindings: {
             macos: [{ key: "2", modifiers: ["meta"] }],
@@ -319,7 +319,7 @@ const shortcutDefinitions = [
     },
     {
         id: "heading_3",
-        label: "Heading 3",
+        label: "标题 3",
         category: "Editor",
         bindings: {
             macos: [{ key: "3", modifiers: ["meta"] }],
@@ -328,7 +328,7 @@ const shortcutDefinitions = [
     },
     {
         id: "heading_4",
-        label: "Heading 4",
+        label: "标题 4",
         category: "Editor",
         bindings: {
             macos: [{ key: "4", modifiers: ["meta"] }],
@@ -337,7 +337,7 @@ const shortcutDefinitions = [
     },
     {
         id: "heading_5",
-        label: "Heading 5",
+        label: "标题 5",
         category: "Editor",
         bindings: {
             macos: [{ key: "5", modifiers: ["meta"] }],
@@ -346,7 +346,7 @@ const shortcutDefinitions = [
     },
     {
         id: "heading_6",
-        label: "Heading 6",
+        label: "标题 6",
         category: "Editor",
         bindings: {
             macos: [{ key: "6", modifiers: ["meta"] }],
@@ -355,7 +355,7 @@ const shortcutDefinitions = [
     },
     {
         id: "remove_heading",
-        label: "Remove Heading",
+        label: "移除标题",
         category: "Editor",
         bindings: {
             macos: [{ key: "0", modifiers: ["meta", "shift"] }],
@@ -364,7 +364,7 @@ const shortcutDefinitions = [
     },
     {
         id: "bold_selection",
-        label: "Bold Selection",
+        label: "加粗选中",
         category: "Editor",
         bindings: {
             macos: [{ key: "b", modifiers: ["meta"] }],
@@ -373,7 +373,7 @@ const shortcutDefinitions = [
     },
     {
         id: "highlight_selection",
-        label: "Highlight Selection",
+        label: "高亮选中",
         category: "Editor",
         bindings: {
             macos: [{ key: "h", modifiers: ["meta", "shift"] }],
@@ -382,7 +382,7 @@ const shortcutDefinitions = [
     },
     {
         id: "preview_link_at_caret",
-        label: "Preview Link at Caret",
+        label: "预览光标处链接",
         category: "Editor",
         bindings: {
             macos: [{ key: "p", modifiers: ["meta", "alt"] }],
@@ -391,7 +391,7 @@ const shortcutDefinitions = [
     },
     {
         id: "add_selection_to_chat",
-        label: "Add Selection to Chat",
+        label: "将选中内容添加到对话",
         category: "AI",
         bindings: {
             macos: [{ key: "l", modifiers: ["meta"] }],
@@ -400,7 +400,7 @@ const shortcutDefinitions = [
     },
     {
         id: "save_note",
-        label: "Save Note",
+        label: "保存笔记",
         category: "Editor",
         bindings: {
             macos: [{ key: "s", modifiers: ["meta", "shift"] }],

@@ -216,10 +216,10 @@ describe("AgentsSidebarPanel", () => {
 
         expect(screen.getByText("Alpha task")).toBeInTheDocument();
         fireEvent.click(screen.getByRole("button", { name: "新建文件夹" }));
-        fireEvent.change(screen.getByRole("textbox", { name: "Folder name" }), {
+        fireEvent.change(screen.getByRole("textbox", { name: "文件夹名称" }), {
             target: { value: "Research" },
         });
-        fireEvent.blur(screen.getByRole("textbox", { name: "Folder name" }));
+        fireEvent.blur(screen.getByRole("textbox", { name: "文件夹名称" }));
         expect(screen.getByText("Research")).toBeInTheDocument();
         expect(
             useChatFoldersStore.getState().sessionFolderIds,
@@ -230,7 +230,7 @@ describe("AgentsSidebarPanel", () => {
             clientY: 20,
         });
         const moveToFolder = await screen.findByRole("button", {
-            name: "Move to Folder",
+            name: "移到文件夹",
         });
         fireEvent.mouseEnter(moveToFolder);
         fireEvent.click(await screen.findByRole("button", { name: "Research" }));
@@ -267,15 +267,15 @@ describe("AgentsSidebarPanel", () => {
             ),
         ).toHaveStyle({ marginLeft: "8px" });
 
-        fireEvent.click(screen.getByTitle("Collapse folder"));
+        fireEvent.click(screen.getByTitle("折叠文件夹"));
         expect(screen.queryByTestId("agent-sidebar-item")).toBeNull();
 
-        fireEvent.contextMenu(screen.getByTitle("Expand folder"));
+        fireEvent.contextMenu(screen.getByTitle("展开文件夹"));
         fireEvent.click(
-            await screen.findByRole("button", { name: "Rename Folder" }),
+            await screen.findByRole("button", { name: "重命名文件夹" }),
         );
         const folderNameInput = await screen.findByRole("textbox", {
-            name: "Folder name",
+            name: "文件夹名称",
         });
         fireEvent.change(folderNameInput, {
             target: { value: "Archive" },
@@ -285,9 +285,9 @@ describe("AgentsSidebarPanel", () => {
         });
         expect(screen.getByText("Archive")).toBeInTheDocument();
 
-        fireEvent.contextMenu(screen.getByTitle("Expand folder"));
+        fireEvent.contextMenu(screen.getByTitle("展开文件夹"));
         fireEvent.click(
-            await screen.findByRole("button", { name: "Delete Folder" }),
+            await screen.findByRole("button", { name: "删除文件夹" }),
         );
 
         await waitFor(() => {
@@ -482,7 +482,7 @@ describe("AgentsSidebarPanel", () => {
             .map((item) => item.textContent ?? "");
         expect(labels[0]).toContain("Parent task");
         expect(labels[1]).toContain("Worker investigation");
-        expect(labels[1]).toContain("Working…");
+        expect(labels[1]).toContain("运行中…");
 
         fireEvent.click(screen.getAllByTestId("agent-sidebar-item")[1]);
 
@@ -525,7 +525,7 @@ describe("AgentsSidebarPanel", () => {
         renderComponent(<AgentsSidebarPanel />);
 
         fireEvent.keyDown(
-            screen.getByRole("button", { name: "Pin to sidebar" }),
+            screen.getByRole("button", { name: "固定到侧栏" }),
             { key: "Enter" },
         );
 
@@ -938,7 +938,7 @@ describe("AgentsSidebarPanel", () => {
 
         renderComponent(<AgentsSidebarPanel />);
 
-        fireEvent.change(screen.getByLabelText("Filter threads"), {
+        fireEvent.change(screen.getByLabelText("筛选对话"), {
             target: { value: "needle" },
         });
 
@@ -995,14 +995,14 @@ describe("AgentsSidebarPanel", () => {
         renderComponent(<AgentsSidebarPanel />);
 
         fireEvent.contextMenu(screen.getAllByTestId("agent-sidebar-item")[0]);
-        fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+        fireEvent.click(await screen.findByRole("button", { name: "删除" }));
 
         await waitFor(() => {
             expect(confirm).toHaveBeenCalledWith(
                 expect.stringContaining(
-                    "1 subagent will stay in the sidebar as a detached agent.",
+                    "1 个子代理将作为独立条目保留在侧栏中。",
                 ),
-                expect.objectContaining({ title: "Delete thread?" }),
+                expect.objectContaining({ title: "删除对话？" }),
             );
         });
         await waitFor(() => {
@@ -1027,7 +1027,7 @@ describe("AgentsSidebarPanel", () => {
         renderComponent(<AgentsSidebarPanel />);
 
         fireEvent.contextMenu(screen.getByTestId("agent-sidebar-item"));
-        fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+        fireEvent.click(await screen.findByRole("button", { name: "删除" }));
 
         await waitFor(() => {
             expect(confirm).toHaveBeenCalledTimes(1);
@@ -1047,7 +1047,7 @@ describe("AgentsSidebarPanel", () => {
 
         fireEvent.contextMenu(screen.getByTestId("agent-sidebar-item"));
         fireEvent.click(
-            await screen.findByRole("button", { name: "Open in New Tab" }),
+            await screen.findByRole("button", { name: "在新标签页打开" }),
         );
 
         await waitFor(() => {
@@ -1113,15 +1113,15 @@ describe("AgentsSidebarPanel", () => {
 
         fireEvent.contextMenu(screen.getByTestId("agent-sidebar-item"));
         expect(
-            await screen.findByRole("button", { name: "Close Terminal" }),
+            await screen.findByRole("button", { name: "关闭终端" }),
         ).toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-        fireEvent.click(screen.getByRole("button", { name: "Close Terminal" }));
+        expect(screen.queryByRole("button", { name: "删除" })).toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: "关闭终端" }));
 
         await waitFor(() => {
             expect(confirm).toHaveBeenCalledWith(
-                expect.stringContaining("Close terminal \"Claude Code 1\"?"),
-                expect.objectContaining({ title: "Close terminal?" }),
+                expect.stringContaining("关闭终端「Claude Code 1」？"),
+                expect.objectContaining({ title: "关闭终端？" }),
             );
         });
         await waitFor(() => {

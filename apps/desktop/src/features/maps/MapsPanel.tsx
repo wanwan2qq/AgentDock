@@ -233,7 +233,7 @@ export function MapsPanel() {
 
     const handleNewMap = async () => {
         if (!vaultPath) return;
-        const name = `Map ${new Date().toLocaleDateString("en-CA")}`;
+        const name = `概念图 ${new Date().toLocaleDateString("en-CA")}`;
         const entry = await invoke<MapEntryDto>("create_map", {
             vaultPath,
             name,
@@ -350,16 +350,16 @@ export function MapsPanel() {
         const { map } = contextMenu.payload;
         return [
             {
-                label: "Open",
+                label: "打开",
                 action: () => openMap(map.relativePath, map.title),
             },
             { type: "separator" },
             {
-                label: "Rename",
+                label: "重命名",
                 action: () => handleRenameStart(map),
             },
             {
-                label: "Open Externally",
+                label: "用外部程序打开",
                 action: () =>
                     void openPath(
                         resolveVaultAbsolutePath(map.relativePath, vaultPath),
@@ -367,7 +367,7 @@ export function MapsPanel() {
                 disabled: !vaultPath,
             },
             {
-                label: "Reveal in Finder",
+                label: "在访达中显示",
                 action: () =>
                     void revealItemInDir(
                         resolveVaultAbsolutePath(map.relativePath, vaultPath),
@@ -375,13 +375,13 @@ export function MapsPanel() {
                 disabled: !vaultPath,
             },
             {
-                label: "Copy Path",
+                label: "复制路径",
                 action: () =>
                     void navigator.clipboard.writeText(map.relativePath),
             },
             { type: "separator" },
             {
-                label: "Delete Map",
+                label: "删除概念图",
                 action: () => void handleDeleteMap(map),
                 danger: true,
             },
@@ -402,11 +402,11 @@ export function MapsPanel() {
                         className="text-xs font-semibold uppercase tracking-wider"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        Concept Maps
+                        概念图
                     </span>
                     <button
                         onClick={handleNewMap}
-                        title="New Concept Map"
+                        title="新建概念图"
                         className="flex items-center justify-center rounded transition-opacity"
                         style={{
                             width: 18,
@@ -438,7 +438,7 @@ export function MapsPanel() {
                     <SidebarFilterInput
                         value={filterText}
                         onChange={setFilterText}
-                        placeholder="Filter maps..."
+                        placeholder="筛选概念图…"
                     />
                 </div>
             </div>
@@ -446,18 +446,18 @@ export function MapsPanel() {
             <div className="flex-1 overflow-y-auto py-1">
                 {maps.length === 0 ? (
                     <div className="px-4 py-6 text-center text-sm text-(--text-secondary)">
-                        No concept maps yet.
+                        暂无概念图。
                         <br />
                         <button
                             onClick={handleNewMap}
                             className="mt-2 text-(--accent) hover:underline"
                         >
-                            Create one
+                            创建一个
                         </button>
                     </div>
                 ) : filteredMaps.length === 0 ? (
                     <div className="px-4 py-6 text-center text-sm text-(--text-secondary)">
-                        No maps match &ldquo;{filterText}&rdquo;
+                        没有匹配「{filterText}」的概念图
                     </div>
                 ) : (
                     filteredMaps.map((map) => (
@@ -497,7 +497,7 @@ export function MapsPanel() {
                                             }
                                         }}
                                         className="w-full px-2 py-1 text-sm rounded border border-(--border) bg-(--bg-primary) text-(--text-primary) outline-none focus:border-(--accent)"
-                                        aria-label={`Rename ${map.title}`}
+                                        aria-label={`重命名 ${map.title}`}
                                     />
                                 </div>
                             ) : (
@@ -517,7 +517,7 @@ export function MapsPanel() {
                                 onClick={() => void handleDeleteMap(map)}
                                 disabled={renamingMapPath === map.relativePath}
                                 className="hidden group-hover:flex items-center justify-center shrink-0 mr-2 w-5 h-5 rounded text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--bg-primary)"
-                                title="Delete map"
+                                title="删除概念图"
                             >
                                 <svg
                                     width="12"

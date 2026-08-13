@@ -13379,6 +13379,162 @@ describe("chatStore", () => {
                 ([command]) => command === "ai_create_session",
             ),
         ).toBe(true);
+        expect(
+            invokeMock.mock.calls.some(
+                ([command]) => command === "ai_delete_runtime_session",
+            ),
+        ).toBe(false);
+    });
+
+    it("deletes the previous live ACP session after a transcript reconnect creates a replacement", async () => {
+        useVaultStore.setState({
+            vaultPath: "/vault",
+            notes: [],
+        });
+
+        const oldLiveSessionId = "cursor-live-old";
+        const replacementSessionId = "cursor-live-new";
+
+        useChatStore.setState((state) => ({
+            ...state,
+            runtimes: [
+                {
+                    runtime: runtimePayload[0].runtime,
+                    models: [],
+                    modes: [],
+                    configOptions: [],
+                },
+            ],
+            sessionsById: {
+                [oldLiveSessionId]: {
+                    sessionId: oldLiveSessionId,
+                    historySessionId: "history-cursor-1",
+                    status: "idle",
+                    runtimeId: "codex-acp",
+                    modelId: "test-model",
+                    modeId: "default",
+                    models: [],
+                    modes: [],
+                    configOptions: [],
+                    messages: [
+                        {
+                            id: "u1",
+                            role: "user",
+                            kind: "text",
+                            content: "hello",
+                            timestamp: 1,
+                        },
+                    ],
+                    attachments: [],
+                    runtimeState: "detached",
+                    isPersistedSession: true,
+                    persistedMessageCount: 1,
+                    loadedPersistedMessageStart: 0,
+                    resumeContextPending: false,
+                },
+            },
+            sessionOrder: [oldLiveSessionId],
+            activeSessionId: oldLiveSessionId,
+            selectedRuntimeId: "codex-acp",
+        }));
+
+        invokeMock.mockImplementation(async (command) => {
+            if (command === "ai_load_session_history_page") {
+                return {
+                    session_id: "history-cursor-1",
+                    total_messages: 1,
+                    start_index: 0,
+                    end_index: 1,
+                    messages: [
+                        {
+                            id: "u1",
+                            role: "user",
+                            kind: "text",
+                            content: "hello",
+                            timestamp: 1,
+                        },
+                    ],
+                };
+            }
+            if (command === "ai_create_session") {
+                return {
+                    ...sessionPayload,
+                    session_id: replacementSessionId,
+                };
+            }
+            if (command === "ai_delete_runtime_session") return undefined;
+            return defaultInvokeImplementation(command);
+        });
+
+        const resumedSessionId = await useChatStore
+            .getState()
+            .resumeSession(oldLiveSessionId);
+
+        expect(resumedSessionId).toBe(replacementSessionId);
+        expect(useChatStore.getState().sessionsById[oldLiveSessionId]).toBe(
+            undefined,
+        );
+        expect(invokeMock).toHaveBeenCalledWith("ai_delete_runtime_session", {
+            sessionId: oldLiveSessionId,
+        });
+    });
+
+    it("drops empty orphan live sessions from initialize so Cursor reconnect shells do not flood the sidebar", async () => {
+        useVaultStore.setState({
+            vaultPath: "/vault",
+            notes: [],
+        });
+
+        const orphanPayload = {
+            ...sessionPayload,
+            session_id: "orphan-empty-1",
+            title: null,
+        };
+        const realLivePayload = {
+            ...sessionPayload,
+            session_id: "live-with-history",
+            title: null,
+        };
+
+        invokeMock.mockImplementation(async (command) => {
+            if (command === "ai_list_runtimes") return runtimePayload;
+            if (command === "ai_get_setup_status") return readySetupStatus;
+            if (command === "ai_list_sessions") {
+                return [orphanPayload, realLivePayload];
+            }
+            if (command === "ai_load_session_histories") {
+                return [
+                    {
+                        version: 1,
+                        session_id: "live-with-history",
+                        model_id: "test-model",
+                        mode_id: "default",
+                        created_at: 10,
+                        updated_at: 20,
+                        message_count: 2,
+                        title: "Add Test Document",
+                        messages: [],
+                    },
+                ];
+            }
+            if (command === "ai_delete_runtime_session") return undefined;
+            return defaultInvokeImplementation(command);
+        });
+
+        await useChatStore
+            .getState()
+            .initialize({ createDefaultSession: false });
+
+        const state = useChatStore.getState();
+        expect(state.sessionsById["orphan-empty-1"]).toBeUndefined();
+        expect(state.sessionOrder).not.toContain("orphan-empty-1");
+        expect(state.sessionsById["live-with-history"]).toMatchObject({
+            historySessionId: "live-with-history",
+            persistedTitle: "Add Test Document",
+        });
+        expect(invokeMock).toHaveBeenCalledWith("ai_delete_runtime_session", {
+            sessionId: "orphan-empty-1",
+        });
     });
 
     it("does not ask the runtime backend to load an unknown persisted-only session id", async () => {

@@ -11,7 +11,7 @@ import type {
     TerminalSessionView,
 } from "./terminalTypes";
 
-const DICTATION_PLACEHOLDER = "Speak or type — Enter to send";
+const DICTATION_PLACEHOLDER = "说话或输入 — 按 Enter 发送";
 
 // Build a session view backed by a controllable output channel that mirrors the
 // runtime store's emitter: commands buffered before the viewport subscribes are
@@ -327,7 +327,7 @@ describe("TerminalViewport", () => {
         await flushPromises();
 
         fireEvent.contextMenu(container.firstElementChild!);
-        fireEvent.click(screen.getByRole("button", { name: "Dictate" }));
+        fireEvent.click(screen.getByRole("button", { name: "听写" }));
         await flushPromises();
 
         const cancelledInput =
@@ -341,7 +341,7 @@ describe("TerminalViewport", () => {
         ).not.toBeInTheDocument();
 
         fireEvent.contextMenu(container.firstElementChild!);
-        fireEvent.click(screen.getByRole("button", { name: "Dictate" }));
+        fireEvent.click(screen.getByRole("button", { name: "听写" }));
         await flushPromises();
 
         const input = screen.getByPlaceholderText(DICTATION_PLACEHOLDER);
@@ -362,7 +362,7 @@ describe("TerminalViewport", () => {
         await flushPromises();
 
         fireEvent.contextMenu(container.firstElementChild!);
-        fireEvent.click(screen.getByRole("button", { name: "Dictate" }));
+        fireEvent.click(screen.getByRole("button", { name: "听写" }));
         await flushPromises();
 
         const staleInput = screen.getByPlaceholderText(DICTATION_PLACEHOLDER);
@@ -387,7 +387,7 @@ describe("TerminalViewport", () => {
         expect(writeInput).not.toHaveBeenCalled();
 
         fireEvent.contextMenu(container.firstElementChild!);
-        fireEvent.click(screen.getByRole("button", { name: "Dictate" }));
+        fireEvent.click(screen.getByRole("button", { name: "听写" }));
         await flushPromises();
 
         expect(screen.getByPlaceholderText(DICTATION_PLACEHOLDER)).toHaveValue(

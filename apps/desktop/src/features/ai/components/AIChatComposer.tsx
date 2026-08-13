@@ -1107,22 +1107,22 @@ export function AIChatComposer({
     });
     const primaryActionLabel =
         primaryAction === "queue"
-            ? "Queue"
+            ? "排队"
             : primaryAction === "stop"
-              ? "Stop"
+              ? "停止"
               : primaryAction === "stopping"
-                ? "Stopping"
+                ? "正在停止…"
                 : primaryAction === "waiting"
-                  ? "Waiting for stop"
-                  : "Send";
+                  ? "等待停止"
+                  : "发送";
     const canRunPrimaryAction =
         !disabled &&
         (primaryAction === "stop" ||
             ((primaryAction === "send" || primaryAction === "queue") &&
                 canSubmit));
     const stopTransitionLabel = hasPendingSubmitAfterStop
-        ? "Sending next message after stop..."
-        : "Stopping previous run...";
+        ? "停止后发送下一条消息…"
+        : "正在停止上次运行…";
     const closeMentionPicker = () => setMentionState(EMPTY_MENTION_STATE);
     const closeSlashPicker = () => setSlashState(EMPTY_SLASH_STATE);
 
@@ -1812,8 +1812,8 @@ export function AIChatComposer({
                     >
                         {placeholderText ??
                             (disabled
-                                ? "Set up a provider in Settings → AI providers"
-                                : `Message ${runtimeName} — @ to include context, / for commands`)}
+                                ? "请在「设置 → AI 提供商」中配置提供商"
+                                : `给 ${runtimeName} 发消息 — @ 附加上下文，/ 命令`)}
                     </div>
                     )}
                     <div
@@ -2172,7 +2172,7 @@ export function AIChatComposer({
                                           },
                                       } as const,
                                       {
-                                          label: "Open in New Tab",
+                                          label: "在新标签页打开",
                                           action: () => {
                                               void openChatNoteById(
                                                   contextMenu.payload
@@ -2196,7 +2196,7 @@ export function AIChatComposer({
                                           },
                                       } as const,
                                       {
-                                          label: "Open in New Tab",
+                                          label: "在新标签页打开",
                                           action: () => {
                                               void openAiEditedFileByAbsolutePath(
                                                   contextMenu.payload

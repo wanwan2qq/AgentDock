@@ -188,8 +188,8 @@ describe("App note window", () => {
         expect(
             useCommandStore
                 .getState()
-                .search("terminal")
-                .some((command) => command.label === "New Terminal"),
+                .search("终端")
+                .some((command) => command.label === "新建终端"),
         ).toBe(true);
 
         await act(async () => {

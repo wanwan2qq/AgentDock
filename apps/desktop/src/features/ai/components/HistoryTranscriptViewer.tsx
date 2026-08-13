@@ -76,11 +76,11 @@ function TranscriptHeader({
                     }}
                     title={
                         parentTitle
-                            ? `Subagent of ${parentTitle}`
-                            : "Subagent"
+                            ? `${parentTitle} 的子助手`
+                            : "子助手"
                     }
                 >
-                    {parentTitle ? `Subagent of ${parentTitle}` : "Subagent"}
+                    {parentTitle ? `${parentTitle} 的子助手` : "子助手"}
                 </span>
             ) : null}
             {onRestore && (
@@ -94,7 +94,7 @@ function TranscriptHeader({
                         border: "1px solid var(--accent)",
                         color: "var(--text-primary)",
                     }}
-                    title="Restore this chat"
+                    title="恢复此对话"
                 >
                     <svg
                         width="12"
@@ -109,7 +109,7 @@ function TranscriptHeader({
                         <path d="M2.5 6h7" />
                         <path d="M6 2.5 9.5 6 6 9.5" />
                     </svg>
-                    Restore
+                    恢复
                 </button>
             )}
             {onExport && (
@@ -122,7 +122,7 @@ function TranscriptHeader({
                         border: "1px solid var(--border)",
                         color: "var(--text-secondary)",
                     }}
-                    title="Export to note"
+                    title="导出为笔记"
                 >
                     <svg
                         width="12"
@@ -136,7 +136,7 @@ function TranscriptHeader({
                     >
                         <path d="M6 2v6M3.5 5.5 6 8l2.5-2.5M2.5 10h7" />
                     </svg>
-                    Export
+                    导出
                 </button>
             )}
             <button
@@ -155,7 +155,7 @@ function TranscriptHeader({
                         ? "var(--text-primary)"
                         : "var(--text-secondary)",
                 }}
-                title="Find in this chat"
+                title="在此对话中查找"
             >
                 <svg
                     width="12"
@@ -170,7 +170,7 @@ function TranscriptHeader({
                     <circle cx="5.25" cy="5.25" r="3.25" />
                     <path d="M7.75 7.75 10 10" />
                 </svg>
-                Find
+                查找
             </button>
             <button
                 type="button"
@@ -181,7 +181,7 @@ function TranscriptHeader({
                     border: "1px solid var(--border)",
                     color: "var(--text-secondary)",
                 }}
-                title="Fork this chat"
+                title="派生此对话"
             >
                 <svg
                     width="12"
@@ -195,7 +195,7 @@ function TranscriptHeader({
                 >
                     <path d="M3 2v3a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V2M3 2h0M9 2h0M6 8v2" />
                 </svg>
-                Fork
+                派生
             </button>
             <span
                 className="shrink-0 text-[10px]"
@@ -261,7 +261,7 @@ export function HistoryTranscriptViewer({
                 className="flex h-full items-center justify-center text-xs"
                 style={{ color: "var(--text-secondary)" }}
             >
-                Session not found.
+                未找到会话。
             </div>
         );
     }

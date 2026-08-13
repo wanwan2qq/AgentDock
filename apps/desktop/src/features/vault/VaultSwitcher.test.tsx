@@ -32,9 +32,9 @@ describe("VaultSwitcher", () => {
 
         fireEvent.click(screen.getByRole("button", { name: /Vault 1/i }));
 
-        const search = screen.getByRole("textbox", { name: "Search vaults" });
+        const search = screen.getByRole("textbox", { name: "搜索仓库" });
         const list = screen.getByRole("list", {
-            name: "Vault switcher recent vaults",
+            name: "最近仓库",
         });
 
         expect(list).toHaveStyle({
@@ -54,7 +54,7 @@ describe("VaultSwitcher", () => {
 
         expect(screen.getByText("0/12")).toBeInTheDocument();
         expect(
-            screen.getByText("No vaults match your search."),
+            screen.getByText("没有匹配的仓库。"),
         ).toBeInTheDocument();
     });
 });

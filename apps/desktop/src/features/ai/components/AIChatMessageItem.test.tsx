@@ -83,7 +83,7 @@ function getChangeReviewRail(path: string) {
     return rail;
 }
 
-function expectChangeReviewRail(path: string, action = "Edited") {
+function expectChangeReviewRail(path: string, action = "已编辑") {
     const rail = getChangeReviewRail(path);
     expect(
         rail.querySelector("[data-change-review-operation-icon]"),
@@ -100,7 +100,7 @@ function expandChangeReviewRail(path: string) {
     const rail = getChangeReviewRail(path);
     fireEvent.click(
         within(rail).getByRole("button", {
-            name: "Expand inline diff review",
+            name: "展开行内差异审阅",
         }),
     );
     return rail;
@@ -738,7 +738,7 @@ describe("AIChatMessageItem tool diffs", () => {
 
         const rail = expectChangeReviewRail("/vault/notes/streamed.md");
         expandChangeReviewRail("/vault/notes/streamed.md");
-        expect(within(rail).getByText("Edited")).toBeInTheDocument();
+        expect(within(rail).getByText("已编辑")).toBeInTheDocument();
         expect(screen.getByText(/after stream/)).toBeInTheDocument();
     });
 
@@ -1042,10 +1042,11 @@ describe("AIChatMessageItem tool diffs", () => {
         expect(screen.queryByTestId("historical-diff-summary")).toBeNull();
         expect(screen.queryByTestId("recent-diff-badge")).toBeNull();
         expect(screen.getByText("Edited watcher.rs")).toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "Allow once" })).toBeNull();
-        expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
+        expect(screen.queryByText("Allow once")).toBeNull();
+        expect(screen.queryByText("Reject")).toBeNull();
+        expect(screen.queryByText("Decision sent: Allow once")).toBeNull();
         expect(
-            screen.getByText("Decision sent: Allow once"),
+            screen.getByText("已发送决定：允许一次"),
         ).toBeInTheDocument();
     });
 
@@ -1174,12 +1175,10 @@ describe("AIChatMessageItem tool diffs", () => {
         });
 
         expect(screen.getByText("Edited watcher.rs")).toBeInTheDocument();
-        expect(
-            screen.getByRole("button", { name: "Reject" }),
-        ).toBeInTheDocument();
-        expect(
-            screen.getByRole("button", { name: "Allow once" }),
-        ).toBeInTheDocument();
+        expect(screen.getByText("拒绝")).toBeInTheDocument();
+        expect(screen.getByText("允许一次")).toBeInTheDocument();
+        expect(screen.queryByText("Allow once")).toBeNull();
+        expect(screen.queryByText("Reject")).toBeNull();
         expect(
             screen.queryByRole("button", { name: "Open" }),
         ).not.toBeInTheDocument();
@@ -1197,7 +1196,7 @@ describe("AIChatMessageItem tool diffs", () => {
         );
 
         const rail = expectChangeReviewRail("/vault/archive/final.md");
-        expect(within(rail).getByText("Moved from draft.md")).toBeInTheDocument();
+        expect(within(rail).getByText("从 draft.md 移来")).toBeInTheDocument();
 
         expandChangeReviewRail("/vault/archive/final.md");
 
@@ -1218,7 +1217,7 @@ describe("AIChatMessageItem tool diffs", () => {
         );
 
         const rail = expectChangeReviewRail("/vault/archive/deleted.md");
-        expect(within(rail).getByText("Partial")).toBeInTheDocument();
+        expect(within(rail).getByText("部分")).toBeInTheDocument();
 
         expandChangeReviewRail("/vault/archive/deleted.md");
 

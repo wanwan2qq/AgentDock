@@ -40,10 +40,10 @@ export interface ReviewSummary {
 
 export function getFileTone(file: TrackedFile) {
     if (file.conflictHash != null) {
-        return { accent: "var(--diff-warn)", badge: "Conflict" };
+        return { accent: "var(--diff-warn)", badge: "冲突" };
     }
     if (!file.isText) {
-        return { accent: "var(--diff-warn)", badge: "Partial" };
+        return { accent: "var(--diff-warn)", badge: "部分" };
     }
     const op = getFileOperation(file);
     if (op === "move") {
@@ -62,15 +62,15 @@ export function getFileTone(file: TrackedFile) {
 export function getFileSummary(file: TrackedFile) {
     const op = getFileOperation(file);
     if (op === "move") {
-        return `Moved from ${getFileNameFromPath(file.originPath)}`;
+        return `从 ${getFileNameFromPath(file.originPath)} 移来`;
     }
     switch (op) {
         case "add":
-            return "New file";
+            return "新文件";
         case "delete":
-            return "Deleted";
+            return "已删除";
         default:
-            return "Modified";
+            return "已修改";
     }
 }
 

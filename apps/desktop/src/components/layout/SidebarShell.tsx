@@ -33,12 +33,12 @@ const PRIMARY_TABS: SidebarView[] = ["files", "agents"];
 const SECONDARY_TABS: SidebarView[] = ["tags", "bookmarks", "maps", "git"];
 
 const TAB_LABELS: Record<SidebarView, string> = {
-    files: "Files",
-    tags: "Tags",
-    bookmarks: "Bookmarks",
-    maps: "Maps",
+    files: "文件",
+    tags: "标签",
+    bookmarks: "书签",
+    maps: "概念图",
     git: "Git",
-    agents: "Agents",
+    agents: "助手",
 };
 
 function startWindowDrag(event: ReactMouseEvent<HTMLElement>) {

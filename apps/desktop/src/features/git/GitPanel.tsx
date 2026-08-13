@@ -392,7 +392,7 @@ export function GitPanel() {
                 <div className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate text-[11px]">{syncLabel}</span>
                     <ActionButton
-                        label="Pull"
+                        label="拉取"
                         disabled={busyAction != null}
                         onClick={() =>
                             void runAction("pull", async () => {
@@ -401,7 +401,7 @@ export function GitPanel() {
                         }
                     />
                     <ActionButton
-                        label="Push"
+                        label="推送"
                         disabled={busyAction != null}
                         onClick={() =>
                             void runAction("push", async () => {
@@ -588,7 +588,7 @@ export function GitPanel() {
 
                 {diffPath ? (
                     <Section
-                        title={`Diff · ${getPathBaseName(diffPath)}`}
+                        title={`差异 · ${getPathBaseName(diffPath)}`}
                         actions={
                             <ActionButton
                                 label="关闭"
@@ -622,7 +622,7 @@ export function GitPanel() {
                 <textarea
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
-                    placeholder="提交说明（commit message）"
+                    placeholder="提交说明"
                     rows={2}
                     className="mb-2 w-full resize-none rounded-md px-2 py-1.5 text-[12px] outline-none"
                     style={{
@@ -633,7 +633,7 @@ export function GitPanel() {
                 />
                 <div className="flex items-center gap-2">
                     <ActionButton
-                        label={busyAction === "commit" ? "提交中…" : "Commit"}
+                        label={busyAction === "commit" ? "提交中…" : "提交"}
                         primary
                         disabled={
                             busyAction != null ||
@@ -649,8 +649,8 @@ export function GitPanel() {
                                 const hash = result.commitHash?.trim();
                                 setNotice(
                                     hash
-                                        ? `本地已提交 ${hash}。远端暂不可见，请再点 Push。`
-                                        : "本地已提交。远端暂不可见，请再点 Push。",
+                                        ? `本地已提交 ${hash}。远端暂不可见，请再点「推送」。`
+                                        : "本地已提交。远端暂不可见，请再点「推送」。",
                                 );
                             })
                         }
@@ -659,7 +659,7 @@ export function GitPanel() {
                         className="text-[10px]"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        Commit 只写本地；Push 后远端才可见
+                        提交只写本地；推送后远端才可见
                     </span>
                 </div>
             </div>
@@ -688,7 +688,7 @@ function PanelHeader({
                 <button
                     type="button"
                     onClick={onRefresh}
-                    title="Refresh"
+                    title="刷新"
                     className="rounded px-1.5 text-[11px]"
                     style={{ color: "var(--text-secondary)" }}
                     disabled={loading}
@@ -812,7 +812,7 @@ function FileRow({
                     checked={selected}
                     onChange={onToggleSelect}
                     className="shrink-0"
-                    aria-label={`Select ${file.path}`}
+                    aria-label={`选择 ${file.path}`}
                 />
             ) : null}
             <span
@@ -836,9 +836,9 @@ function FileRow({
                 className="shrink-0 rounded px-1 text-[10px] opacity-0 group-hover:opacity-100"
                 style={{ color: "var(--text-secondary)" }}
                 onClick={onToggleDiff}
-                title="View diff"
+                title="查看差异"
             >
-                diff
+                差异
             </button>
         </div>
     );

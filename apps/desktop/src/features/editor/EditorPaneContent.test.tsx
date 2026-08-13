@@ -100,7 +100,7 @@ describe("EditorPaneContent", () => {
         expect(
             screen.getByTestId("ai-chat-history-workspace-view"),
         ).toBeInTheDocument();
-        expect(screen.getByText("Chat History")).toBeInTheDocument();
+        expect(screen.getByText("聊天记录")).toBeInTheDocument();
     });
 
     it("renders the workspace terminal view for an active terminal tab", () => {

@@ -791,12 +791,12 @@ export function AIChatSessionView({ paneId, tabId }: AIChatSessionViewProps) {
                         setFindOpen((value) => !value);
                     }}
                     disabled={findDisabled}
-                    aria-label="Find in chat"
+                    aria-label="在对话中查找"
                     aria-pressed={findOpen}
                     title={
                         findDisabled
-                            ? "Find is unavailable while the composer is expanded"
-                            : `Find in chat (${formatShortcutAction(
+                            ? "撰写区展开时无法查找"
+                            : `在对话中查找 (${formatShortcutAction(
                                   "find_in_note",
                                   getDesktopPlatform(),
                               )})`

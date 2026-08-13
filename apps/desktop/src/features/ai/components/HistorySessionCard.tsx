@@ -87,39 +87,39 @@ export function HistorySessionCard({
         () => {
             const entries: ContextMenuEntry[] = [
                 {
-                    label: "Restore in chat",
+                    label: "在对话中恢复",
                     action: onOpen,
                 },
             ];
             if (canRename) {
                 entries.push({
-                    label: "Rename chat",
+                    label: "重命名对话",
                     action: startEditing,
                 });
             }
             entries.push(
                 {
-                    label: "Fork chat",
+                    label: "派生对话",
                     action: onFork,
                 },
                 {
-                    label: "Export to note",
+                    label: "导出为笔记",
                     action: onExport,
                 },
                 { type: "separator" },
                 {
-                    label: "Copy chat title",
+                    label: "复制对话标题",
                     action: () =>
                         void navigator.clipboard.writeText(fullTitle),
                 },
                 {
-                    label: "Copy chat ID",
+                    label: "复制对话 ID",
                     action: () =>
                         void navigator.clipboard.writeText(stableSessionId),
                 },
                 { type: "separator" },
                 {
-                    label: "Delete",
+                    label: "删除",
                     action: onDelete,
                     danger: true,
                 },
@@ -263,8 +263,7 @@ export function HistorySessionCard({
                                 opacity: 0.65,
                             }}
                         >
-                            {childCount}{" "}
-                            {childCount === 1 ? "agent" : "agents"}
+                            {childCount} 个助手
                         </span>
                     ) : null}
 
@@ -283,7 +282,7 @@ export function HistorySessionCard({
                             opacity: 0.6,
                             visibility: hovered ? "visible" : "hidden",
                         }}
-                        title="Export to note"
+                        title="导出为笔记"
                     >
                         <svg
                             width="14"
@@ -314,7 +313,7 @@ export function HistorySessionCard({
                             opacity: 0.6,
                             visibility: hovered ? "visible" : "hidden",
                         }}
-                        title="Fork chat"
+                        title="派生对话"
                     >
                         <svg
                             width="14"
@@ -345,7 +344,7 @@ export function HistorySessionCard({
                             opacity: 0.6,
                             visibility: hovered ? "visible" : "hidden",
                         }}
-                        title="Delete chat"
+                        title="删除对话"
                     >
                         <svg
                             width="14"

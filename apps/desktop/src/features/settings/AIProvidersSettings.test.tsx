@@ -291,11 +291,11 @@ describe("AIProvidersSettings", () => {
         renderComponent(<AIProvidersSettings />);
 
         expect(
-            await screen.findByText("Loading providers…"),
+            await screen.findByText("正在加载提供商…"),
         ).toBeInTheDocument();
         expect(screen.getAllByText("Checking…").length).toBeGreaterThan(0);
         expect(
-            screen.queryByRole("button", { name: "Install" }),
+            screen.queryByRole("button", { name: "安装" }),
         ).not.toBeInTheDocument();
 
         deferredRuntimes.resolve(createDefaultProviders().descriptors);

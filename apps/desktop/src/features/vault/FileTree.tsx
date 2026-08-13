@@ -109,12 +109,12 @@ const EXPANDED_FOLDERS_KEY_PREFIX = "neverwrite:file-tree-expanded-folders:";
 const VIRTUAL_OVERSCAN = 40;
 
 const SORT_OPTIONS: { id: SortMode; label: string }[] = [
-    { id: "name_asc", label: "Name (A–Z)" },
-    { id: "name_desc", label: "Name (Z–A)" },
-    { id: "modified_desc", label: "Date modified (newest)" },
-    { id: "modified_asc", label: "Date modified (oldest)" },
-    { id: "created_desc", label: "Created (newest)" },
-    { id: "created_asc", label: "Created (oldest)" },
+    { id: "name_asc", label: "名称（A–Z）" },
+    { id: "name_desc", label: "名称（Z–A）" },
+    { id: "modified_desc", label: "修改时间（最新）" },
+    { id: "modified_asc", label: "修改时间（最早）" },
+    { id: "created_desc", label: "创建时间（最新）" },
+    { id: "created_asc", label: "创建时间（最早）" },
 ];
 
 interface TreeMetrics {
@@ -828,7 +828,7 @@ function SortMenu({
         <div
             ref={ref}
             role="menu"
-            aria-label="Sort order"
+            aria-label="排序方式"
             onKeyDown={handleKeyDown}
             style={{
                 position: "absolute",
@@ -3644,10 +3644,15 @@ export function FileTree() {
     );
 
     const handleMoveEntryToTrash = useCallback(async (entry: VaultEntryDto) => {
-        const approved = await confirm(`Move "${entry.file_name}" to Trash?`, {
-            title: "Move File to Trash",
-            kind: "warning",
-        });
+        const approved = await confirm(
+            `要将「${entry.file_name}」移到废纸篓吗？`,
+            {
+                title: "移到废纸篓",
+                kind: "warning",
+                okLabel: "移到废纸篓",
+                cancelLabel: "取消",
+            },
+        );
         if (!approved) return;
 
         try {
@@ -4269,8 +4274,13 @@ export function FileTree() {
     const handleDeleteFolder = useCallback(
         async (relativePath: string, folderName: string) => {
             const approved = await confirm(
-                `Delete folder "${folderName}" and all its contents?`,
-                { title: "Delete Folder", kind: "warning" },
+                `确定删除文件夹「${folderName}」及其全部内容吗？`,
+                {
+                    title: "删除文件夹",
+                    kind: "warning",
+                    okLabel: "删除",
+                    cancelLabel: "取消",
+                },
             );
             if (!approved) return;
 
@@ -4845,14 +4855,14 @@ export function FileTree() {
         switch (contextMenu.payload.kind) {
             case "blank":
                 return [
-                    { label: "New Note", action: () => startCreating("note") },
+                    { label: "新建笔记", action: () => startCreating("note") },
                     {
-                        label: "New Folder",
+                        label: "新建文件夹",
                         action: () => startCreating("folder"),
                     },
                     { type: "separator" },
                     {
-                        label: "Paste",
+                        label: "粘贴",
                         action: () => void handlePasteIntoFolder(""),
                         disabled:
                             !treeClipboard ||
@@ -4861,13 +4871,13 @@ export function FileTree() {
                     },
                     { type: "separator" },
                     {
-                        label: "Expand All",
+                        label: "全部展开",
                         action: () =>
                             setExpandedFolders(new Set(allFolderPaths)),
                         disabled: allFolderPaths.length === 0,
                     },
                     {
-                        label: "Collapse All",
+                        label: "全部折叠",
                         action: () => setExpandedFolders(new Set()),
                         disabled: expandedFolders.size === 0,
                     },
@@ -4884,28 +4894,28 @@ export function FileTree() {
                     chatTargets.folderPaths.length;
                 const addToChatLabel =
                     chatTargetCount > 1
-                        ? "Add Selected to Chat"
-                        : "Add to Chat";
+                        ? "将所选加入聊天"
+                        : "加入聊天";
                 const addToNewChatLabel =
                     chatTargetCount > 1
-                        ? "Add Selected to New Chat"
-                        : "Add to New Chat";
+                        ? "将所选加入新聊天"
+                        : "加入新聊天";
                 return [
                     {
-                        label: "New Note Here",
+                        label: "在此新建笔记",
                         action: () => startCreating("note", path),
                     },
                     {
-                        label: "New Folder Here",
+                        label: "在此新建文件夹",
                         action: () => startCreating("folder", path),
                     },
                     { type: "separator" },
                     {
-                        label: "Copy",
+                        label: "复制",
                         action: () => handleCopyFolder(path),
                     },
                     {
-                        label: "Paste Here",
+                        label: "粘贴到此处",
                         action: () => void handlePasteIntoFolder(path),
                         disabled:
                             !treeClipboard ||
@@ -4923,11 +4933,11 @@ export function FileTree() {
                     },
                     { type: "separator" },
                     {
-                        label: expanded ? "Collapse" : "Expand",
+                        label: expanded ? "折叠" : "展开",
                         action: () => handleToggleFolder(path),
                     },
                     {
-                        label: "Rename",
+                        label: "重命名",
                         action: () => handleFolderRenameStart(path),
                     },
                     {
@@ -4939,16 +4949,16 @@ export function FileTree() {
                         ),
                     },
                     {
-                        label: "Reveal in Finder",
+                        label: "在访达中显示",
                         action: () => handleRevealFolderInFinder(path),
                     },
                     {
-                        label: "Copy Full Path",
+                        label: "复制完整路径",
                         action: () => handleCopyFullPath(absolutePath),
                     },
                     { type: "separator" },
                     {
-                        label: "Delete Folder",
+                        label: "删除文件夹",
                         action: () => void handleDeleteFolder(path, folderName),
                         danger: true,
                     },
@@ -4966,37 +4976,37 @@ export function FileTree() {
                 const deleteTargets = contextTargetNotes;
                 const deleteLabel =
                     deleteTargets.length > 1
-                        ? "Delete Selected Notes"
-                        : "Delete Note";
+                        ? "删除所选笔记"
+                        : "删除笔记";
                 const moveLabel = getMoveMenuLabel(moveTargets);
                 const addToChatLabel =
                     chatTargetCount > 1
-                        ? "Add Selected to Chat"
-                        : "Add to Chat";
+                        ? "将所选加入聊天"
+                        : "加入聊天";
                 const addToNewChatLabel =
                     chatTargetCount > 1
-                        ? "Add Selected to New Chat"
-                        : "Add to New Chat";
+                        ? "将所选加入新聊天"
+                        : "加入新聊天";
 
                 return [
                     {
-                        label: "Open",
+                        label: "打开",
                         action: () => void openTreeNote(note),
                     },
                     {
-                        label: "Open in New Tab",
+                        label: "在新标签页打开",
                         action: () => void handleOpenNoteInNewTab(note),
                     },
                     { type: "separator" },
                     {
                         label:
                             contextTargetNotes.length > 1
-                                ? "Copy Selected Notes"
-                                : "Copy Note",
+                                ? "复制所选笔记"
+                                : "复制笔记",
                         action: () => handleCopyNotes(contextTargetNotes),
                     },
                     {
-                        label: "Paste in Parent Folder",
+                        label: "粘贴到上级文件夹",
                         action: () =>
                             void handlePasteIntoFolder(getParentPath(note.id)),
                         disabled:
@@ -5018,7 +5028,7 @@ export function FileTree() {
                     },
                     { type: "separator" },
                     {
-                        label: "Rename",
+                        label: "重命名",
                         action: () => handleRenameStart(note),
                     },
                     {
@@ -5030,16 +5040,16 @@ export function FileTree() {
                         ),
                     },
                     {
-                        label: "Duplicate",
+                        label: "创建副本",
                         action: () => void handleDuplicateNote(note),
                     },
                     { type: "separator" },
                     {
-                        label: "Reveal in Finder",
+                        label: "在访达中显示",
                         action: () => handleRevealNoteInFinder(note),
                     },
                     {
-                        label: "Copy Full Path",
+                        label: "复制完整路径",
                         action: () =>
                             handleCopyFullPath(
                                 getAbsoluteVaultPath(
@@ -5051,8 +5061,8 @@ export function FileTree() {
                     { type: "separator" },
                     {
                         label: bookmarkItems.some((i) => i.noteId === note.id)
-                            ? "Remove from Bookmarks"
-                            : "Add to Bookmarks",
+                            ? "从书签移除"
+                            : "加入书签",
                         action: () => {
                             const store = useBookmarkStore.getState();
                             const existing = store.items.find(
@@ -5086,15 +5096,15 @@ export function FileTree() {
                     chatTargets.folderPaths.length;
                 const addToChatLabel =
                     chatTargetCount > 1
-                        ? "Add Selected to Chat"
-                        : "Add to Chat";
+                        ? "将所选加入聊天"
+                        : "加入聊天";
                 const addToNewChatLabel =
                     chatTargetCount > 1
-                        ? "Add Selected to New Chat"
-                        : "Add to New Chat";
+                        ? "将所选加入新聊天"
+                        : "加入新聊天";
                 return [
                     {
-                        label: "Open",
+                        label: "打开",
                         action: () =>
                             handlePdfClick(entry, {
                                 cmd: false,
@@ -5102,12 +5112,12 @@ export function FileTree() {
                             }),
                     },
                     {
-                        label: "Open in New Tab",
+                        label: "在新标签页打开",
                         action: () => handleOpenPdfInNewTab(entry),
                     },
                     { type: "separator" },
                     {
-                        label: "Open Externally",
+                        label: "用外部应用打开",
                         action: () => void openPath(entry.path),
                     },
                     {
@@ -5120,11 +5130,11 @@ export function FileTree() {
                             handleAddChatTargetsToChat(chatTargets, "new-chat"),
                     },
                     {
-                        label: "Reveal in Finder",
+                        label: "在访达中显示",
                         action: () => void revealItemInDir(entry.path),
                     },
                     {
-                        label: "Copy Full Path",
+                        label: "复制完整路径",
                         action: () => handleCopyFullPath(entry.path),
                     },
                     {
@@ -5140,8 +5150,8 @@ export function FileTree() {
                         label: bookmarkItems.some(
                             (i) => i.entryPath === entry.relative_path,
                         )
-                            ? "Remove from Bookmarks"
-                            : "Add to Bookmarks",
+                            ? "从书签移除"
+                            : "加入书签",
                         action: () => {
                             const store = useBookmarkStore.getState();
                             const existing = store.items.find(
@@ -5159,7 +5169,7 @@ export function FileTree() {
                     },
                     { type: "separator" },
                     {
-                        label: "Move File to Trash",
+                        label: "移到废纸篓",
                         action: () => void handleMoveEntryToTrash(entry),
                         danger: true,
                     },
@@ -5176,30 +5186,30 @@ export function FileTree() {
                     chatTargets.folderPaths.length;
                 const addToChatLabel =
                     chatTargetCount > 1
-                        ? "Add Selected to Chat"
-                        : "Add to Chat";
+                        ? "将所选加入聊天"
+                        : "加入聊天";
                 const addToNewChatLabel =
                     chatTargetCount > 1
-                        ? "Add Selected to New Chat"
-                        : "Add to New Chat";
+                        ? "将所选加入新聊天"
+                        : "加入新聊天";
                 return [
                     {
-                        label: "Open",
+                        label: "打开",
                         action: () => void openVaultFileEntry(entry),
                     },
                     {
-                        label: "Open in New Tab",
+                        label: "在新标签页打开",
                         action: () =>
                             void openVaultFileEntry(entry, { newTab: true }),
                         disabled: !canOpenInApp,
                     },
                     { type: "separator" },
                     {
-                        label: "Open Externally",
+                        label: "用外部应用打开",
                         action: () => void openPath(entry.path),
                     },
                     {
-                        label: "Rename",
+                        label: "重命名",
                         action: () => handleEntryRenameStart(entry),
                     },
                     {
@@ -5212,11 +5222,11 @@ export function FileTree() {
                             handleAddChatTargetsToChat(chatTargets, "new-chat"),
                     },
                     {
-                        label: "Reveal in Finder",
+                        label: "在访达中显示",
                         action: () => void revealItemInDir(entry.path),
                     },
                     {
-                        label: "Copy Full Path",
+                        label: "复制完整路径",
                         action: () => handleCopyFullPath(entry.path),
                     },
                     {
@@ -5232,8 +5242,8 @@ export function FileTree() {
                         label: bookmarkItems.some(
                             (i) => i.entryPath === entry.relative_path,
                         )
-                            ? "Remove from Bookmarks"
-                            : "Add to Bookmarks",
+                            ? "从书签移除"
+                            : "加入书签",
                         action: () => {
                             const store = useBookmarkStore.getState();
                             const existing = store.items.find(
@@ -5251,7 +5261,7 @@ export function FileTree() {
                     },
                     { type: "separator" },
                     {
-                        label: "Move File to Trash",
+                        label: "移到废纸篓",
                         action: () => void handleMoveEntryToTrash(entry),
                         danger: true,
                     },
@@ -5468,7 +5478,7 @@ export function FileTree() {
                 </ToolbarBtn>
 
                 <ToolbarBtn
-                    title="Sort order"
+                    title="排序方式"
                     active={sortMenuOpen}
                     onClick={() => setSortMenuOpen((v) => !v)}
                     size={metrics.toolbarButton}
@@ -5663,7 +5673,7 @@ export function FileTree() {
                 <SidebarFilterInput
                     value={filterText}
                     onChange={setFilterText}
-                    placeholder="Filter files..."
+                    placeholder="筛选文件…"
                 />
             </div>
 

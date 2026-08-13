@@ -34,7 +34,7 @@ describe("CommandPalette", () => {
             await vi.runAllTimersAsync();
         });
 
-        const input = screen.getByPlaceholderText("Type a command...");
+        const input = screen.getByPlaceholderText("输入命令…");
         expect(input).toHaveFocus();
 
         fireEvent.keyDown(input, { key: "ArrowDown" });
@@ -69,7 +69,7 @@ describe("CommandPalette", () => {
 
         renderComponent(<CommandPalette />);
 
-        fireEvent.change(screen.getByPlaceholderText("Type a command..."), {
+        fireEvent.change(screen.getByPlaceholderText("输入命令…"), {
             target: { value: "toggle" },
         });
 

@@ -92,7 +92,7 @@ function CommandPaletteDialog() {
                         setSelectedIndex(0);
                     }}
                     onKeyDown={handleKeyDown}
-                    placeholder="Type a command..."
+                    placeholder="输入命令…"
                     className="w-full px-4 py-3 text-sm outline-none"
                     style={{
                         backgroundColor: "transparent",

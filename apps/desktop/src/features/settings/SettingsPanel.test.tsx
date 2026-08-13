@@ -170,10 +170,10 @@ describe("SettingsPanel", () => {
     it("renders AI providers management inside AI settings", async () => {
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "AI providers" }));
+        fireEvent.click(screen.getByRole("button", { name: "AI 提供商" }));
 
-        expect(await screen.findByText("Installed")).toBeInTheDocument();
-        expect(screen.getByText("All")).toBeInTheDocument();
+        expect(await screen.findByText("已安装")).toBeInTheDocument();
+        expect(screen.getByText("全部")).toBeInTheDocument();
         expect(screen.getAllByText("Codex").length).toBeGreaterThan(0);
         expect(screen.getAllByText("Claude").length).toBeGreaterThan(0);
         expect(screen.getByText("Kilo")).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe("SettingsPanel", () => {
 
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Editor" }));
+        fireEvent.click(screen.getByRole("button", { name: "编辑器" }));
 
         const autosaveLabel = screen.getByText("Autosave delay");
         const autosaveRow = autosaveLabel.parentElement?.parentElement;
@@ -208,7 +208,7 @@ describe("SettingsPanel", () => {
     it("lets users edit the file tree extension filter as chips", async () => {
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "File Tree" }));
+        fireEvent.click(screen.getByRole("button", { name: "文件树" }));
 
         const input = screen.getByRole("textbox", {
             name: "Add file extension",
@@ -234,7 +234,7 @@ describe("SettingsPanel", () => {
     it("does not render obsolete developer toggles", () => {
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "File Tree" }));
+        fireEvent.click(screen.getByRole("button", { name: "文件树" }));
 
         expect(
             screen.queryByText(["Enable", "Developer", "Mode"].join(" ")),
@@ -252,7 +252,7 @@ describe("SettingsPanel", () => {
 
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+        fireEvent.click(screen.getByRole("button", { name: "外观" }));
 
         const label = screen.getByText("App zoom");
         const row = label.parentElement?.parentElement;
@@ -287,7 +287,7 @@ describe("SettingsPanel", () => {
 
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Vault" }));
+        fireEvent.click(screen.getByRole("button", { name: "仓库" }));
 
         const search = screen.getByRole("textbox", {
             name: "Search recent vaults",
@@ -326,7 +326,7 @@ describe("SettingsPanel", () => {
 
         expect(screen.getByText("Autosave delay")).toBeInTheDocument();
         expect(screen.queryByText("Font family")).not.toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "General" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "通用" })).not.toBeInTheDocument();
     });
 
     it("matches settings search across multiple terms", () => {
@@ -344,7 +344,7 @@ describe("SettingsPanel", () => {
     it("opens GitHub feedback links from the feedback settings panel", () => {
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Feedback" }));
+        fireEvent.click(screen.getByRole("button", { name: "反馈" }));
 
         fireEvent.click(screen.getByRole("button", { name: "open issues" }));
         fireEvent.click(
@@ -372,7 +372,7 @@ describe("SettingsPanel", () => {
     it("opens sponsor links from the sponsors settings panel", () => {
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Sponsors" }));
+        fireEvent.click(screen.getByRole("button", { name: "赞助" }));
 
         fireEvent.click(screen.getByRole("button", { name: "buy coffee" }));
         fireEvent.click(screen.getByRole("button", { name: "sponsor" }));
@@ -390,7 +390,7 @@ describe("SettingsPanel", () => {
 
         fireEvent.change(
             screen.getByRole("textbox", { name: "Search settings" }),
-            { target: { value: "appearance" } },
+            { target: { value: "外观" } },
         );
 
         expect(screen.getByText("System theme")).toBeInTheDocument();
@@ -419,19 +419,19 @@ describe("SettingsPanel", () => {
 
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Shortcuts" }));
+        fireEvent.click(screen.getByRole("button", { name: "快捷键" }));
 
-        expect(screen.getByText("Quick Switcher")).toBeInTheDocument();
+        expect(screen.getByText("快速切换")).toBeInTheDocument();
         expect(screen.getByText("Ctrl+O")).toBeInTheDocument();
-        expect(screen.getByText("Open Settings")).toBeInTheDocument();
+        expect(screen.getByText("打开设置")).toBeInTheDocument();
         expect(screen.getByText("Ctrl+,")).toBeInTheDocument();
-        expect(screen.getByText("Find in Note")).toBeInTheDocument();
+        expect(screen.getByText("在笔记中查找")).toBeInTheDocument();
         expect(screen.getByText("Ctrl+F")).toBeInTheDocument();
-        expect(screen.getByText("Remove Heading")).toBeInTheDocument();
+        expect(screen.getByText("移除标题")).toBeInTheDocument();
         expect(screen.getByText("Ctrl+Shift+0")).toBeInTheDocument();
-        expect(screen.getByText("Add Selection to Chat")).toBeInTheDocument();
+        expect(screen.getByText("将选中内容添加到对话")).toBeInTheDocument();
         expect(screen.getByText("Ctrl+L")).toBeInTheDocument();
-        expect(screen.getByText("Stop active agent")).toBeInTheDocument();
+        expect(screen.getByText("停止当前助手")).toBeInTheDocument();
         expect(screen.getByText("Escape")).toBeInTheDocument();
     });
 
@@ -634,7 +634,7 @@ describe("SettingsPanel", () => {
     it("groups the font family selector and persists new bundled font options", () => {
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Editor" }));
+        fireEvent.click(screen.getByRole("button", { name: "编辑器" }));
 
         const label = screen.getByText("Font family");
         const row = label.parentElement?.parentElement;
@@ -706,7 +706,7 @@ describe("SettingsPanel", () => {
     it("renders and persists the wikilink hover preview toggle in editor settings", () => {
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Editor" }));
+        fireEvent.click(screen.getByRole("button", { name: "编辑器" }));
 
         const label = screen.getByText("Note preview on hover");
         const row = label.parentElement?.parentElement;
@@ -731,7 +731,7 @@ describe("SettingsPanel", () => {
 
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Terminal" }));
+        fireEvent.click(screen.getByRole("button", { name: "终端" }));
 
         fireEvent.change(
             screen.getByPlaceholderText("e.g. FiraCode Nerd Font"),
@@ -822,7 +822,7 @@ describe("SettingsPanel", () => {
 
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Updates" }));
+        fireEvent.click(screen.getByRole("button", { name: "更新" }));
 
         expect(
             await screen.findByRole("button", {
@@ -911,7 +911,7 @@ describe("SettingsPanel", () => {
 
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Updates" }));
+        fireEvent.click(screen.getByRole("button", { name: "更新" }));
 
         expect(await screen.findByText("v0.2.0")).toBeInTheDocument();
 
@@ -995,7 +995,7 @@ describe("SettingsPanel", () => {
 
         renderComponent(<SettingsPanel onClose={() => {}} />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Updates" }));
+        fireEvent.click(screen.getByRole("button", { name: "更新" }));
 
         expect(await screen.findByText("v0.2.0")).toBeInTheDocument();
 

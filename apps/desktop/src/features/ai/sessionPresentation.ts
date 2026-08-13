@@ -248,22 +248,22 @@ export function formatDuration(ms: number): string {
 // ---------------------------------------------------------------------------
 
 export type DateGroup =
-    | "Today"
-    | "Yesterday"
-    | "This week"
-    | "This month"
-    | "Older";
+    | "今天"
+    | "昨天"
+    | "本周"
+    | "本月"
+    | "更早";
 
 export const DATE_GROUP_ORDER: DateGroup[] = [
-    "Today",
-    "Yesterday",
-    "This week",
-    "This month",
-    "Older",
+    "今天",
+    "昨天",
+    "本周",
+    "本月",
+    "更早",
 ];
 
 export function getDateGroup(timestamp: number): DateGroup {
-    if (!timestamp) return "Older";
+    if (!timestamp) return "更早";
     const now = new Date();
     const date = new Date(timestamp);
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -275,13 +275,13 @@ export function getDateGroup(timestamp: number): DateGroup {
     const diffDays = Math.floor(
         (today.getTime() - dateDay.getTime()) / 86400000,
     );
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return "This week";
+    if (diffDays === 0) return "今天";
+    if (diffDays === 1) return "昨天";
+    if (diffDays < 7) return "本周";
     if (
         date.getMonth() === now.getMonth() &&
         date.getFullYear() === now.getFullYear()
     )
-        return "This month";
-    return "Older";
+        return "本月";
+    return "更早";
 }

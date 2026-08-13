@@ -14,7 +14,10 @@
 | [V1 可行性与执行路径](v1-feasibility-and-plan.md) | 基于本仓库的可行性评估、分阶段路径与验收 |
 | [Git 面板设计](git-panel-design.md) | 阶段 1 命令表与 UI 挂点 |
 | [上游可合入清单](upstream-sync-checklist.md) | NeverWrite 0.6/0.7 相对本仓库：优先合 ACP 恢复与自定义 runtime |
-| [体验优化计划](ux-optimization-plan.md) | 串行验证：空态引导 → 开库遮罩 → Git ignore → tool 原因 → ACP 重试 → 滚到底 |
+| [体验优化 · 全貌与 Backlog](ux-optimization-backlog.md) | 第 1–4 轮总览、长尾中文清单、工程/上游另线 |
+| [体验优化计划 · 第 1 轮](ux-optimization-plan.md) | 串行验证：空态引导 → 开库遮罩 → Git ignore → tool 原因 → ACP 重试 → 滚到底（已完成） |
+| [体验优化计划 · 第 2 轮](ux-optimization-plan-r2.md) | 串行验证：权限卡片 → Composer → Agents 侧栏 → Git 英文 → 文件树菜单 → 审阅条 |
+| [体验优化计划 · 第 3 轮](ux-optimization-plan-r3.md) | 串行验证：侧栏导航 → 历史 → 查找 → 书签/标签/概念图 → 设置入口 → 终端 → Vault/命令面板 |
 
 ## 当前结论（摘要）
 

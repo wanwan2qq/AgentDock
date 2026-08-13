@@ -96,7 +96,7 @@ function ReviewEmptyState({
                         ...getNeutralButtonStyle(),
                     }}
                 >
-                    Undo Last Reject
+                    撤销上次拒绝
                 </button>
             )}
         </div>
@@ -572,9 +572,9 @@ function ReviewContent({ tab }: { tab: ReviewTab }) {
                                         ...getNeutralButtonStyle(),
                                         ...REVIEW_ACTION_LABEL_STYLE,
                                     }}
-                                    title="Undo last reject"
+                                    title="撤销上次拒绝"
                                 >
-                                    Undo
+                                    撤销
                                 </button>
                             )}
                             <button
@@ -590,7 +590,7 @@ function ReviewContent({ tab }: { tab: ReviewTab }) {
                                     ...REVIEW_ACTION_LABEL_STYLE,
                                 }}
                             >
-                                {expansion.allExpanded ? "Collapse" : "Expand"}
+                                {expansion.allExpanded ? "折叠" : "展开"}
                             </button>
                             <button
                                 type="button"
@@ -622,7 +622,7 @@ function ReviewContent({ tab }: { tab: ReviewTab }) {
                                     ...REVIEW_ACTION_LABEL_STYLE,
                                 }}
                             >
-                                Reject All
+                                全部拒绝
                             </button>
                             <button
                                 type="button"
@@ -635,7 +635,7 @@ function ReviewContent({ tab }: { tab: ReviewTab }) {
                                     ...REVIEW_ACTION_LABEL_STYLE,
                                 }}
                             >
-                                Keep All
+                                全部保留
                             </button>
                         </div>
                     </div>

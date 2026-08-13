@@ -273,7 +273,7 @@ export function ChatHistoryView({
                             border: "none",
                             color: "var(--text-secondary)",
                         }}
-                        title="Back to chat"
+                        title="返回对话"
                     >
                         <svg
                             width="14"
@@ -293,13 +293,13 @@ export function ChatHistoryView({
                     className="flex-1 text-xs font-medium"
                     style={{ color: "var(--text-primary)" }}
                 >
-                    Chat History
+                    聊天记录
                 </span>
                 <span
                     className="shrink-0 text-[10px]"
                     style={{ color: "var(--text-secondary)", opacity: 0.7 }}
                 >
-                    Keep:
+                    保留：
                 </span>
                 <select
                     className="shrink-0 rounded px-1.5 py-0.5 text-[10px]"
@@ -314,11 +314,11 @@ export function ChatHistoryView({
                         void setHistoryRetentionDays(Number(e.target.value))
                     }
                 >
-                    <option value={0}>Forever</option>
-                    <option value={7}>7 days</option>
-                    <option value={30}>30 days</option>
-                    <option value={90}>90 days</option>
-                    <option value={365}>1 year</option>
+                    <option value={0}>永久</option>
+                    <option value={7}>7 天</option>
+                    <option value={30}>30 天</option>
+                    <option value={90}>90 天</option>
+                    <option value={365}>1 年</option>
                 </select>
             </div>
 
@@ -390,7 +390,7 @@ export function ChatHistoryView({
                             className="flex h-full items-center justify-center text-xs"
                             style={{ color: "var(--text-secondary)" }}
                         >
-                            Select a conversation to view
+                            选择一个对话以查看
                         </div>
                     )}
                 </div>
@@ -418,11 +418,11 @@ function getDeleteSessionTitle(
         | { customTitle?: string | null; persistedTitle?: string | null }
         | undefined,
 ) {
-    if (!session) return "this conversation";
+    if (!session) return "此对话";
     return (
         session.customTitle?.trim() ||
         session.persistedTitle?.trim() ||
-        "this conversation"
+        "此对话"
     );
 }
 
@@ -458,23 +458,20 @@ function DeleteConfirmDialog({
                     style={{ color: "var(--text-primary)" }}
                 >
                     {isBatchDelete
-                        ? `Delete ${sessionTitles.length} conversations?`
-                        : "Delete conversation?"}
+                        ? `删除 ${sessionTitles.length} 个对话？`
+                        : "删除对话？"}
                 </div>
                 <div
                     className="text-xs leading-relaxed"
                     style={{ color: "var(--text-secondary)" }}
                 >
                     {isBatchDelete
-                        ? `${sessionTitles.length} conversations will be permanently deleted. This cannot be undone.`
-                        : `\u201c${sessionTitles[0]}\u201d will be permanently deleted. This cannot be undone.`}
+                        ? `${sessionTitles.length} 个对话将被永久删除，此操作无法撤销。`
+                        : `「${sessionTitles[0]}」将被永久删除，此操作无法撤销。`}
                     {preservedSubagentCount > 0 ? (
                         <span className="mt-2 block">
                             {preservedSubagentCount}{" "}
-                            {preservedSubagentCount === 1
-                                ? "subagent"
-                                : "subagents"}{" "}
-                            will stay in history as detached agents.
+                            个子助手将作为独立助手保留在历史中。
                         </span>
                     ) : null}
                 </div>
@@ -489,7 +486,7 @@ function DeleteConfirmDialog({
                             color: "var(--text-primary)",
                         }}
                     >
-                        Cancel
+                        取消
                     </button>
                     <button
                         type="button"
@@ -501,7 +498,7 @@ function DeleteConfirmDialog({
                             color: "#fff",
                         }}
                     >
-                        Delete
+                        删除
                     </button>
                 </div>
             </div>

@@ -185,14 +185,14 @@ export function TagsPanel() {
                         className="text-xs font-semibold uppercase tracking-wider"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        Tags
+                        标签
                     </span>
                 </div>
                 <div className="px-2 pb-2">
                     <SidebarFilterInput
                         value={filterText}
                         onChange={setFilterText}
-                        placeholder="Filter tags..."
+                        placeholder="筛选标签…"
                     />
                 </div>
             </div>
@@ -204,21 +204,21 @@ export function TagsPanel() {
                         className="text-xs px-3 py-2"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        No vault open
+                        未打开仓库
                     </p>
                 ) : tags.length === 0 ? (
                     <p
                         className="text-xs px-3 py-2"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        No tags found
+                        暂无标签
                     </p>
                 ) : filteredTags.length === 0 ? (
                     <p
                         className="text-xs px-3 py-2"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        No tags match &ldquo;{filterText}&rdquo;
+                        没有匹配「{filterText}」的标签
                     </p>
                 ) : (
                     <div
@@ -355,12 +355,12 @@ export function TagsPanel() {
                     entries={[
                         {
                             label: expanded.has(tagContextMenu.payload.tag)
-                                ? "Collapse"
-                                : "Expand",
+                                ? "折叠"
+                                : "展开",
                             action: () => toggleTag(tagContextMenu.payload.tag),
                         },
                         {
-                            label: "Copy Tag",
+                            label: "复制标签",
                             action: () =>
                                 void navigator.clipboard.writeText(
                                     `#${tagContextMenu.payload.tag}`,
@@ -375,14 +375,14 @@ export function TagsPanel() {
                     onClose={() => setNoteContextMenu(null)}
                     entries={[
                         {
-                            label: "Open",
+                            label: "打开",
                             action: () =>
                                 void handleNoteClick(
                                     noteContextMenu.payload.noteId,
                                 ),
                         },
                         {
-                            label: "Open in New Tab",
+                            label: "在新标签中打开",
                             action: () =>
                                 void handleOpenNoteInNewTab(
                                     noteContextMenu.payload.noteId,
@@ -390,14 +390,14 @@ export function TagsPanel() {
                         },
                         { type: "separator" },
                         {
-                            label: "Reveal in File Tree",
+                            label: "在文件树中显示",
                             action: () =>
                                 revealNoteInTree(
                                     noteContextMenu.payload.noteId,
                                 ),
                         },
                         {
-                            label: "Copy Note Path",
+                            label: "复制笔记路径",
                             action: () =>
                                 void navigator.clipboard.writeText(
                                     noteContextMenu.payload.noteId,

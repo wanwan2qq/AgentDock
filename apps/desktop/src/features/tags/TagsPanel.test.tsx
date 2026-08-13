@@ -19,7 +19,7 @@ describe("TagsPanel", () => {
     it("shows an empty-state message when no vault is open", () => {
         renderComponent(<TagsPanel />);
 
-        expect(screen.getByText("No vault open")).toBeInTheDocument();
+        expect(screen.getByText("未打开仓库")).toBeInTheDocument();
     });
 
     it("loads tags for the current vault and expands them to show note rows", async () => {
@@ -132,7 +132,7 @@ describe("TagsPanel", () => {
             clientY: 40,
         });
 
-        await user.click(await screen.findByText("Expand"));
+        await user.click(await screen.findByText("展开"));
 
         expect(await screen.findByText("Roadmap")).toBeInTheDocument();
     });

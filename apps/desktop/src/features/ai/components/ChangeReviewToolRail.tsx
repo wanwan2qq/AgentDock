@@ -178,27 +178,27 @@ function getToolActionLabel(toolKind: string) {
     switch (toolKind.toLowerCase()) {
         case "create":
         case "write":
-            return "Created";
+            return "新建";
         case "delete":
         case "remove":
-            return "Deleted";
+            return "已删除";
         case "move":
         case "rename":
-            return "Moved";
+            return "已移动";
         default:
-            return "Edited";
+            return "已编辑";
     }
 }
 
 function getDiffBadge(diff: AIFileDiff) {
-    if (diff.reversible === false) return "Partial";
-    if (diff.kind === "add") return "New file";
-    if (diff.kind === "delete") return "Deleted";
+    if (diff.reversible === false) return "部分";
+    if (diff.kind === "add") return "新文件";
+    if (diff.kind === "delete") return "已删除";
     if (diff.kind === "move") {
         const previous = diff.previous_path
             ? getFileNameFromPath(diff.previous_path)
             : null;
-        return previous ? `Moved from ${previous}` : "Moved";
+        return previous ? `从 ${previous} 移来` : "已移动";
     }
     return null;
 }
@@ -407,7 +407,7 @@ function ChangeReviewToolRailRow({
                     </span>
                 ) : null}
                 <button
-                    aria-label={`${expanded ? "Collapse" : "Expand"} inline diff review`}
+                    aria-label={`${expanded ? "折叠" : "展开"}行内差异审阅`}
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-secondary hover:bg-bg-tertiary hover:text-text-primary focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--accent)]"
                     onClick={onToggle}
                     type="button"

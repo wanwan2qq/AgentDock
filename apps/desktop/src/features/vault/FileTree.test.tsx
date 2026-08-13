@@ -467,7 +467,7 @@ describe("FileTree", () => {
         ]);
 
         renderComponent(<FileTree />);
-        await user.type(screen.getByPlaceholderText("Filter files..."), "a");
+        await user.type(screen.getByPlaceholderText("筛选文件…"), "a");
 
         const viewport = screen.getByTestId("file-tree-viewport");
         Object.defineProperty(viewport, "clientHeight", {
@@ -496,7 +496,7 @@ describe("FileTree", () => {
 
         renderComponent(<FileTree />);
         await user.type(
-            screen.getByPlaceholderText("Filter files..."),
+            screen.getByPlaceholderText("筛选文件…"),
             "claude.md",
         );
 
@@ -512,7 +512,7 @@ describe("FileTree", () => {
 
         renderComponent(<FileTree />);
         await user.type(
-            screen.getByPlaceholderText("Filter files..."),
+            screen.getByPlaceholderText("筛选文件…"),
             "runtime.ts",
         );
 
@@ -780,7 +780,7 @@ describe("FileTree", () => {
         fireEvent.contextMenu(getNoteRow("Beta"));
 
         expect(
-            await screen.findByText("Delete Selected Notes"),
+            await screen.findByText("删除所选笔记"),
         ).toBeInTheDocument();
     });
 
@@ -975,7 +975,7 @@ describe("FileTree", () => {
         fireEvent.click(getNoteRow("Beta"), { metaKey: true });
         fireEvent.contextMenu(getNoteRow("Beta"));
 
-        await user.click(await screen.findByText("Delete Selected Notes"));
+        await user.click(await screen.findByText("删除所选笔记"));
 
         await waitFor(() => {
             expect(deleteNote).toHaveBeenCalledTimes(2);
@@ -1030,14 +1030,14 @@ describe("FileTree", () => {
         renderComponent(<FileTree />);
 
         fireEvent.contextMenu(getFolderRow("assets"));
-        await user.click(await screen.findByText("Delete Folder"));
+        await user.click(await screen.findByText("删除文件夹"));
 
         await waitFor(() => {
             expect(deleteFolder).toHaveBeenCalledWith("assets");
         });
         expect(confirm).toHaveBeenCalledWith(
-            'Delete folder "assets" and all its contents?',
-            { title: "Delete Folder", kind: "warning" },
+            '确定删除文件夹「assets」及其全部内容吗？',
+            { title: "删除文件夹", kind: "warning", okLabel: "删除", cancelLabel: "取消" },
         );
         expect(useEditorStore.getState().tabs.map((tab) => tab.id)).toEqual([
             "keep-tab",
@@ -1103,7 +1103,7 @@ describe("FileTree", () => {
         await expandFolder(user, "plans");
 
         fireEvent.contextMenu(getFolderRow("plans"));
-        await user.click(await screen.findByText("Rename"));
+        await user.click(await screen.findByText("重命名"));
 
         const input = screen.getByDisplayValue("plans");
         await user.click(input);
@@ -1171,7 +1171,7 @@ describe("FileTree", () => {
         await expandFolder(user, "plans");
 
         fireEvent.contextMenu(getNoteRow("Alpha"));
-        await user.click(await screen.findByText("Rename"));
+        await user.click(await screen.findByText("重命名"));
 
         const input = screen.getByDisplayValue("Alpha");
         fireEvent.change(input, { target: { value: "Beta" } });
@@ -1215,7 +1215,7 @@ describe("FileTree", () => {
             await expandFolder(user, "plans");
 
             fireEvent.contextMenu(getNoteRow("alpha.md"));
-            await user.click(await screen.findByText("Rename"));
+            await user.click(await screen.findByText("重命名"));
 
             const input = screen.getByDisplayValue("alpha.md");
             fireEvent.change(input, { target: { value: "beta.md" } });
@@ -1251,7 +1251,7 @@ describe("FileTree", () => {
             await expandFolder(user, "src");
 
             fireEvent.contextMenu(getFileRow("main.ts"));
-            await user.click(await screen.findByText("Rename"));
+            await user.click(await screen.findByText("重命名"));
 
             expect(screen.getByDisplayValue("main.ts")).toBeInTheDocument();
         } finally {
@@ -1333,7 +1333,7 @@ describe("FileTree", () => {
             await expandFolder(user, "plans");
 
             fireEvent.contextMenu(getNoteRow("alpha.md"));
-            await user.click(await screen.findByText("Rename"));
+            await user.click(await screen.findByText("重命名"));
 
             const input = screen.getByDisplayValue("alpha.md");
             fireEvent.change(input, { target: { value: "beta.ts" } });
@@ -1995,9 +1995,9 @@ describe("FileTree", () => {
         );
 
         renderComponent(<FileTree />);
-        await user.click(screen.getByTitle("Sort order"));
+        await user.click(screen.getByTitle("排序方式"));
 
-        const menu = screen.getByRole("menu", { name: "Sort order" });
+        const menu = screen.getByRole("menu", { name: "排序方式" });
         fireEvent.keyDown(menu, { key: "ArrowDown" });
         fireEvent.keyDown(menu, { key: "Enter" });
 
@@ -2356,7 +2356,7 @@ describe("FileTree", () => {
         await expandFolder(user, "docs");
 
         fireEvent.contextMenu(getFileRow("Config"));
-        await user.click(await screen.findByText("Rename"));
+        await user.click(await screen.findByText("重命名"));
 
         const input = screen.getByDisplayValue("config.toml");
         await user.click(input);
@@ -2416,7 +2416,7 @@ describe("FileTree", () => {
         renderComponent(<FileTree />);
 
         fireEvent.contextMenu(getFolderRow("notes"));
-        await user.click(await screen.findByText("New Note Here"));
+        await user.click(await screen.findByText("在此新建笔记"));
 
         const input = screen.getByPlaceholderText("New note");
         expect(input.closest('[data-folder-path=""]')).not.toBeNull();
@@ -2470,10 +2470,10 @@ describe("FileTree", () => {
         await expandFolder(user, "notes");
 
         fireEvent.contextMenu(getNoteRow("Alpha"));
-        await user.click(await screen.findByText("Copy Note"));
+        await user.click(await screen.findByText("复制笔记"));
 
         fireEvent.contextMenu(getFolderRow("archive"));
-        await user.click(await screen.findByText("Paste Here"));
+        await user.click(await screen.findByText("粘贴到此处"));
 
         await waitFor(() => {
             expect(createNote).toHaveBeenCalledWith("archive/alpha");
@@ -2586,10 +2586,10 @@ describe("FileTree", () => {
         renderComponent(<FileTree />);
 
         fireEvent.contextMenu(getFolderRow("projects"));
-        await user.click(await screen.findByText("Copy"));
+        await user.click(await screen.findByText("复制"));
 
         fireEvent.contextMenu(getFolderRow("archive"));
-        await user.click(await screen.findByText("Paste Here"));
+        await user.click(await screen.findByText("粘贴到此处"));
 
         await waitFor(() => {
             expect(invoke).toHaveBeenCalledWith("copy_folder", {
@@ -3090,10 +3090,10 @@ describe("FileTree", () => {
         const row = getFileRow("archive");
         expect(row).toHaveAttribute("data-selected", "true");
         expect(
-            await screen.findByRole("button", { name: "Open in New Tab" }),
+            await screen.findByRole("button", { name: "在新标签页打开" }),
         ).toBeDisabled();
         expect(
-            await screen.findByRole("button", { name: "Add to Chat" }),
+            await screen.findByRole("button", { name: "加入聊天" }),
         ).toBeInTheDocument();
     });
 
@@ -3132,7 +3132,7 @@ describe("FileTree", () => {
 
             fireEvent.contextMenu(getFolderRow("docs"));
             await user.click(
-                await screen.findByRole("button", { name: "Add to Chat" }),
+                await screen.findByRole("button", { name: "加入聊天" }),
             );
             await waitFor(() => expect(events).toHaveLength(1));
             expect(events[0].detail).toMatchObject({
@@ -3143,7 +3143,7 @@ describe("FileTree", () => {
 
             fireEvent.contextMenu(getNoteRow("Alpha"));
             await user.click(
-                await screen.findByRole("button", { name: "Add to Chat" }),
+                await screen.findByRole("button", { name: "加入聊天" }),
             );
             await waitFor(() => expect(events).toHaveLength(2));
             expect(events[1].detail).toMatchObject({
@@ -3159,7 +3159,7 @@ describe("FileTree", () => {
 
             fireEvent.contextMenu(getFileRow("config"));
             await user.click(
-                await screen.findByRole("button", { name: "Add to Chat" }),
+                await screen.findByRole("button", { name: "加入聊天" }),
             );
             await waitFor(() => expect(events).toHaveLength(3));
             expect(events[2].detail).toMatchObject({
@@ -3176,7 +3176,7 @@ describe("FileTree", () => {
 
             fireEvent.contextMenu(getFileRow("reference"));
             await user.click(
-                await screen.findByRole("button", { name: "Add to Chat" }),
+                await screen.findByRole("button", { name: "加入聊天" }),
             );
             await waitFor(() => expect(events).toHaveLength(4));
             expect(events[3].detail).toMatchObject({
@@ -3236,7 +3236,7 @@ describe("FileTree", () => {
             fireEvent.contextMenu(getNoteRow("Alpha"));
             await user.click(
                 await screen.findByRole("button", {
-                    name: "Add Selected to Chat",
+                    name: "将所选加入聊天",
                 }),
             );
 
@@ -3310,7 +3310,7 @@ describe("FileTree", () => {
             );
             fireEvent.contextMenu(getNoteRow("Alpha"));
             await user.click(
-                await screen.findByRole("button", { name: "Add to Chat" }),
+                await screen.findByRole("button", { name: "加入聊天" }),
             );
 
             await waitFor(() => expect(events).toHaveLength(1));
@@ -3369,7 +3369,7 @@ describe("FileTree", () => {
             fireEvent.contextMenu(getFolderRow("docs"));
             await user.click(
                 await screen.findByRole("button", {
-                    name: "Add to New Chat",
+                    name: "加入新聊天",
                 }),
             );
             await waitFor(() => expect(events).toHaveLength(1));
@@ -3382,7 +3382,7 @@ describe("FileTree", () => {
             fireEvent.contextMenu(getNoteRow("Alpha"));
             await user.click(
                 await screen.findByRole("button", {
-                    name: "Add to New Chat",
+                    name: "加入新聊天",
                 }),
             );
             await waitFor(() => expect(events).toHaveLength(2));
@@ -3400,7 +3400,7 @@ describe("FileTree", () => {
             fireEvent.contextMenu(getFileRow("config"));
             await user.click(
                 await screen.findByRole("button", {
-                    name: "Add to New Chat",
+                    name: "加入新聊天",
                 }),
             );
             await waitFor(() => expect(events).toHaveLength(3));
@@ -3419,7 +3419,7 @@ describe("FileTree", () => {
             fireEvent.contextMenu(getFileRow("reference"));
             await user.click(
                 await screen.findByRole("button", {
-                    name: "Add to New Chat",
+                    name: "加入新聊天",
                 }),
             );
             await waitFor(() => expect(events).toHaveLength(4));
@@ -3481,7 +3481,7 @@ describe("FileTree", () => {
             fireEvent.contextMenu(getFileRow("config"));
             await user.click(
                 await screen.findByRole("button", {
-                    name: "Add Selected to New Chat",
+                    name: "将所选加入新聊天",
                 }),
             );
 
@@ -3622,7 +3622,7 @@ describe("FileTree", () => {
 
         fireEvent.contextMenu(getFolderRow("docs"));
         await user.click(
-            await screen.findByRole("button", { name: "Copy Full Path" }),
+            await screen.findByRole("button", { name: "复制完整路径" }),
         );
         await waitFor(() => {
             expect(writeText).toHaveBeenCalledWith("/vault/docs");
@@ -3630,7 +3630,7 @@ describe("FileTree", () => {
 
         fireEvent.contextMenu(getNoteRow("Alpha"));
         await user.click(
-            await screen.findByRole("button", { name: "Copy Full Path" }),
+            await screen.findByRole("button", { name: "复制完整路径" }),
         );
         await waitFor(() => {
             expect(writeText).toHaveBeenCalledWith("/vault/docs/alpha.md");
@@ -3638,7 +3638,7 @@ describe("FileTree", () => {
 
         fireEvent.contextMenu(getFileRow("config"));
         await user.click(
-            await screen.findByRole("button", { name: "Copy Full Path" }),
+            await screen.findByRole("button", { name: "复制完整路径" }),
         );
         await waitFor(() => {
             expect(writeText).toHaveBeenCalledWith("/vault/docs/config.toml");
@@ -3646,7 +3646,7 @@ describe("FileTree", () => {
 
         fireEvent.contextMenu(getFileRow("reference"));
         await user.click(
-            await screen.findByRole("button", { name: "Copy Full Path" }),
+            await screen.findByRole("button", { name: "复制完整路径" }),
         );
         await waitFor(() => {
             expect(writeText).toHaveBeenCalledWith(

@@ -53,20 +53,20 @@ describe("shortcut registry formatting", () => {
         expect(
             entries.find((entry) => entry.id === "quick_switcher"),
         ).toMatchObject({
-            label: "Quick Switcher",
+            label: "快速切换",
             category: "Navigation",
             shortcut: "Ctrl+O",
         });
         expect(
             entries.find((entry) => entry.id === "open_settings"),
         ).toMatchObject({
-            label: "Open Settings",
+            label: "打开设置",
             category: "View",
             shortcut: "Ctrl+,",
         });
         expect(entries.find((entry) => entry.id === "new_agent")).toMatchObject(
             {
-                label: "New Agent",
+                label: "新建助手",
                 category: "AI",
                 shortcut: "Ctrl+Shift+N",
             },
@@ -74,32 +74,32 @@ describe("shortcut registry formatting", () => {
         expect(
             entries.find((entry) => entry.id === "stop_active_agent"),
         ).toMatchObject({
-            label: "Stop active agent",
+            label: "停止当前助手",
             category: "AI",
             shortcut: "Escape",
         });
         expect(
             entries.find((entry) => entry.id === "new_terminal"),
         ).toMatchObject({
-            label: "New Terminal",
+            label: "新建终端",
             category: "Workspace",
             shortcut: "Ctrl+R",
         });
         expect(entries.find((entry) => entry.id === "zoom_in")).toMatchObject({
-            label: "Zoom In",
+            label: "放大",
             category: "View",
             shortcut: "Ctrl+=",
         });
         expect(
             entries.find((entry) => entry.id === "find_in_note"),
         ).toMatchObject({
-            label: "Find in Note",
+            label: "在笔记中查找",
             category: "Editor",
             shortcut: "Ctrl+F",
         });
         expect(entries.find((entry) => entry.id === "next_file")).toMatchObject(
             {
-                label: "Next File",
+                label: "下一个文件",
                 category: "Navigation",
                 shortcut: "Ctrl+Shift+Arrow Down",
             },
@@ -107,14 +107,14 @@ describe("shortcut registry formatting", () => {
         expect(
             entries.find((entry) => entry.id === "remove_heading"),
         ).toMatchObject({
-            label: "Remove Heading",
+            label: "移除标题",
             category: "Editor",
             shortcut: "Ctrl+Shift+0",
         });
         expect(
             entries.find((entry) => entry.id === "add_selection_to_chat"),
         ).toMatchObject({
-            label: "Add Selection to Chat",
+            label: "将选中内容添加到对话",
             category: "AI",
             shortcut: "Ctrl+L",
         });

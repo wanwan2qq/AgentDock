@@ -74,7 +74,7 @@ function createXtermTheme(theme: ReturnType<typeof getTerminalTheme>) {
 
 function buildSearchSummary(resultIndex: number, resultCount: number) {
     if (resultCount <= 0) {
-        return "No matches";
+        return "无匹配";
     }
 
     return `${Math.max(resultIndex + 1, 1)} / ${resultCount}`;
@@ -760,7 +760,7 @@ export function TerminalViewport({
 
     const contextMenuEntries: ContextMenuEntry[] = [
         {
-            label: "Copy",
+            label: "复制",
             disabled: !hasSelection,
             action: () => {
                 const text = terminalRef.current?.getSelection();
@@ -770,7 +770,7 @@ export function TerminalViewport({
             },
         },
         {
-            label: "Paste",
+            label: "粘贴",
             disabled: snapshot.status !== "running",
             action: () => {
                 void navigator.clipboard.readText().then((text) => {
@@ -781,7 +781,7 @@ export function TerminalViewport({
         },
         { type: "separator" },
         {
-            label: "Select All",
+            label: "全选",
             action: () => {
                 terminalRef.current?.selectAll();
                 setHasSelection(true);
@@ -789,17 +789,17 @@ export function TerminalViewport({
         },
         { type: "separator" },
         {
-            label: "Find",
+            label: "查找",
             action: () => openSearch(),
         },
         {
-            label: "Dictate",
+            label: "听写",
             disabled: snapshot.status !== "running",
             action: () => openDictation(),
         },
         { type: "separator" },
         {
-            label: "Clear",
+            label: "清除",
             disabled: !hasOutput,
             action: () => session.clearViewport(),
         },
@@ -835,7 +835,7 @@ export function TerminalViewport({
                     }}
                 >
                     <label htmlFor={searchInputId} className="sr-only">
-                        Find in terminal
+                        在终端中查找
                     </label>
                     <input
                         id={searchInputId}
@@ -851,7 +851,7 @@ export function TerminalViewport({
                         onBlur={() => {
                             searchAddonRef.current?.clearActiveDecoration();
                         }}
-                        placeholder="Find in terminal"
+                        placeholder="在终端中查找"
                         className="h-8 w-52 rounded border px-2 text-xs outline-none"
                         style={{
                             backgroundColor: "var(--bg-primary)",
@@ -874,7 +874,7 @@ export function TerminalViewport({
                                 ? "white"
                                 : "var(--text-secondary)",
                         }}
-                        title="Match case"
+                        title="区分大小写"
                     >
                         Aa
                     </button>
@@ -888,7 +888,7 @@ export function TerminalViewport({
                             color: "var(--text-primary)",
                         }}
                     >
-                        Prev
+                        上一个
                     </button>
                     <button
                         type="button"
@@ -900,7 +900,7 @@ export function TerminalViewport({
                             color: "var(--text-primary)",
                         }}
                     >
-                        Next
+                        下一个
                     </button>
                     <span
                         className="min-w-16 text-right text-[11px]"
@@ -921,7 +921,7 @@ export function TerminalViewport({
                             color: "var(--text-primary)",
                         }}
                     >
-                        Close
+                        关闭
                     </button>
                 </div>
             )}
@@ -962,7 +962,7 @@ export function TerminalViewport({
                                 setDictationText(event.target.value)
                             }
                             onKeyDown={handleDictationKeyDown}
-                            placeholder="Speak or type — Enter to send"
+                            placeholder="说话或输入 — 按 Enter 发送"
                             className="h-8 w-64 rounded border px-2 text-xs outline-none"
                             style={{
                                 backgroundColor: "var(--bg-primary)",
@@ -1000,7 +1000,7 @@ export function TerminalViewport({
                             className="px-1 text-[11px]"
                             style={{ color: "var(--text-secondary)" }}
                         >
-                            Press Fn Fn to activate macOS dictation, then speak your command.
+                            按 Fn Fn 启用 macOS 听写，然后说出命令。
                         </span>
                     )}
                     {platform === "windows" && (
@@ -1008,25 +1008,25 @@ export function TerminalViewport({
                             className="px-1 text-[11px]"
                             style={{ color: "var(--text-secondary)" }}
                         >
-                            Type your command, or use your system dictation if available.
+                            输入命令，或使用系统听写（如可用）。
                         </span>
                     )}
                 </div>
             )}
 
             {snapshot.status === "starting" && noOutput && (
-                <TerminalMessage message="Starting shell..." />
+                <TerminalMessage message="正在启动 shell…" />
             )}
             {snapshot.status === "idle" && noOutput && (
-                <TerminalMessage message="Shell not started" />
+                <TerminalMessage message="Shell 未启动" />
             )}
             {snapshot.status === "error" && noOutput && (
                 <TerminalMessage
-                    message={snapshot.errorMessage ?? "Shell unavailable"}
+                    message={snapshot.errorMessage ?? "Shell 不可用"}
                 />
             )}
             {snapshot.status === "exited" && noOutput && (
-                <TerminalMessage message="Shell exited - restart to continue" />
+                <TerminalMessage message="Shell 已退出 — 重启以继续" />
             )}
 
             {!focused && snapshot.status === "running" && noOutput && (
@@ -1039,7 +1039,7 @@ export function TerminalViewport({
                         color: "var(--text-secondary)",
                     }}
                 >
-                    Click to focus terminal
+                    点击以聚焦终端
                 </div>
             )}
 

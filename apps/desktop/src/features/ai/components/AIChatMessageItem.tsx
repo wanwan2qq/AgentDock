@@ -23,6 +23,11 @@ import {
     isReconnectableDisconnectMessage,
     localizeDisconnectOrRuntimeError,
 } from "../utils/acpDisconnectMessages";
+import {
+    formatPermissionDecisionStatus,
+    localizePermissionMessageTitle,
+    localizePermissionOptionLabel,
+} from "../utils/permissionUi";
 import { ChatInlinePill } from "./ChatInlinePill";
 import { ChatVaultReference } from "./ChatVaultReference";
 import { MarkdownContent } from "./MarkdownContent";
@@ -1769,7 +1774,7 @@ function PermissionDecisionButton({
                     <path d="M2.5 6.2L4.9 8.6L9.6 3.6" />
                 )}
             </svg>
-            {option.name}
+            {localizePermissionOptionLabel(option)}
         </button>
     );
 }
@@ -1869,9 +1874,12 @@ function ChangeReviewPanel({
         message.meta?.resolved_option !== null
             ? String(message.meta.resolved_option)
             : null;
-    const resolvedOptionLabel =
-        message.permissionOptions?.find((o) => o.option_id === resolvedOptionId)
-            ?.name ?? null;
+    const resolvedOptionLabel = (() => {
+        const option = message.permissionOptions?.find(
+            (o) => o.option_id === resolvedOptionId,
+        );
+        return option ? localizePermissionOptionLabel(option) : null;
+    })();
     const isPending = status === "pending";
     const isResponding = status === "responding";
     const isResolved = status === "resolved";
@@ -2273,8 +2281,11 @@ function ChangeReviewPanel({
                     }}
                 >
                     {isResponding
-                        ? "Sending decision..."
-                        : `Decision sent${resolvedOptionLabel ? `: ${resolvedOptionLabel}` : "."}`}
+                        ? formatPermissionDecisionStatus(true, null)
+                        : formatPermissionDecisionStatus(
+                              false,
+                              resolvedOptionLabel,
+                          )}
                 </div>
             )}
         </div>
@@ -2417,7 +2428,9 @@ function PermissionMessage({
 }) {
     // Extract first line as title, rest as details
     const lines = message.content.split("\n");
-    const title = lines[0];
+    const title = localizePermissionMessageTitle(
+        lines[0] || message.title || "Permission request",
+    );
     const details = lines.slice(1).join("\n").trim();
     const MAX_PREVIEW = 120;
     const MAX_HEADER_PREVIEW = 72;
@@ -2449,10 +2462,12 @@ function PermissionMessage({
         message.meta?.resolved_option !== null
             ? String(message.meta.resolved_option)
             : null;
-    const resolvedOptionLabel =
-        message.permissionOptions?.find(
+    const resolvedOptionLabel = (() => {
+        const option = message.permissionOptions?.find(
             (option) => option.option_id === resolvedOptionId,
-        )?.name ?? null;
+        );
+        return option ? localizePermissionOptionLabel(option) : null;
+    })();
     const isPending = status === "pending";
     const isResponding = status === "responding";
     const isResolved = status === "resolved";
@@ -2524,10 +2539,10 @@ function PermissionMessage({
                         }}
                         aria-label={
                             expanded
-                                ? "Collapse permission message"
-                                : "Expand permission message"
+                                ? "收起权限说明"
+                                : "展开权限说明"
                         }
-                        title={expanded ? "Collapse message" : "Expand message"}
+                        title={expanded ? "收起" : "展开"}
                     >
                         <svg
                             width="10"
@@ -2608,7 +2623,7 @@ function PermissionMessage({
                                         padding: 0,
                                     }}
                                 >
-                                    {expanded ? "Show less" : "Show more"}
+                                    {expanded ? "收起" : "展开更多"}
                                 </button>
                             )}
                         </div>
@@ -2656,8 +2671,11 @@ function PermissionMessage({
                     }}
                 >
                     {isResponding
-                        ? "Sending decision..."
-                        : `Decision sent${resolvedOptionLabel ? `: ${resolvedOptionLabel}` : "."}`}
+                        ? formatPermissionDecisionStatus(true, null)
+                        : formatPermissionDecisionStatus(
+                              false,
+                              resolvedOptionLabel,
+                          )}
                 </div>
             )}
         </div>

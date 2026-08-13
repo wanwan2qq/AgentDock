@@ -163,7 +163,7 @@ function getActionLabel(
     methodId: string | undefined,
     status: AIRuntimeSetupStatus,
 ): string {
-    if (!methodId) return "Connect";
+    if (!methodId) return "连接";
     if (methodId === "chatgpt") return "Continue with ChatGPT";
     if (isClaudeTerminalAuthMethodId(methodId)) return "Open sign-in terminal";
     if (methodId === "grok-login") return "Open sign-in terminal";
@@ -176,7 +176,7 @@ function getActionLabel(
             : "Save and connect";
     }
     if (isGatewayMethod(methodId)) return "Save gateway";
-    return "Connect";
+    return "连接";
 }
 
 function getSecondaryAuthActionLabel(status: AIRuntimeSetupStatus): string {
@@ -335,7 +335,7 @@ function getProviderSearchValues(
         setupStatus?.binaryPath,
         setupStatus?.binarySource,
         setupStatus?.authMethod,
-        setupStatus?.authReady ? "Connected" : "Not configured",
+        setupStatus?.authReady ? "已连接" : "未配置",
         setupStatus?.binaryReady ? "Binary ready" : "Binary missing",
         setupStatus?.hasGatewayConfig ? "Custom gateway" : undefined,
         setupStatus?.hasGatewayUrl ? "Gateway URL" : undefined,
@@ -927,7 +927,7 @@ function ProviderExpandedPanel({
                     }}
                 >
                     {saving
-                        ? "Connecting…"
+                        ? "连接中…"
                         : getActionLabel(selectedMethodId, setupStatus)}
                 </button>
             </div>
@@ -965,7 +965,7 @@ function ProviderSetupUnavailablePanel({
                 }}
             >
                 {loading
-                    ? "Loading provider setup…"
+                    ? "正在加载提供商设置…"
                     : (error ??
                       "Provider setup status is not available yet. Check diagnostics or retry loading this provider.")}
             </div>
@@ -1297,7 +1297,7 @@ export function AIProvidersSettings({
     const filteredInstalledProviders = installedProviders.filter((provider) =>
         matchesSettingsSearch(
             searchQuery,
-            "Installed",
+            "已安装",
             ...getProviderSearchValues(
                 provider,
                 provider.setupStatus,
@@ -1308,9 +1308,9 @@ export function AIProvidersSettings({
     const filteredProviderCatalog = PROVIDER_CATALOG.filter((provider) =>
         matchesSettingsSearch(
             searchQuery,
-            "All",
-            "Install",
-            "Installed",
+            "全部",
+            "安装",
+            "已安装",
             ...getProviderSearchValues(
                 provider,
                 setupStatusMap[provider.id] ?? null,
@@ -1346,14 +1346,14 @@ export function AIProvidersSettings({
     ];
     const showInstalledSection =
         isLoading ||
-        matchesSettingsSearch(searchQuery, "Installed", "Loading providers") ||
+        matchesSettingsSearch(searchQuery, "已安装", "正在加载提供商") ||
         filteredInstalledProviders.length > 0;
     const showDiagnosticsSection = matchesSettingsSearch(
         searchQuery,
         ...diagnosticsSearchValues,
     );
     const showAllSection =
-        matchesSettingsSearch(searchQuery, "All", "Install", "Installed") ||
+        matchesSettingsSearch(searchQuery, "全部", "安装", "已安装") ||
         filteredProviderCatalog.length > 0;
 
     const handleToggleDiagnostics = useCallback(() => {
@@ -1381,10 +1381,10 @@ export function AIProvidersSettings({
         selectableProviders.length > 0 &&
         matchesSettingsSearch(
             searchQuery,
-            "Default agent",
-            "Default",
-            "Agent",
-            "Provider",
+            "默认助手",
+            "默认",
+            "助手",
+            "提供商",
             "Claude Code",
             ...selectableProviders.flatMap((p) => [p.name, p.id]),
         );
@@ -1404,7 +1404,7 @@ export function AIProvidersSettings({
                             paddingBottom: 6,
                         }}
                     >
-                        Default agent
+                        默认助手
                     </div>
                     <div
                         style={{
@@ -1504,7 +1504,7 @@ export function AIProvidersSettings({
                             paddingBottom: 6,
                         }}
                     >
-                        Installed
+                        已安装
                     </div>
 
                     <div
@@ -1523,7 +1523,7 @@ export function AIProvidersSettings({
                                     backgroundColor: "var(--bg-secondary)",
                                 }}
                             >
-                                Loading providers…
+                                正在加载提供商…
                             </div>
                         ) : (
                             filteredInstalledProviders.map((provider, i) => {
@@ -1685,10 +1685,10 @@ export function AIProvidersSettings({
                                                     }}
                                                 >
                                                     {isTerminalRuntime
-                                                        ? "Ready"
+                                                        ? "就绪"
                                                         : connected
-                                                          ? "Connected"
-                                                          : "Not configured"}
+                                                          ? "已连接"
+                                                          : "未配置"}
                                                 </div>
                                             </div>
 
@@ -2049,7 +2049,7 @@ export function AIProvidersSettings({
                             paddingBottom: 6,
                         }}
                     >
-                        All
+                        全部
                     </div>
 
                     <div
@@ -2149,7 +2149,7 @@ export function AIProvidersSettings({
                                                         color: "var(--text-secondary)",
                                                     }}
                                                 >
-                                                    Checking…
+                                                    检查中…
                                                 </span>
                                             ) : installed ? (
                                                 <span
@@ -2159,7 +2159,7 @@ export function AIProvidersSettings({
                                                         color: "#34d399",
                                                     }}
                                                 >
-                                                    Installed
+                                                    已安装
                                                 </span>
                                             ) : (
                                                 <button
@@ -2186,7 +2186,7 @@ export function AIProvidersSettings({
                                                         cursor: "pointer",
                                                     }}
                                                 >
-                                                    Install
+                                                    安装
                                                 </button>
                                             )}
                                         </div>

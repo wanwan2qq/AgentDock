@@ -307,7 +307,7 @@ describe("AIChatComposer mention picker", () => {
             clientX: 40,
             clientY: 60,
         });
-        fireEvent.click(screen.getByText("Open in New Tab"));
+        fireEvent.click(screen.getByText("在新标签页打开"));
 
         await waitFor(() => {
             expect(useEditorStore.getState().tabs).toHaveLength(2);
@@ -1171,11 +1171,11 @@ describe("AIChatComposer mention picker", () => {
             onSubmit,
             onStop,
         });
-        fireEvent.click(screen.getByRole("button", { name: "Queue" }));
+        fireEvent.click(screen.getByRole("button", { name: "排队" }));
 
         expect(onSubmit).toHaveBeenCalledTimes(1);
         expect(onStop).not.toHaveBeenCalled();
-        expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "停止" })).toBeNull();
     });
 
     it("stops the run when streaming and there is no draft to queue", async () => {
@@ -1187,11 +1187,11 @@ describe("AIChatComposer mention picker", () => {
             onStop,
         });
 
-        fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+        fireEvent.click(screen.getByRole("button", { name: "停止" }));
 
         expect(onStop).toHaveBeenCalledTimes(1);
         expect(onSubmit).not.toHaveBeenCalled();
-        expect(screen.queryByRole("button", { name: "Queue" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "排队" })).toBeNull();
     });
 
     it("shows stop progress feedback while the next message is waiting for stop", () => {
@@ -1202,10 +1202,10 @@ describe("AIChatComposer mention picker", () => {
         });
 
         expect(
-            screen.getByText("Sending next message after stop..."),
+            screen.getByText("停止后发送下一条消息…"),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole("button", { name: "Waiting for stop" }),
+            screen.getByRole("button", { name: "等待停止" }),
         ).toBeDisabled();
     });
 
@@ -1245,7 +1245,7 @@ describe("AIChatComposer mention picker", () => {
             clientY: 60,
         });
 
-        fireEvent.click(screen.getByText("Open in New Tab"));
+        fireEvent.click(screen.getByText("在新标签页打开"));
 
         await waitFor(() => {
             expect(useEditorStore.getState().tabs).toHaveLength(2);
@@ -1304,7 +1304,7 @@ describe("AIChatComposer mention picker", () => {
             clientY: 60,
         });
 
-        fireEvent.click(screen.getByText("Open in New Tab"));
+        fireEvent.click(screen.getByText("在新标签页打开"));
 
         await waitFor(() => {
             expect(useEditorStore.getState().tabs).toHaveLength(1);

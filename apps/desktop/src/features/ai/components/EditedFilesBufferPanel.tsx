@@ -30,8 +30,8 @@ function CollapseToggle({
         <button
             type="button"
             aria-expanded={expanded}
-            aria-label={expanded ? "Collapse edits" : "Expand edits"}
-            title={expanded ? "Collapse edits" : "Expand edits"}
+            aria-label={expanded ? "折叠编辑" : "展开编辑"}
+            title={expanded ? "折叠编辑" : "展开编辑"}
             onClick={onToggle}
             className="nw-strip-icon-btn flex shrink-0 items-center justify-center rounded-sm border-0 bg-transparent p-0"
             style={{
@@ -185,7 +185,7 @@ export function EditedFilesBufferPanel({
                 <div className="flex items-center gap-1.5 px-3 py-1">
                     <button
                         type="button"
-                        title="Undo last reject"
+                        title="撤销上次拒绝"
                         onClick={() => void undoLastReject(activeSessionId)}
                         className="nw-strip-icon-btn flex items-center justify-center rounded-sm border-0 bg-transparent p-1"
                         style={{
@@ -217,7 +217,7 @@ export function EditedFilesBufferPanel({
                             fontWeight: 600,
                         }}
                     >
-                        Undo last reject
+                        撤销上次拒绝
                     </span>
                 </div>
             </section>
@@ -257,7 +257,7 @@ export function EditedFilesBufferPanel({
                         fontWeight: 600,
                     }}
                 >
-                    Edits
+                    编辑
                 </span>
                 <span
                     style={{
@@ -312,7 +312,7 @@ export function EditedFilesBufferPanel({
                     {hasUndoReject && (
                         <button
                             type="button"
-                            title="Undo last reject"
+                            title="撤销上次拒绝"
                             onClick={() => void undoLastReject(activeSessionId)}
                             className="nw-strip-icon-btn flex items-center justify-center rounded-sm border-0 bg-transparent p-1"
                             style={{
@@ -339,7 +339,7 @@ export function EditedFilesBufferPanel({
                     {/* Review All — text button */}
                     <button
                         type="button"
-                        title="Review All"
+                        title="全部审阅"
                         onClick={() =>
                             openReview(activeSessionId, {
                                 title: getReviewTabTitle(
@@ -355,12 +355,12 @@ export function EditedFilesBufferPanel({
                             letterSpacing: "0.1em",
                         }}
                     >
-                        Review
+                        审阅
                     </button>
                     {/* Reject All — X icon */}
                     <button
                         type="button"
-                        title="Reject All"
+                        title="全部拒绝"
                         onClick={() =>
                             void rejectAllEditedFiles(activeSessionId)
                         }
@@ -392,7 +392,7 @@ export function EditedFilesBufferPanel({
                     {/* Keep All — checkmark icon */}
                     <button
                         type="button"
-                        title="Keep All"
+                        title="全部保留"
                         onClick={() => keepAllEditedFiles(activeSessionId)}
                         className="nw-strip-icon-btn flex items-center justify-center rounded-sm border-0 bg-transparent p-1"
                         style={{

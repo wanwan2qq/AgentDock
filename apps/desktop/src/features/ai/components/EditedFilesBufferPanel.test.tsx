@@ -111,7 +111,7 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        expect(screen.queryByText("Edits")).not.toBeInTheDocument();
+        expect(screen.queryByText("编辑")).not.toBeInTheDocument();
     });
 
     it("does not render false entries for permission, user input, or URL requests without diffs", () => {
@@ -197,12 +197,12 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        expect(screen.queryByText("Edits")).not.toBeInTheDocument();
+        expect(screen.queryByText("编辑")).not.toBeInTheDocument();
         expect(
-            screen.queryByRole("button", { name: "Review" }),
+            screen.queryByRole("button", { name: "审阅" }),
         ).not.toBeInTheDocument();
         expect(
-            screen.queryByRole("button", { name: "Reject All" }),
+            screen.queryByRole("button", { name: "全部拒绝" }),
         ).not.toBeInTheDocument();
     });
 
@@ -231,7 +231,7 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        expect(screen.getByText("Edits")).toBeInTheDocument();
+        expect(screen.getByText("编辑")).toBeInTheDocument();
         expect(screen.getByText("legacy.ts")).toBeInTheDocument();
     });
 
@@ -250,7 +250,7 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        expect(screen.getByRole("button", { name: "Review" })).toBeVisible();
+        expect(screen.getByRole("button", { name: "审阅" })).toBeVisible();
         expect(
             useEditorStore.getState().tabs.some((tab) => isReviewTab(tab)),
         ).toBe(false);
@@ -288,13 +288,13 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        expect(screen.getByText("Undo last reject")).toBeInTheDocument();
+        expect(screen.getByText("撤销上次拒绝")).toBeInTheDocument();
 
         act(() => {
             vi.advanceTimersByTime(5000);
         });
 
-        expect(screen.queryByText("Undo last reject")).not.toBeInTheDocument();
+        expect(screen.queryByText("撤销上次拒绝")).not.toBeInTheDocument();
 
         vi.useRealTimers();
     });
@@ -358,24 +358,24 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        expect(screen.getByText("Edits")).toBeInTheDocument();
+        expect(screen.getByText("编辑")).toBeInTheDocument();
         expect(screen.getByText("(2)")).toBeInTheDocument();
         expect(
-            screen.getByRole("button", { name: "Reject All" }),
+            screen.getByRole("button", { name: "全部拒绝" }),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole("button", { name: "Review" }),
+            screen.getByRole("button", { name: "审阅" }),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole("button", { name: "Keep All" }),
+            screen.getByRole("button", { name: "全部保留" }),
         ).toBeInTheDocument();
         expect(
-            screen.getAllByRole("button", { name: "Open File" })[0],
+            screen.getAllByRole("button", { name: "打开文件" })[0],
         ).toBeEnabled();
         expect(
             screen.queryByRole("button", { name: "Review Diff" }),
         ).not.toBeInTheDocument();
-        expect(screen.getAllByRole("button", { name: "Reject" })).toHaveLength(
+        expect(screen.getAllByRole("button", { name: "拒绝" })).toHaveLength(
             2,
         );
     });
@@ -400,12 +400,12 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        expect(screen.getByText("Conflict")).toBeInTheDocument();
+        expect(screen.getByText("冲突")).toBeInTheDocument();
         expect(
-            screen.queryByRole("button", { name: "Reject" }),
+            screen.queryByRole("button", { name: "拒绝" }),
         ).not.toBeInTheDocument();
         expect(
-            screen.getByRole("button", { name: "Reject All" }),
+            screen.getByRole("button", { name: "全部拒绝" }),
         ).toBeDisabled();
     });
 
@@ -467,7 +467,7 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        const openButton = screen.getByRole("button", { name: "Open File" });
+        const openButton = screen.getByRole("button", { name: "打开文件" });
         expect(openButton).toBeEnabled();
 
         fireEvent.click(openButton);
@@ -510,10 +510,10 @@ describe("EditedFilesBufferPanel", () => {
         renderComponent(<EditedFilesBufferPanel />);
 
         expect(
-            screen.getByRole("button", { name: "Open File" }),
+            screen.getByRole("button", { name: "打开文件" }),
         ).toBeDisabled();
 
-        fireEvent.click(screen.getByRole("button", { name: "Review" }));
+        fireEvent.click(screen.getByRole("button", { name: "审阅" }));
 
         expect(
             useEditorStore
@@ -556,7 +556,7 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Review" }));
+        fireEvent.click(screen.getByRole("button", { name: "审阅" }));
 
         const { tabs, activeTabId } = useEditorStore.getState();
         const reviewTab = tabs.find(
@@ -601,7 +601,7 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Review" }));
+        fireEvent.click(screen.getByRole("button", { name: "审阅" }));
 
         const reviewTab = useEditorStore
             .getState()
@@ -646,7 +646,7 @@ describe("EditedFilesBufferPanel", () => {
 
         renderComponent(<EditedFilesBufferPanel />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Review" }));
+        fireEvent.click(screen.getByRole("button", { name: "审阅" }));
 
         const reviewTab = useEditorStore
             .getState()
@@ -692,7 +692,7 @@ describe("EditedFilesBufferPanel", () => {
             screen.queryByRole("button", { name: "Review Diff" }),
         ).not.toBeInTheDocument();
         expect(
-            screen.getAllByRole("button", { name: "Open File" }),
+            screen.getAllByRole("button", { name: "打开文件" }),
         ).toHaveLength(17);
         expect(screen.getByTestId("edited-files-buffer-list")).toHaveStyle({
             maxHeight: `${COMPACT_REVIEW_MAX_LIST_HEIGHT_PX}px`,
@@ -709,7 +709,7 @@ describe("EditedFilesBufferPanel", () => {
                 maxHeight: `${COMPACT_REVIEW_ROW_HEIGHT_PX}px`,
             },
         );
-        expect(screen.getAllByRole("button", { name: "Open File" })[0])
+        expect(screen.getAllByRole("button", { name: "打开文件" })[0])
             .toHaveStyle({
                 width: "24px",
                 height: "24px",
@@ -735,7 +735,7 @@ describe("EditedFilesBufferPanel", () => {
         renderComponent(<EditedFilesBufferPanel />);
 
         const toggle = screen.getByRole("button", {
-            name: "Collapse edits",
+            name: "折叠编辑",
         });
         expect(toggle).toHaveAttribute("aria-expanded", "true");
         expect(
@@ -794,8 +794,8 @@ describe("EditedFilesBufferPanel", () => {
         expect(
             screen.queryByRole("button", { name: "Review Diff" }),
         ).not.toBeInTheDocument();
-        expect(screen.getAllByRole("button", { name: "Keep" }).length).toBe(2);
-        expect(screen.getAllByRole("button", { name: "Reject" }).length).toBe(
+        expect(screen.getAllByRole("button", { name: "保留" }).length).toBe(2);
+        expect(screen.getAllByRole("button", { name: "拒绝" }).length).toBe(
             2,
         );
     });

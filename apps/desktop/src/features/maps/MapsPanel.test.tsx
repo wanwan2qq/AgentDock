@@ -144,10 +144,10 @@ describe("MapsPanel", () => {
             clientY: 40,
         });
 
-        await user.click(await screen.findByText("Rename"));
+        await user.click(await screen.findByText("重命名"));
 
         const renameInput = await screen.findByLabelText(
-            "Rename Map 2026-04-05",
+            "重命名 Map 2026-04-05",
         );
         await user.clear(renameInput);
         await user.type(renameInput, "Architecture{Enter}");
@@ -207,7 +207,7 @@ describe("MapsPanel", () => {
             clientY: 50,
         });
 
-        await user.click(await screen.findByText("Delete Map"));
+        await user.click(await screen.findByText("删除概念图"));
 
         await waitFor(() => {
             expect(invokeMock).toHaveBeenCalledWith("delete_map", {

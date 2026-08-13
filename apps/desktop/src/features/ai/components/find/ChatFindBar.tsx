@@ -14,7 +14,7 @@ interface ChatFindBarProps {
 
 function counterLabel(query: string, total: number, activeIndex: number): string {
     if (!query) return "";
-    if (total === 0) return "No results";
+    if (total === 0) return "无结果";
     return `${activeIndex + 1}/${total}`;
 }
 
@@ -87,7 +87,7 @@ export function ChatFindBar({
     return (
         <div
             role="search"
-            aria-label="Find in chat"
+            aria-label="在对话中查找"
             className="absolute right-3 top-2 z-10 flex items-center gap-1 rounded-[10px] px-1.5 py-1"
             style={{
                 background: "var(--bg-elevated)",
@@ -114,8 +114,8 @@ export function ChatFindBar({
                         else onNext();
                     }
                 }}
-                placeholder="Find in chat…"
-                aria-label="Find in chat"
+                placeholder="在对话中查找…"
+                aria-label="在对话中查找"
                 spellCheck={false}
                 className="h-[22px] min-w-0 rounded px-2 outline-none"
                 style={{
@@ -140,9 +140,9 @@ export function ChatFindBar({
             <button
                 type="button"
                 onClick={onToggleCaseSensitive}
-                aria-label="Match case"
+                aria-label="区分大小写"
                 aria-pressed={caseSensitive}
-                title="Match case"
+                title="区分大小写"
                 className="nw-control-trigger flex h-[26px] w-[26px] items-center justify-center rounded-md text-[11px] font-semibold"
                 style={{
                     color: caseSensitive
@@ -158,8 +158,8 @@ export function ChatFindBar({
             <FindIconButton
                 onClick={onPrev}
                 disabled={disabled}
-                ariaLabel="Previous match"
-                title="Previous match (Shift+Enter)"
+                ariaLabel="上一个匹配"
+                title="上一个匹配 (Shift+Enter)"
             >
                 <path d="M3 9L7 5L11 9" />
             </FindIconButton>
@@ -167,16 +167,16 @@ export function ChatFindBar({
             <FindIconButton
                 onClick={onNext}
                 disabled={disabled}
-                ariaLabel="Next match"
-                title="Next match (Enter)"
+                ariaLabel="下一个匹配"
+                title="下一个匹配 (Enter)"
             >
                 <path d="M3 5L7 9L11 5" />
             </FindIconButton>
 
             <FindIconButton
                 onClick={onClose}
-                ariaLabel="Close find"
-                title="Close (Esc)"
+                ariaLabel="关闭查找"
+                title="关闭 (Esc)"
             >
                 <path d="M3.5 3.5L10.5 10.5M10.5 3.5L3.5 10.5" />
             </FindIconButton>

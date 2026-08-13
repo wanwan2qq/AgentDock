@@ -329,8 +329,8 @@ describe("AIReviewView", () => {
         });
 
         renderComponent(<AIReviewView />);
-        expect(screen.getByText("Reject All")).toBeInTheDocument();
-        expect(screen.getByText("Keep All")).toBeInTheDocument();
+        expect(screen.getByText("全部拒绝")).toBeInTheDocument();
+        expect(screen.getByText("全部保留")).toBeInTheDocument();
     });
 
     it("closes the review tab when Keep All accepts the last pending file", async () => {
@@ -345,7 +345,7 @@ describe("AIReviewView", () => {
 
         renderComponent(<AIReviewView />);
 
-        fireEvent.click(screen.getByRole("button", { name: "Keep All" }));
+        fireEvent.click(screen.getByRole("button", { name: "全部保留" }));
 
         await waitFor(() =>
             expect(
@@ -376,7 +376,7 @@ describe("AIReviewView", () => {
         });
 
         renderComponent(<AIReviewView />);
-        expect(screen.getByText("Conflict")).toBeInTheDocument();
+        expect(screen.getByText("冲突")).toBeInTheDocument();
     });
 
     it("shows Open File button when note exists in vault", () => {
@@ -397,7 +397,7 @@ describe("AIReviewView", () => {
         });
 
         renderComponent(<AIReviewView />);
-        expect(screen.getByTitle("Open File")).toBeInTheDocument();
+        expect(screen.getByTitle("打开文件")).toBeInTheDocument();
     });
 
     it("enables Open File for supported non-note vault files", () => {
@@ -433,7 +433,7 @@ describe("AIReviewView", () => {
         });
 
         renderComponent(<AIReviewView />);
-        expect(screen.getByTitle("Open File")).toBeEnabled();
+        expect(screen.getByTitle("打开文件")).toBeEnabled();
     });
 
     it("enables Open File for supported text files even when the vault entry is not indexed yet", () => {
@@ -455,7 +455,7 @@ describe("AIReviewView", () => {
         });
 
         renderComponent(<AIReviewView />);
-        expect(screen.getByTitle("Open File")).toBeEnabled();
+        expect(screen.getByTitle("打开文件")).toBeEnabled();
     });
 
     it("scopes review actions to the review tab session instead of the active chat session", () => {
@@ -492,9 +492,9 @@ describe("AIReviewView", () => {
 
         renderComponent(<AIReviewView />);
 
-        fireEvent.click(screen.getByTitle("Reject"));
-        fireEvent.click(screen.getByRole("button", { name: "Reject All" }));
-        fireEvent.click(screen.getByRole("button", { name: "Keep All" }));
+        fireEvent.click(screen.getByTitle("拒绝"));
+        fireEvent.click(screen.getByRole("button", { name: "全部拒绝" }));
+        fireEvent.click(screen.getByRole("button", { name: "全部保留" }));
 
         expect(rejectEditedFile).toHaveBeenCalledWith(
             reviewSessionId,
@@ -563,7 +563,7 @@ describe("AIReviewView", () => {
         try {
             const firstRender = renderComponent(<AIReviewView />);
 
-            fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+            fireEvent.click(screen.getByRole("button", { name: "折叠" }));
             expect(
                 screen.queryByRole("button", { name: "Reject hunk 1" }),
             ).not.toBeInTheDocument();
@@ -600,7 +600,7 @@ describe("AIReviewView", () => {
             renderComponent(<AIReviewView />);
 
             expect(
-                screen.getByRole("button", { name: "Expand" }),
+                screen.getByRole("button", { name: "展开" }),
             ).toBeInTheDocument();
             expect(
                 screen.getByRole("button", { name: "Center" }),
@@ -850,7 +850,7 @@ describe("AIReviewView", () => {
         renderComponent(<AIReviewView />);
 
         expect(screen.getByText("file.md")).toBeInTheDocument();
-        expect(screen.getByTitle("Reject")).toBeInTheDocument();
+        expect(screen.getByTitle("拒绝")).toBeInTheDocument();
         const rejectHunk1 = screen.getByRole("button", {
             name: "Reject hunk 1",
         });

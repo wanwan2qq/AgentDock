@@ -94,10 +94,10 @@ describe("AIChatHistoryWorkspaceView", () => {
 
         renderComponent(<AIChatHistoryWorkspaceView />);
 
-        await screen.findByRole("button", { name: "Restore" });
-        expect(screen.queryByTitle("Back to chat")).toBeNull();
+        await screen.findByRole("button", { name: "恢复" });
+        expect(screen.queryByTitle("返回对话")).toBeNull();
 
-        fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+        fireEvent.click(screen.getByRole("button", { name: "恢复" }));
 
         await waitFor(() => {
             expect(loadSession).toHaveBeenCalledWith("session-a");
@@ -146,17 +146,17 @@ describe("AIChatHistoryWorkspaceView", () => {
         }));
 
         renderComponent(<AIChatHistoryWorkspaceView />);
-        await screen.findByRole("button", { name: "Restore" });
+        await screen.findByRole("button", { name: "恢复" });
 
         const cardTitle = screen.getAllByText("Saved conversation")[0];
 
         fireEvent.mouseEnter(cardTitle!);
-        fireEvent.click(screen.getByTitle("Fork chat"));
+        fireEvent.click(screen.getByTitle("派生对话"));
         await waitFor(() => {
             expect(forkSession).toHaveBeenCalledWith("session-a");
         });
 
-        fireEvent.click(screen.getAllByTitle("Export to note")[0]!);
+        fireEvent.click(screen.getAllByTitle("导出为笔记")[0]!);
         await waitFor(() => {
             expect(ensureSessionTranscriptLoaded).toHaveBeenCalledWith(
                 "session-a",
@@ -178,8 +178,8 @@ describe("AIChatHistoryWorkspaceView", () => {
             );
         });
 
-        fireEvent.click(screen.getByTitle("Delete chat"));
-        fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+        fireEvent.click(screen.getByTitle("删除对话"));
+        fireEvent.click(await screen.findByRole("button", { name: "删除" }));
         await waitFor(() => {
             expect(deleteSession).toHaveBeenCalledWith("session-a");
         });
@@ -230,7 +230,7 @@ describe("AIChatHistoryWorkspaceView", () => {
         ).toBeTruthy();
 
         fireEvent.click(childRowTitle);
-        fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+        fireEvent.click(screen.getByRole("button", { name: "恢复" }));
 
         await waitFor(() => {
             expect(loadSession).toHaveBeenCalledWith("child-session");
@@ -258,7 +258,7 @@ describe("AIChatHistoryWorkspaceView", () => {
 
         renderComponent(<AIChatHistoryWorkspaceView />);
 
-        fireEvent.change(screen.getByPlaceholderText("Search chats…"), {
+        fireEvent.change(screen.getByPlaceholderText("搜索对话…"), {
             target: { value: "galileo" },
         });
 

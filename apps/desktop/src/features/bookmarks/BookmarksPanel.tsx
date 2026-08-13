@@ -349,7 +349,7 @@ export function BookmarksPanel() {
                     item.entryPath
                 );
             }
-            return "Unknown";
+            return "未知";
         },
         [noteMap, entryMap],
     );
@@ -631,7 +631,7 @@ export function BookmarksPanel() {
             case "blank":
                 return [
                     {
-                        label: "New Folder",
+                        label: "新建文件夹",
                         action: startCreatingFolder,
                     },
                 ];
@@ -642,21 +642,21 @@ export function BookmarksPanel() {
                 ).length;
                 return [
                     {
-                        label: isExpanded ? "Collapse" : "Expand",
+                        label: isExpanded ? "折叠" : "展开",
                         action: () => toggleFolder(folder.id),
                     },
                     {
-                        label: "Open All in Tabs",
+                        label: "全部在标签中打开",
                         action: () => void handleOpenAllInTabs(folder.id),
                         disabled: folderItemCount === 0,
                     },
                     { type: "separator" },
                     {
-                        label: "Rename",
+                        label: "重命名",
                         action: () => startRename(folder),
                     },
                     {
-                        label: "Delete Folder",
+                        label: "删除文件夹",
                         action: () => deleteFolder(folder.id),
                         danger: true,
                     },
@@ -667,17 +667,17 @@ export function BookmarksPanel() {
                 const isNote = item.kind === "note";
                 return [
                     {
-                        label: "Open",
+                        label: "打开",
                         action: () => void handleItemClick(item),
                     },
                     {
-                        label: "Open in New Tab",
+                        label: "在新标签中打开",
                         action: () => void handleOpenItemInNewTab(item),
                     },
                     ...(isNote
                         ? [
                               {
-                                  label: "Open in New Window",
+                                  label: "在新窗口中打开",
                                   action: () =>
                                       void handleOpenItemInNewWindow(item),
                               } as ContextMenuEntry,
@@ -685,7 +685,7 @@ export function BookmarksPanel() {
                         : []),
                     { type: "separator" as const },
                     {
-                        label: "Remove from Bookmarks",
+                        label: "从书签中移除",
                         action: () => removeBookmark(item.id),
                         danger: true,
                     },
@@ -708,11 +708,11 @@ export function BookmarksPanel() {
                         className="text-xs font-semibold uppercase tracking-wider"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        Bookmarks
+                        书签
                     </span>
                     <button
                         onClick={startCreatingFolder}
-                        title="New Folder"
+                        title="新建文件夹"
                         className="flex items-center justify-center rounded transition-opacity"
                         style={{
                             width: 18,
@@ -744,7 +744,7 @@ export function BookmarksPanel() {
                     <SidebarFilterInput
                         value={filterText}
                         onChange={setFilterText}
-                        placeholder="Filter bookmarks..."
+                        placeholder="筛选书签…"
                     />
                 </div>
             </div>
@@ -772,7 +772,7 @@ export function BookmarksPanel() {
                         className="text-xs px-3 py-2"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        No vault open
+                        未打开仓库
                     </p>
                 ) : rows.length === 0 && !creatingFolder ? (
                     <p
@@ -780,8 +780,8 @@ export function BookmarksPanel() {
                         style={{ color: "var(--text-secondary)" }}
                     >
                         {filterText.trim()
-                            ? `No bookmarks match "${filterText}"`
-                            : "No bookmarks yet. Right-click a note in the file tree to add one."}
+                            ? `没有匹配「${filterText}」的书签`
+                            : "暂无书签。在文件树中右键笔记即可添加。"}
                     </p>
                 ) : (
                     <div
@@ -815,7 +815,7 @@ export function BookmarksPanel() {
                                         }
                                     }}
                                     onBlur={confirmCreateFolder}
-                                    placeholder="Folder name…"
+                                    placeholder="文件夹名称…"
                                     className="flex-1 bg-transparent outline-none"
                                     style={{
                                         fontSize: m.fontSize,

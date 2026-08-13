@@ -263,29 +263,29 @@ function FullRow({
                 {/* Inline action buttons */}
                 <div className="flex shrink-0 items-center gap-0.5">
                     <FullRowActionButton
-                        title="Open File"
+                        title="打开文件"
                         variant="neutral"
                         onClick={() =>
                             void openAiEditedFileByAbsolutePath(file.path)
                         }
                     >
-                        Open
+                        打开
                     </FullRowActionButton>
                     {canReject ? (
                         <FullRowActionButton
-                            title="Reject"
+                            title="拒绝"
                             variant="danger"
                             onClick={onReject}
                         >
-                            Reject
+                            拒绝
                         </FullRowActionButton>
                     ) : null}
                     <FullRowActionButton
-                        title="Accept"
+                        title="保留"
                         variant="accent"
                         onClick={onKeep}
                     >
-                        Accept
+                        保留
                     </FullRowActionButton>
                 </div>
             </div>
@@ -406,7 +406,7 @@ function CompactRow({
                     {/* Open File — external-link icon */}
                     <button
                         type="button"
-                        title="Open File"
+                        title="打开文件"
                         onClick={() => {
                             if (!canOpen) return;
                             void openAiEditedFileByAbsolutePath(file.path);
@@ -442,7 +442,7 @@ function CompactRow({
                     {canReject ? (
                         <button
                             type="button"
-                            title="Reject"
+                            title="拒绝"
                             onClick={onReject}
                             className="nw-strip-icon-btn flex shrink-0 items-center justify-center rounded-sm border-0 bg-transparent"
                             style={{
@@ -471,7 +471,7 @@ function CompactRow({
                     {/* Keep — checkmark icon */}
                     <button
                         type="button"
-                        title="Keep"
+                        title="保留"
                         onClick={onKeep}
                         className="nw-strip-icon-btn flex shrink-0 items-center justify-center rounded-sm border-0 bg-transparent"
                         style={{

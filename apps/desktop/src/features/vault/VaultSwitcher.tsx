@@ -38,7 +38,7 @@ export function VaultSwitcher({
         );
     });
 
-    const vaultName = vaultPath ? getPathBaseName(vaultPath) : "No vault";
+    const vaultName = vaultPath ? getPathBaseName(vaultPath) : "无仓库";
     const closeSwitcher = useCallback(() => {
         setIsOpen(false);
         setRecentSearch("");
@@ -74,7 +74,7 @@ export function VaultSwitcher({
 
     const handleOpenVault = async () => {
         closeSwitcher();
-        const selected = await open({ directory: true, title: "Select vault" });
+        const selected = await open({ directory: true, title: "选择仓库" });
         if (!selected || selected === vaultPath) return;
         void openVaultWindow(selected);
     };
@@ -175,8 +175,8 @@ export function VaultSwitcher({
                                 onChange={(event) =>
                                     setRecentSearch(event.target.value)
                                 }
-                                aria-label="Search vaults"
-                                placeholder="Search vaults…"
+                                aria-label="搜索仓库"
+                                placeholder="搜索仓库…"
                                 style={{
                                     flex: 1,
                                     border: "none",
@@ -203,7 +203,7 @@ export function VaultSwitcher({
                     {recents.length > 0 && (
                         <div
                             role="list"
-                            aria-label="Vault switcher recent vaults"
+                            aria-label="最近仓库"
                             style={{
                                 maxHeight: 240,
                                 overflowY: "auto",
@@ -217,7 +217,7 @@ export function VaultSwitcher({
                                         color: "var(--text-secondary)",
                                     }}
                                 >
-                                    No vaults match your search.
+                                    没有匹配的仓库。
                                 </div>
                             ) : (
                                 filteredRecents.map((v) => (
@@ -242,7 +242,7 @@ export function VaultSwitcher({
                         />
                     )}
                     {menuItem(
-                        "Open vault…",
+                        "打开仓库…",
                         () => void handleOpenVault(),
                         false,
                         true,
@@ -258,8 +258,8 @@ export function VaultSwitcher({
                             />
                             {menuItem(
                                 updateAvailable
-                                    ? "Settings · Update available"
-                                    : "Settings…",
+                                    ? "设置 · 有可用更新"
+                                    : "设置…",
                                 handleOpenSettings,
                                 false,
                                 true,
@@ -369,11 +369,11 @@ export function VaultSwitcher({
                     onClose={() => setContextMenu(null)}
                     entries={[
                         {
-                            label: "Open Vault…",
+                            label: "打开仓库…",
                             action: () => void handleOpenVault(),
                         },
                         {
-                            label: "Copy Vault Path",
+                            label: "复制仓库路径",
                             action: () =>
                                 void navigator.clipboard.writeText(
                                     contextMenu.payload.path ?? "",

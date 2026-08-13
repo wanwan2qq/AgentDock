@@ -4247,7 +4247,7 @@ function isCategory(value: string | null | undefined): value is Category {
 const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     {
         id: "general",
-        label: "General",
+        label: "通用",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <circle
@@ -4268,7 +4268,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "appearance",
-        label: "Appearance",
+        label: "外观",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <circle
@@ -4288,7 +4288,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "editor",
-        label: "Editor",
+        label: "编辑器",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path
@@ -4322,7 +4322,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "ai_providers",
-        label: "AI providers",
+        label: "AI 提供商",
         icon: (
             <svg
                 width="15"
@@ -4343,7 +4343,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "spellcheck",
-        label: "Spellcheck",
+        label: "拼写检查",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path
@@ -4358,7 +4358,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "shortcuts",
-        label: "Shortcuts",
+        label: "快捷键",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <rect
@@ -4393,7 +4393,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "vault",
-        label: "Vault",
+        label: "仓库",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path
@@ -4406,7 +4406,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "developers",
-        label: "File Tree",
+        label: "文件树",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path
@@ -4421,7 +4421,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "terminal",
-        label: "Terminal",
+        label: "终端",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <rect
@@ -4445,7 +4445,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "updates",
-        label: "Updates",
+        label: "更新",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path
@@ -4460,7 +4460,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "feedback",
-        label: "Feedback",
+        label: "反馈",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path
@@ -4481,7 +4481,7 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
     },
     {
         id: "sponsors",
-        label: "Sponsors",
+        label: "赞助",
         icon: (
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path

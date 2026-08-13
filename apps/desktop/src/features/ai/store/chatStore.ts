@@ -5334,6 +5334,30 @@ function hasPersistedHistoryContent(history: PersistedSessionHistory) {
     return getPersistedHistoryMessageCount(history) > 0;
 }
 
+/** Empty live ACP shells left behind by Cursor-style reconnect (no native resume). */
+function isEmptyLiveSidebarOrphan(
+    session: AIChatSession,
+    persistedBySessionId: Map<string, PersistedSessionHistory>,
+) {
+    if (session.parentSessionId?.trim()) {
+        return false;
+    }
+    if (getSessionTranscriptLength(session) > 0) {
+        return false;
+    }
+    if ((session.persistedMessageCount ?? 0) > 0) {
+        return false;
+    }
+    if (session.customTitle?.trim() || session.persistedTitle?.trim()) {
+        return false;
+    }
+    const persisted = persistedBySessionId.get(session.historySessionId);
+    if (persisted && hasPersistedHistoryContent(persisted)) {
+        return false;
+    }
+    return true;
+}
+
 function hasOlderPersistedMessages(session: AIChatSession) {
     return (session.loadedPersistedMessageStart ?? 0) > 0;
 }
@@ -7823,6 +7847,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                 }
 
                 if (sessions.length || histories.length) {
+                    const orphanRuntimeSessionIds: string[] = [];
                     set((state) => {
                         const existingSessionByHistoryId = new Map(
                             Object.values(state.sessionsById).flatMap(
@@ -7849,6 +7874,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                                 existingSessionByHistoryId.get(
                                     scopedSession.historySessionId,
                                 );
+                            const knownToFrontend = Boolean(existing);
                             let merged = mergeSession(existing, scopedSession);
                             const persisted = persistedBySessionId.get(
                                 merged.historySessionId,
@@ -7878,6 +7904,22 @@ export const useChatStore = create<ChatStore>((set, get) => {
                                     },
                                     restoreMessagesFromHistory(persisted),
                                 );
+                            }
+
+                            // Drop backend-only empty shells from Cursor reconnect
+                            // orphans so they do not flood the Agents sidebar.
+                            if (
+                                isEmptyLiveSidebarOrphan(
+                                    merged,
+                                    persistedBySessionId,
+                                ) &&
+                                !knownToFrontend &&
+                                state.activeSessionId !== merged.sessionId
+                            ) {
+                                orphanRuntimeSessionIds.push(
+                                    merged.sessionId,
+                                );
+                                return accumulator;
                             }
 
                             accumulator[scopedSession.sessionId] = merged;
@@ -7946,6 +7988,14 @@ export const useChatStore = create<ChatStore>((set, get) => {
                             ),
                         };
                     });
+
+                    await Promise.all(
+                        orphanRuntimeSessionIds.map((orphanSessionId) =>
+                            aiDeleteRuntimeSession(orphanSessionId).catch(
+                                () => {},
+                            ),
+                        ),
+                    );
 
                     const nextActiveSessionId = get().activeSessionId;
                     if (
@@ -9489,7 +9539,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     id: messageId,
                     role: "assistant",
                     kind: "permission",
-                    title: "Permission request",
+                    title: "权限请求",
                     content: payload.title,
                     timestamp: eventTimestamp,
                     workCycleId: nextSession.activeWorkCycleId,
@@ -9956,6 +10006,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
                 };
             };
 
+            let createdReplacementSessionId: string | null = null;
+
             try {
                 const currentSession = get().sessionsById[sessionId];
                 if (!currentSession || isLiveRuntimeSession(currentSession)) {
@@ -10075,6 +10127,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                             );
                         resumedSession = fallback.resumedSession;
                         resumeContextPending = fallback.resumeContextPending;
+                        createdReplacementSessionId = resumedSession.sessionId;
                     }
                 } else {
                     const fallback = await createTranscriptResumeSession(
@@ -10083,6 +10136,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     );
                     resumedSession = fallback.resumedSession;
                     resumeContextPending = fallback.resumeContextPending;
+                    createdReplacementSessionId = resumedSession.sessionId;
                 }
 
                 if (hasRuntimeCatalog(latestCatalog)) {
@@ -10148,7 +10202,34 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     ),
                 );
 
-                migrateSessionLocalState(sessionId, migratedSession);
+                const migrated = migrateSessionLocalState(
+                    sessionId,
+                    migratedSession,
+                );
+                if (!migrated) {
+                    // Frontend no longer owned the old id — drop the freshly
+                    // created ACP session so it cannot resurface via list_sessions.
+                    if (sessionId !== migratedSession.sessionId) {
+                        await aiDeleteRuntimeSession(
+                            migratedSession.sessionId,
+                        ).catch(() => {});
+                    }
+                    throw new Error(
+                        "Failed to migrate the reconnected chat into the workspace.",
+                    );
+                }
+
+                // Cursor/OpenCode reconnect creates a new ACP session id. Delete
+                // the previous runtime handle so empty "New chat" shells do not
+                // accumulate in ai_list_sessions / the Agents sidebar.
+                // Skip persisted:* ids — they were never registered with the runtime.
+                if (
+                    sessionId !== migratedSession.sessionId &&
+                    !sessionId.startsWith("persisted:")
+                ) {
+                    await aiDeleteRuntimeSession(sessionId).catch(() => {});
+                }
+
                 logResumeRecovery("succeeded", {
                     resume_strategy: resumeStrategy,
                     history_session_id: historySessionId,
@@ -10216,6 +10297,14 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     // over a generic reconnect copy so the timeline stays actionable.
                     message: message || SAVED_CHAT_RECONNECT_FAILED_MESSAGE,
                 });
+                if (
+                    createdReplacementSessionId &&
+                    createdReplacementSessionId !== sessionId
+                ) {
+                    await aiDeleteRuntimeSession(
+                        createdReplacementSessionId,
+                    ).catch(() => {});
+                }
                 if (isAuthenticationErrorMessage(message, failedSession.runtimeId)) {
                     await get().refreshSetupStatus(
                         get().sessionsById[sessionId]?.runtimeId,
