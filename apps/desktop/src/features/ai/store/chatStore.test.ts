@@ -16525,6 +16525,64 @@ describe("chatStore", () => {
         ).toBe("low");
     });
 
+    it("shows the selected model immediately even if ai_set_config_option returns stale data", async () => {
+        await useChatStore.getState().initialize();
+
+        const sessionId = getActiveSessionId();
+        const existing = useChatStore.getState().sessionsById[sessionId]!;
+        const deferred = createDeferred<typeof sessionPayload>();
+
+        invokeMock.mockImplementation(async (command, args) => {
+            if (command === "ai_set_config_option") {
+                const input =
+                    typeof args === "object" && args !== null && "input" in args
+                        ? (args.input as {
+                              option_id?: string;
+                              value?: string;
+                          })
+                        : undefined;
+
+                expect(input?.option_id).toBe("model");
+                expect(input?.value).toBe("wide-model");
+                return deferred.promise;
+            }
+
+            return defaultInvokeImplementation(command, args);
+        });
+
+        const actionPromise = useChatStore
+            .getState()
+            .setConfigOption("model", "wide-model", sessionId);
+
+        await vi.waitFor(() => {
+            const optimisticSession =
+                useChatStore.getState().sessionsById[sessionId]!;
+            expect(optimisticSession.modelId).toBe("wide-model");
+            expect(
+                optimisticSession.configOptions.find(
+                    (option) => option.id === "model",
+                )?.value,
+            ).toBe("wide-model");
+        });
+
+        deferred.resolve({
+            ...sessionPayload,
+            session_id: sessionId,
+            model_id: existing.modelId,
+            mode_id: existing.modeId,
+            config_options: acpConfigOptions,
+        });
+
+        await actionPromise;
+
+        const finalSession = useChatStore.getState().sessionsById[sessionId]!;
+        expect(finalSession.modelId).toBe("wide-model");
+        expect(
+            finalSession.configOptions.find((option) => option.id === "model")
+                ?.value,
+        ).toBe("wide-model");
+    });
+
     it("accepts updates for the active workspace session even when its stored vault path is stale", async () => {
         useVaultStore.setState({ vaultPath: "/vault", notes: [] });
         await useChatStore.getState().initialize();

@@ -1612,7 +1612,11 @@ impl NativeAi {
             (Some(handle), Some(option_id)) => {
                 match self.session_config_option_remote_command(&session_id, &option_id)? {
                     AcpConfigOptionRemoteCommand::SetConfigOption => {
-                        Some(handle.set_config_option(&session_id, &option_id, &model_id)?)
+                        match handle.set_config_option(&session_id, &option_id, &model_id) {
+                            Ok(options) => Some(options),
+                            Err(error) if is_unsupported_acp_config_method_error(&error) => None,
+                            Err(error) => return Err(error),
+                        }
                     }
                     AcpConfigOptionRemoteCommand::SetModel => {
                         handle.set_model(&session_id, &model_id)?;
@@ -1628,9 +1632,8 @@ impl NativeAi {
                 let mapped_options =
                     map_session_config_options(&session.runtime_id, config_options);
                 apply_config_options_to_session(session, mapped_options);
-            } else {
-                apply_model_update_to_session(session, &model_id);
             }
+            ensure_session_reflects_model_selection(session, &model_id);
             Ok(())
         })
     }
@@ -1656,7 +1659,11 @@ impl NativeAi {
             self.session_config_option_remote_command(&input.session_id, &input.option_id)?;
         let config_options = match (self.session_handle(&input.session_id)?, remote_command) {
             (Some(handle), AcpConfigOptionRemoteCommand::SetConfigOption) => {
-                Some(handle.set_config_option(&input.session_id, &input.option_id, &input.value)?)
+                match handle.set_config_option(&input.session_id, &input.option_id, &input.value) {
+                    Ok(options) => Some(options),
+                    Err(error) if is_unsupported_acp_config_method_error(&error) => None,
+                    Err(error) => return Err(error),
+                }
             }
             (Some(handle), AcpConfigOptionRemoteCommand::SetModel) => {
                 handle.set_model(&input.session_id, &input.value)?;
@@ -1669,10 +1676,9 @@ impl NativeAi {
                 let mapped_options =
                     map_session_config_options(&session.runtime_id, config_options);
                 apply_config_options_to_session(session, mapped_options);
-                return Ok(());
             }
 
-            apply_local_config_option_selection(session, &input.option_id, input.value)
+            ensure_session_reflects_config_option_selection(session, &input.option_id, input.value)
         })
     }
 
@@ -5417,10 +5423,16 @@ fn apply_local_config_option_selection(
     option_id: &str,
     value: String,
 ) -> Result<(), String> {
-    if option_id == "model" {
+    let category = session
+        .config_options
+        .iter()
+        .find(|option| option.id == option_id)
+        .map(|option| option.category.clone())
+        .ok_or_else(|| format!("AI config option not found: {option_id}"))?;
+    if matches!(category, AiConfigOptionCategory::Model) || option_id == "model" {
         session.model_id = strip_effort_suffix(&value).to_string();
     }
-    if option_id == "mode" {
+    if matches!(category, AiConfigOptionCategory::Mode) || option_id == "mode" {
         session.mode_id = value.clone();
     }
     let option = session
@@ -5430,6 +5442,71 @@ fn apply_local_config_option_selection(
         .ok_or_else(|| format!("AI config option not found: {option_id}"))?;
     option.value = value;
     Ok(())
+}
+
+fn session_reflects_config_option_selection(
+    session: &AiSession,
+    option_id: &str,
+    value: &str,
+) -> bool {
+    let Some(option) = session
+        .config_options
+        .iter()
+        .find(|option| option.id == option_id)
+    else {
+        return false;
+    };
+    if option.value != value {
+        return false;
+    }
+    if matches!(option.category, AiConfigOptionCategory::Model) {
+        return session.model_id == strip_effort_suffix(value);
+    }
+    if matches!(option.category, AiConfigOptionCategory::Mode) {
+        return session.mode_id == value;
+    }
+    true
+}
+
+fn ensure_session_reflects_config_option_selection(
+    session: &mut AiSession,
+    option_id: &str,
+    value: String,
+) -> Result<(), String> {
+    if session_reflects_config_option_selection(session, option_id, &value) {
+        return Ok(());
+    }
+    match apply_local_config_option_selection(session, option_id, value.clone()) {
+        Ok(()) => Ok(()),
+        Err(_) if option_id == "model" => {
+            apply_model_update_to_session(session, &value);
+            Ok(())
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn ensure_session_reflects_model_selection(session: &mut AiSession, model_id: &str) {
+    if session.model_id == strip_effort_suffix(model_id)
+        && session
+            .config_options
+            .iter()
+            .find(|option| matches!(option.category, AiConfigOptionCategory::Model))
+            .is_none_or(|option| option.value == model_id)
+    {
+        return;
+    }
+    apply_model_update_to_session(session, model_id);
+}
+
+fn is_unsupported_acp_config_method_error(error: &str) -> bool {
+    let normalized = error.to_ascii_lowercase();
+    normalized.contains("method not found")
+        || normalized.contains("-32601")
+        || normalized.contains("not implemented")
+        || normalized.contains("unsupported method")
+        || normalized.contains("does not support")
+        || normalized.contains("must use session config options")
 }
 
 fn acp_config_option_remote_command(
@@ -13581,6 +13658,65 @@ mod tests {
             acp_config_option_remote_command(GROK_RUNTIME_ID, &[], "model"),
             AcpConfigOptionRemoteCommand::LocalOnly
         );
+    }
+
+    #[test]
+    fn stale_remote_config_options_keep_requested_model_selection() {
+        let mut session = new_session_with_id(CURSOR_RUNTIME_ID, "session-1".to_string()).unwrap();
+        session.model_id = "composer".to_string();
+        session.config_options = map_session_config_options(
+            CURSOR_RUNTIME_ID,
+            vec![SessionConfigOption::select(
+                "model",
+                "Model",
+                "composer",
+                vec![
+                    SessionConfigSelectOption::new("composer", "Composer"),
+                    SessionConfigSelectOption::new("gpt-5", "GPT-5"),
+                ],
+            )
+            .category(SessionConfigOptionCategory::Model)],
+        );
+
+        let stale_options = map_session_config_options(
+            CURSOR_RUNTIME_ID,
+            vec![SessionConfigOption::select(
+                "model",
+                "Model",
+                "composer",
+                vec![
+                    SessionConfigSelectOption::new("composer", "Composer"),
+                    SessionConfigSelectOption::new("gpt-5", "GPT-5"),
+                ],
+            )
+            .category(SessionConfigOptionCategory::Model)],
+        );
+        apply_config_options_to_session(&mut session, stale_options);
+        ensure_session_reflects_config_option_selection(&mut session, "model", "gpt-5".to_string())
+            .unwrap();
+
+        assert_eq!(session.model_id, "gpt-5");
+        assert_eq!(
+            session
+                .config_options
+                .iter()
+                .find(|option| option.id == "model")
+                .map(|option| option.value.as_str()),
+            Some("gpt-5")
+        );
+    }
+
+    #[test]
+    fn unsupported_acp_config_method_errors_are_detected() {
+        assert!(is_unsupported_acp_config_method_error(
+            "JSON-RPC error -32601: Method not found"
+        ));
+        assert!(is_unsupported_acp_config_method_error(
+            "ACP 0.14 model changes must use session config options."
+        ));
+        assert!(!is_unsupported_acp_config_method_error(
+            "Start a new Grok chat to switch to Composer 2.5."
+        ));
     }
 
     #[test]

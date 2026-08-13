@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{
-    mpsc::{self, Sender},
+    mpsc::{self, Receiver, Sender},
     Arc, Mutex,
 };
 use std::thread;
@@ -681,17 +681,26 @@ struct NativeBackend {
     devtools: DevTerminalManager,
     spellcheck: SpellcheckState,
     event_tx: Sender<RpcOutput>,
+    watcher_tx: Sender<(String, VaultEvent)>,
+    watcher_rx: Option<Receiver<(String, VaultEvent)>>,
 }
 
 impl NativeBackend {
     fn new(event_tx: Sender<RpcOutput>) -> Self {
+        let (watcher_tx, watcher_rx) = mpsc::channel();
         Self {
             vaults: HashMap::new(),
             ai: NativeAi::new(event_tx.clone()),
             devtools: DevTerminalManager::new(event_tx.clone()),
             spellcheck: SpellcheckState::new(),
             event_tx,
+            watcher_tx,
+            watcher_rx: Some(watcher_rx),
         }
+    }
+
+    fn take_watcher_rx(&mut self) -> Option<Receiver<(String, VaultEvent)>> {
+        self.watcher_rx.take()
     }
 }
 
@@ -706,12 +715,12 @@ impl NativeBackend {
             "ping" => Ok(json!({ "ok": true })),
             "open_vault" => {
                 let path = required_string(&args, &["path"])?;
-                self.open_vault(path.clone(), backend_ref)?;
+                self.open_vault(path.clone())?;
                 self.invoke("list_notes", json!({ "vaultPath": path }), backend_ref)
             }
             "start_open_vault" => {
                 let path = required_string(&args, &["path"])?;
-                self.open_vault(path, backend_ref)?;
+                self.open_vault(path)?;
                 Ok(json!(null))
             }
             "cancel_open_vault" => {
@@ -1334,11 +1343,7 @@ impl NativeBackend {
         )
     }
 
-    fn open_vault(
-        &mut self,
-        path: String,
-        backend_ref: &Arc<Mutex<NativeBackend>>,
-    ) -> Result<(), String> {
+    fn open_vault(&mut self, path: String) -> Result<(), String> {
         let root = normalize_vault_path(&path)?;
         let started_at_ms = now_ms();
         let vault = Vault::open(PathBuf::from(&root)).map_err(|error| error.to_string())?;
@@ -1353,7 +1358,7 @@ impl NativeBackend {
         let entry_count = entries.len();
         let okf_version = vault.detect_okf_version();
         let write_tracker = WriteTracker::new();
-        let watcher = start_vault_watcher(&root, write_tracker.clone(), backend_ref)?;
+        let watcher = start_vault_watcher(&root, write_tracker.clone(), self.watcher_tx.clone())?;
 
         self.vaults.insert(
             root.clone(),
@@ -3125,20 +3130,38 @@ fn track_copied_tree(write_tracker: &WriteTracker, source: &Path, target: &Path)
 fn start_vault_watcher(
     root: &str,
     write_tracker: WriteTracker,
-    backend_ref: &Arc<Mutex<NativeBackend>>,
+    watcher_tx: Sender<(String, VaultEvent)>,
 ) -> Result<RecommendedWatcher, String> {
     let vault_path = root.to_string();
-    let backend_ref = Arc::downgrade(backend_ref);
     start_watcher(PathBuf::from(root), write_tracker, move |event| {
-        let Some(backend_ref) = backend_ref.upgrade() else {
-            return;
-        };
-        let mut backend = backend_ref.lock().unwrap();
-        if let Err(error) = backend.handle_external_vault_event(&vault_path, event) {
-            eprintln!("Failed to process vault watcher event: {error}");
-        }
+        // Never lock NativeBackend here. FSEvents can deliver the initial
+        // recursive scan on the same thread that is still inside open_vault,
+        // which already holds that mutex.
+        let _ = watcher_tx.send((vault_path.clone(), event));
     })
     .map_err(|error| error.to_string())
+}
+
+fn spawn_vault_watcher_worker(backend: &Arc<Mutex<NativeBackend>>) {
+    let rx = backend
+        .lock()
+        .ok()
+        .and_then(|mut state| state.take_watcher_rx());
+    let Some(rx) = rx else {
+        return;
+    };
+    let backend_ref = Arc::clone(backend);
+    thread::spawn(move || {
+        for (vault_path, event) in rx {
+            let mut backend = match backend_ref.lock() {
+                Ok(guard) => guard,
+                Err(_) => break,
+            };
+            if let Err(error) = backend.handle_external_vault_event(&vault_path, event) {
+                eprintln!("Failed to process vault watcher event: {error}");
+            }
+        }
+    });
 }
 
 fn suggestion_insert_text(note: &NoteMetadata) -> String {
@@ -3174,6 +3197,7 @@ fn main() {
         }
     });
     let backend = Arc::new(Mutex::new(NativeBackend::new(event_tx)));
+    spawn_vault_watcher_worker(&backend);
 
     for line in stdin.lock().lines() {
         let line = match line {
@@ -3238,6 +3262,12 @@ mod tests {
         backend.lock().unwrap().invoke(command, args, backend)
     }
 
+    fn test_backend(event_tx: Sender<RpcOutput>) -> Arc<Mutex<NativeBackend>> {
+        let backend = Arc::new(Mutex::new(NativeBackend::new(event_tx)));
+        spawn_vault_watcher_worker(&backend);
+        backend
+    }
+
     fn recv_vault_change(event_rx: &std::sync::mpsc::Receiver<RpcOutput>) -> Value {
         match event_rx
             .recv_timeout(std::time::Duration::from_secs(1))
@@ -3255,9 +3285,32 @@ mod tests {
     }
 
     #[test]
+    fn start_open_vault_does_not_deadlock_when_watcher_starts() {
+        let (event_tx, _event_rx) = mpsc::channel::<RpcOutput>();
+        let backend = test_backend(event_tx);
+        let vault_dir = tempfile::tempdir().unwrap();
+        fs::write(vault_dir.path().join("note.md"), "# Hello\n").unwrap();
+
+        let vault_path = vault_dir.path().to_string_lossy().to_string();
+        invoke(&backend, "start_open_vault", json!({ "path": vault_path }))
+            .expect("opening a vault must not deadlock on the FSEvents watcher");
+
+        let open_state = invoke(
+            &backend,
+            "get_vault_open_state",
+            json!({ "vaultPath": vault_path }),
+        )
+        .unwrap();
+        assert_eq!(
+            open_state.get("stage").and_then(Value::as_str),
+            Some("ready")
+        );
+    }
+
+    #[test]
     fn invokes_vault_editor_commands_without_electron() {
         let (event_tx, _event_rx) = mpsc::channel::<RpcOutput>();
-        let backend = Arc::new(Mutex::new(NativeBackend::new(event_tx)));
+        let backend = test_backend(event_tx);
         let vault_dir = tempfile::tempdir().unwrap();
         let notes_dir = vault_dir.path().join("Notes");
         fs::create_dir_all(&notes_dir).unwrap();

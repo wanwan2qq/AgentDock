@@ -13,6 +13,7 @@
 | [试用对比清单](trial-checklist.md) | NeverWrite / Foam / StashBase 对照试用与评分 |
 | [V1 可行性与执行路径](v1-feasibility-and-plan.md) | 基于本仓库的可行性评估、分阶段路径与验收 |
 | [Git 面板设计](git-panel-design.md) | 阶段 1 命令表与 UI 挂点 |
+| [上游可合入清单](upstream-sync-checklist.md) | NeverWrite 0.6/0.7 相对本仓库：优先合 ACP 恢复与自定义 runtime |
 
 ## 当前结论（摘要）
 

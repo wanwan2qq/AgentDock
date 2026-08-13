@@ -22,6 +22,7 @@ Start at [product/README.md](product/README.md).
 - [Requirements](product/requirements.md): positioning, must-haves, non-goals, V1 success criteria.
 - [Feasibility and Market](product/feasibility-and-market.md): value, market landscape, recommended approach.
 - [Gap vs NeverWrite](product/neverwrite-gap.md): what is already covered, what to build (Git, templates).
+- [Upstream sync checklist](product/upstream-sync-checklist.md): NeverWrite 0.6/0.7 changes worth porting (ACP recovery, custom runtimes).
 - [Built-in Agent vs Mainstream Assistants](product/agent-capability.md): ACP host vs Claude Code / OpenCode CLI.
 - [Trial Checklist](product/trial-checklist.md): NeverWrite / Foam / StashBase evaluation tasks and scoring.
 

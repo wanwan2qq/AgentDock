@@ -1249,6 +1249,55 @@ function resolveAgentSelectionMutationResult(
     });
 }
 
+function applyAgentSelectionLocally(
+    sessionId: string,
+    applyLocal: (session: AIChatSession) => AIChatSession,
+) {
+    useChatStore.setState((state) => {
+        const currentSession = state.sessionsById[sessionId];
+        if (!currentSession) {
+            return {};
+        }
+
+        const hydratedSession = hydrateSessionCatalogFromRuntime(
+            currentSession,
+            state.runtimes.find(
+                (runtime) => runtime.runtime.id === currentSession.runtimeId,
+            ),
+        );
+        const nextSession = applyLocal(hydratedSession);
+
+        return {
+            sessionsById: {
+                ...state.sessionsById,
+                [sessionId]: nextSession,
+            },
+            tokenUsageBySessionId:
+                currentSession.modelId !== nextSession.modelId
+                    ? removeSessionMapEntry(
+                          state.tokenUsageBySessionId,
+                          sessionId,
+                      )
+                    : state.tokenUsageBySessionId,
+        };
+    });
+}
+
+function restoreAgentSelectionFromSnapshot(
+    currentSession: AIChatSession,
+    snapshot: AIChatSession,
+): AIChatSession {
+    return {
+        ...currentSession,
+        modelId: snapshot.modelId,
+        modeId: snapshot.modeId,
+        configOptions: snapshot.configOptions,
+        models: snapshot.models,
+        modes: snapshot.modes,
+        effortsByModel: snapshot.effortsByModel,
+    };
+}
+
 async function applyAgentConfigMutation({
     requestedSessionId,
     change,
@@ -1264,41 +1313,13 @@ async function applyAgentConfigMutation({
     }
 
     if (preparedSession.kind === "preference-only") {
-        const { session } = preparedSession;
-        useChatStore.setState((state) => {
-            const currentSession = state.sessionsById[session.sessionId];
-            if (!currentSession) {
-                return {};
-            }
-
-            const hydratedSession = hydrateSessionCatalogFromRuntime(
-                currentSession,
-                state.runtimes.find(
-                    (runtime) =>
-                        runtime.runtime.id === currentSession.runtimeId,
-                ),
-            );
-            const nextSession = applyLocal(hydratedSession);
-
-            return {
-                sessionsById: {
-                    ...state.sessionsById,
-                    [session.sessionId]: nextSession,
-                },
-                tokenUsageBySessionId:
-                    currentSession.modelId !== nextSession.modelId
-                        ? removeSessionMapEntry(
-                              state.tokenUsageBySessionId,
-                              session.sessionId,
-                          )
-                        : state.tokenUsageBySessionId,
-            };
-        });
+        applyAgentSelectionLocally(preparedSession.session.sessionId, applyLocal);
         persistPreference();
         return;
     }
 
     const { session } = preparedSession;
+    applyAgentSelectionLocally(session.sessionId, applyLocal);
     try {
         const updatedSession = await applyRemote(session);
         useChatStore
@@ -1312,6 +1333,9 @@ async function applyAgentConfigMutation({
             );
         persistPreference();
     } catch (error) {
+        applyAgentSelectionLocally(session.sessionId, (currentSession) =>
+            restoreAgentSelectionFromSnapshot(currentSession, session),
+        );
         useChatStore.getState().applySessionError({
             session_id: session.sessionId,
             message: getAiErrorMessage(error, errorMessage),

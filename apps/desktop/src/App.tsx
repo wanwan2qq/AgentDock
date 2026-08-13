@@ -1681,8 +1681,11 @@ export default function App() {
             let restoredWorkspace = false;
 
             try {
-                const initialization =
-                    await useChatStore.getState().initialize();
+                // Do not auto-create an empty chat on vault open. Users should
+                // only get new sessions from explicit New Agent / Add to Chat.
+                const initialization = await useChatStore
+                    .getState()
+                    .initialize({ createDefaultSession: false });
                 if (cancelled) return;
 
                 if (!initialization.sessionInventoryLoaded) {

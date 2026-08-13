@@ -409,6 +409,8 @@ export async function createNewChatInWorkspace(
     return pendingSession.sessionId;
 }
 
+let ensureWorkspaceChatInflight: Promise<string | null> | null = null;
+
 export async function ensureWorkspaceChatSession(
     options?: OpenChatInWorkspaceOptions & { runtimeId?: string },
 ) {
@@ -434,5 +436,15 @@ export async function ensureWorkspaceChatSession(
         return openChatSessionInWorkspace(activeSessionId, options);
     }
 
-    return createNewChatInWorkspace(options?.runtimeId, options);
+    // Collapse concurrent auto-creates (e.g. attach replay / double effect)
+    // into a single new session.
+    if (!ensureWorkspaceChatInflight) {
+        ensureWorkspaceChatInflight = createNewChatInWorkspace(
+            options?.runtimeId,
+            options,
+        ).finally(() => {
+            ensureWorkspaceChatInflight = null;
+        });
+    }
+    return ensureWorkspaceChatInflight;
 }
