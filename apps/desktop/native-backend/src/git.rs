@@ -67,6 +67,10 @@ pub fn invoke(command: &str, args: Value) -> Result<Value, String> {
             let input: VaultScopedInput = parse_input(args)?;
             get_status(&input.vault_path)
         }
+        "git_init" => {
+            let input: VaultScopedInput = parse_input(args)?;
+            init_repo(&input.vault_path)
+        }
         "git_diff" => {
             let input: DiffInput = parse_input(args)?;
             get_diff(&input.vault_path, input.path.as_deref(), input.staged)
@@ -655,6 +659,19 @@ fn require_git_repo(root: &Path) -> Result<(), String> {
     }
 }
 
+fn init_repo(vault_path: &str) -> Result<Value, String> {
+    let root = normalize_vault_path(vault_path)?;
+    let _ = git_binary()?;
+    if is_git_repo(&root)? {
+        return get_status(vault_path);
+    }
+    let output = run_git(&root, &["init"])?;
+    if !output.status.success() {
+        return Err(format_command_failure("git init", &output));
+    }
+    get_status(vault_path)
+}
+
 fn normalize_vault_path(vault_path: &str) -> Result<PathBuf, String> {
     let trimmed = vault_path.trim();
     if trimmed.is_empty() {
@@ -840,6 +857,18 @@ mod tests {
         // Matches git quotepath output: \350\264\235 = 贝 (E8 B4 9D)
         let decoded = unescape_path(r#""01-\350\264\235\346\230\223/a.md""#);
         assert_eq!(decoded, "01-贝易/a.md");
+    }
+
+    #[test]
+    fn init_repo_creates_worktree() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_str().unwrap();
+        let before = get_status(root).expect("status before");
+        assert_eq!(before["isRepo"], false);
+        let after = init_repo(root).expect("init");
+        assert_eq!(after["isRepo"], true);
+        let again = init_repo(root).expect("idempotent init");
+        assert_eq!(again["isRepo"], true);
     }
 
     #[test]

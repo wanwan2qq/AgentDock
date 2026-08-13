@@ -13,6 +13,7 @@
 | Command | 入参 | 出参要点 |
 |---------|------|----------|
 | `git_get_status` | `vaultPath` | `isRepo` / `branch` / `ahead`/`behind` / `files[]` / `conflicts[]` / `hasGit` |
+| `git_init` | `vaultPath` | 仅 `git init`（无目录骨架）；已是仓则返回当前 status |
 | `git_diff` | `vaultPath`, `path?`, `staged?` | `diff` 文本 |
 | `git_stage` | `vaultPath`, `paths[]` | 更新后的 status |
 | `git_unstage` | `vaultPath`, `paths[]` | 更新后的 status |
@@ -27,8 +28,13 @@
 
 左侧 Sidebar 次级 tab **Git**（`SidebarView = "git"`）→ `GitPanel`：
 
-- 非 Git / 无 git 二进制：提示文案
+- 非 Git / 无 git 二进制：提示文案；非仓可一键 `git init`
 - 有仓：分支 + ahead/behind、Pull/Push、冲突/已暂存/更改列表、diff 预览、commit message
+
+编辑区底栏 `GitStatusBar`（共享 `gitStatusStore`）：
+
+- 有仓：分支 · 更改数 · 同步摘要；点击打开侧栏 Git
+- 非仓：提示未初始化 +「初始化仓库」
 
 ## 安全
 

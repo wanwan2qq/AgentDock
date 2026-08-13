@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
     buildFallbackRuntimeDescriptors,
+    CLAUDE_TERMINAL_RUNTIME_ID,
     getRuntimeDisplayName,
+    getRuntimeGuidance,
     PROVIDER_CATALOG,
 } from "./runtimeMetadata";
 
@@ -73,6 +75,16 @@ describe("runtimeMetadata", () => {
             .map((descriptor) => descriptor.runtime.id);
 
         expect(resumeRuntimeIds).toEqual(["codex-acp"]);
+    });
+
+    it("provides Chinese guidance for primary assistants", () => {
+        expect(getRuntimeGuidance(CLAUDE_TERMINAL_RUNTIME_ID)).toContain(
+            "Claude Code",
+        );
+        expect(getRuntimeGuidance("claude-acp")).toContain("ACP");
+        expect(getRuntimeGuidance("opencode-acp")).toContain("OpenCode");
+        expect(getRuntimeGuidance("cursor-acp")).toContain("agent acp");
+        expect(getRuntimeGuidance("grok-acp")).toBeNull();
     });
 
     it("normalizes runtime display names for the UI", () => {

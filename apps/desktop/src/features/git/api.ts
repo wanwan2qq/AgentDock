@@ -10,6 +10,10 @@ export function fetchGitStatus() {
     return vaultInvoke<GitStatusSnapshot>("git_get_status");
 }
 
+export function initGitRepo() {
+    return vaultInvoke<GitStatusSnapshot>("git_init");
+}
+
 export function fetchGitDiff(path?: string, staged = false) {
     return vaultInvoke<GitDiffResult>("git_diff", {
         path: path ?? null,

@@ -2,7 +2,7 @@
 
 > 对照：[需求定稿](requirements.md)、[差距清单](neverwrite-gap.md)、[Git 面板设计](git-panel-design.md)  
 > 底座：本仓库 AgentDock（NeverWrite fork）+ 本地试用结论（2026-07）  
-> 状态：阶段 1 实现中（Git 最小闭环）
+> 状态：阶段 1–2 已完成（Git 面板 / 状态条 / init / HTML 浏览器兜底 / 助手说明 / Cursor ACP / AgentDock 品牌）
 
 ## 1. 总判
 
@@ -26,13 +26,14 @@
 
 | 需求条目 | 现状 | V1 动作 | 工作量 |
 |----------|------|---------|--------|
-| MD / HTML / CSV / 图片 | 展示 OK | 保持；HTML 可选「浏览器打开」兜底 | — / S |
-| Claude Code | 终端已通 | 默认推荐路径 | S |
-| OpenCode | ACP 不稳 | 可选，不挡 V1 | S |
-| Agent review | ACP 强 / 终端无 | 文档说明双路径即可 | S |
-| 小团队 Git | **无** | **新建 Git 面板（P0）** | **M–L** |
+| MD / HTML / CSV / 图片 | 展示 OK；HTML 可浏览器打开 | 保持 | — |
+| Claude Code | 终端已通 | 默认推荐路径 | — |
+| OpenCode | ACP 可用但不稳 | 可选，不挡 V1 | — |
+| Agent review | ACP 强 / 终端无 | 设置页说明双路径 | — |
+| 小团队 Git | **面板 + 底栏状态条 + 一键 init** | 按需再打磨冲突体验 | — |
+| Cursor ACP | **已接入**（`agent acp`） | 按需补扩展方法 UI | — |
 | 知识库模板/目录约定 | — | **不做强制模板**；使用者自控 | — |
-| 品牌/AgentDock 壳 | 仍显示 NeverWrite | 可后置 | S |
+| 品牌/AgentDock 壳 | **已改 AgentDock** | — | — |
 
 工作量：S≈1–3 天，M≈1–2 周，L≈2–4 周（单人熟悉本仓库前提下）。
 
@@ -59,13 +60,13 @@
 ## 4. 推荐执行路径（分阶段）
 
 ```text
-阶段 0  稳定底座（可选收尾）
+阶段 0  稳定底座              ✅
    │
-阶段 1  Git 最小闭环（P0）     ← V1 核心差异（原阶段 2）
+阶段 1  Git 最小闭环（P0）     ✅
    │
-阶段 2  体验打磨
+阶段 2  体验打磨              ✅
    │
-阶段 3  （可选）OpenCode/品牌 AgentDock
+阶段 3  （可选）OpenCode 稳性 / PR 外链 / 文件与 Agent 分栏等
 ```
 
 ### 阶段 0 — 稳定底座（可很快收掉）
@@ -94,18 +95,21 @@
 - **不**要求用户使用官方目录模板；对任意 Git 工作树一视同仁  
 - （可选）若检测到无 `.gitignore`，可提示「是否忽略 `.neverwrite/`」，不强制整套模板  
 
-### 阶段 2 — 体验打磨
+### 阶段 2 — 体验打磨 ✅
 
-1. 打开已有文件夹时显示 Git 状态条（非 Git 仓则隐藏或提示「未初始化」）  
-2. 可选：一键 `git init`（不写入目录骨架）  
+1. 打开已有文件夹时显示 Git 状态条（非 Git 仓则提示「未初始化」）  
+2. 一键 `git init`（不写入目录骨架）  
 3. HTML：预览失败时「用默认浏览器打开」  
-4. 设置页：Claude Code vs OpenCode vs Claude(ACP) 说明  
+4. 设置页：Claude Code / OpenCode / Claude(ACP) / Cursor 说明  
 
 ### 阶段 3 — 可选增强
 
 - OpenCode ACP 稳定性  
-- 品牌 NeverWrite → AgentDock  
 - 「在浏览器打开 PR」  
+
+### 布局约定 — 文件 | Agent 分栏（方案 A）
+
+打开/新建 Agent 会话时：若已有专用 Agent pane 则复用；否则在中心区左右分栏（左文件、右 Agent）。文件打开避开 chat-only pane；若仅有 Agent pane 则在左侧拆出文件区。仍可用拖拽混排。
 
 ## 5. V1 里程碑验收
 
@@ -140,4 +144,5 @@
 3. 多格式与 Claude Code 已够用，下一主工程直接做 **Git 面板**。  
 4. 双人用任意结构的私有仓验收即可。
 
-下一步建议：直接做 **Git 面板技术设计（命令表 + UI 草图）** 或开工实现。
+已完成：Git 面板、状态条与一键 init、HTML 浏览器兜底、助手说明、AgentDock 品牌/瘦包、Cursor ACP、文件|Agent 默认左右分栏（方案 A）。  
+下一优先：阶段 3 可选增强（PR 外链、OpenCode 稳性等）。

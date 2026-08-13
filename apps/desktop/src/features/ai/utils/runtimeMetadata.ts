@@ -132,6 +132,22 @@ export function getRuntimeDisplayName(
     );
 }
 
+/** Short Chinese guidance for the four primary assistants in Settings. */
+export function getRuntimeGuidance(runtimeId?: string | null): string | null {
+    switch (runtimeId) {
+        case CLAUDE_TERMINAL_RUNTIME_ID:
+            return "推荐路径：通过本机 Claude Code CLI 在内置终端协作。模型与权限等选项在「设置 → Terminal」。需本机已安装 `claude`。";
+        case "claude-acp":
+            return "Claude 的 ACP 适配路径，适合应用内会话与 review。订阅登录请用 Claude Code；此处通常配置 Anthropic API Key。";
+        case "opencode-acp":
+            return "OpenCode CLI 以 ACP 接入（`opencode acp`）。适合已有 OpenCode 配置的用户；稳定性因版本而异，可选。";
+        case "cursor-acp":
+            return "Cursor CLI 以 ACP 接入（`agent acp`）。先在本机执行 `agent login`，或设置 CURSOR_API_KEY / CURSOR_AUTH_TOKEN。";
+        default:
+            return null;
+    }
+}
+
 export function buildFallbackRuntimeDescriptors(): AIRuntimeDescriptor[] {
     return RUNTIME_METADATA.map((runtime) => ({
         runtime: {

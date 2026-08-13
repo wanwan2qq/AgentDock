@@ -12,8 +12,15 @@ import { createDeferred, setEditorTabs } from "../../test/test-utils";
 import {
     createNewChatInWorkspace,
     ensureWorkspaceChatSession,
+    openChatSessionInWorkspace,
     openOrMoveChatSessionAtDropTarget,
 } from "./chatPaneMovement";
+import { createFileTab } from "../../app/store/editorTabs";
+import {
+    createEditorPaneState,
+    getEffectivePaneWorkspace,
+} from "../../app/store/editorStore";
+import { isChatOnlyPane } from "../../app/store/agentWorkspaceLayout";
 import { resetChatStore, useChatStore } from "./store/chatStore";
 import { resetChatTabsStore } from "./store/chatTabsStore";
 import type { AIChatSession, AIRuntimeSetupStatus } from "./types";
@@ -654,6 +661,61 @@ describe("createNewChatInWorkspace", () => {
         expect(newSession).not.toHaveBeenCalled();
         expect(upsertSession).not.toHaveBeenCalled();
         expect(openChat).not.toHaveBeenCalled();
+    });
+});
+
+describe("openChatSessionInWorkspace side-by-side layout", () => {
+    beforeEach(() => {
+        resetChatStore();
+        resetChatTabsStore();
+        setEditorTabs([], null);
+        useVaultStore.setState({ vaultPath: "/vault", notes: [], entries: [] });
+    });
+
+    afterEach(() => {
+        resetChatStore();
+        resetChatTabsStore();
+        setEditorTabs([], null);
+        useVaultStore.setState({ vaultPath: null, notes: [], entries: [] });
+    });
+
+    it("opens chat in a new right pane when a file pane already has content", () => {
+        const fileTab = createFileTab(
+            "a.md",
+            "a.md",
+            "/vault/a.md",
+            "hello",
+            "text/markdown",
+            "text",
+        );
+        useEditorStore.setState((state) => ({
+            ...state,
+            panes: [
+                createEditorPaneState("primary", {
+                    tabs: [fileTab],
+                    activeTabId: fileTab.id,
+                }),
+            ],
+            focusedPaneId: "primary",
+            tabs: [fileTab],
+            activeTabId: fileTab.id,
+        }));
+
+        const session = createStoredSession("session-side", "Side");
+        seedChatSessions(session);
+        openChatSessionInWorkspace(session.sessionId);
+
+        const workspace = getEffectivePaneWorkspace(useEditorStore.getState());
+        expect(workspace.panes.length).toBe(2);
+        const filePane = workspace.panes.find((pane) => pane.id === "primary");
+        const agentPane = workspace.panes.find((pane) => pane.id !== "primary");
+        expect(filePane?.tabs.some((tab) => !isChatTab(tab))).toBe(true);
+        expect(agentPane && isChatOnlyPane(agentPane)).toBe(true);
+        expect(
+            agentPane?.tabs.some(
+                (tab) => isChatTab(tab) && tab.sessionId === session.sessionId,
+            ),
+        ).toBe(true);
     });
 });
 

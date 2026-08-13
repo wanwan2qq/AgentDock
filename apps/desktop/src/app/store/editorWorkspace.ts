@@ -68,6 +68,7 @@ import {
     type WorkspaceSplitDirection,
 } from "./workspaceLayoutTree";
 import { findAdjacentPane } from "./workspaceLayoutNavigation";
+import { resolveNonChatOpenTarget } from "./agentWorkspaceLayout";
 
 /**
  * Pane-centric workspace ownership boundary.
@@ -1094,6 +1095,101 @@ function getReusableHistoryTab(
     return normalizeHistoryTab(activeTab) as NavigableHistoryTab;
 }
 
+function historyPayloadFromTab(
+    tab: NavigableHistoryTab,
+): OpenableHistoryPayload | null {
+    if (isNoteTab(tab)) {
+        return {
+            kind: "note",
+            noteId: tab.noteId,
+            title: tab.title,
+            content: tab.content,
+        };
+    }
+    if (isFileTab(tab)) {
+        return {
+            kind: "file",
+            relativePath: tab.relativePath,
+            title: tab.title,
+            path: tab.path,
+            content: tab.content,
+            mimeType: tab.mimeType,
+            viewer: tab.viewer,
+            sizeBytes: tab.sizeBytes ?? null,
+            contentTruncated: tab.contentTruncated ?? false,
+        };
+    }
+    if (isPdfTab(tab)) {
+        return {
+            kind: "pdf",
+            entryId: tab.entryId,
+            title: tab.title,
+            path: tab.path,
+        };
+    }
+    return null;
+}
+
+function findMatchingOpenableHistoryTab(
+    workspace: Pick<EditorWorkspaceState, "panes">,
+    payload: OpenableHistoryPayload,
+): { paneId: string; tab: NavigableHistoryTab } | null {
+    const handler = getOpenableHistoryTabHandler(payload.kind);
+    for (const pane of workspace.panes) {
+        for (const tab of pane.tabs) {
+            if (!isNavigableHistoryTab(tab) || tab.kind !== payload.kind) {
+                continue;
+            }
+            const normalized = normalizeHistoryTab(tab) as NavigableHistoryTab;
+            if (
+                handler.matchesOpenTarget(
+                    normalized as never,
+                    payload as never,
+                )
+            ) {
+                return { paneId: pane.id, tab: normalized };
+            }
+        }
+    }
+    return null;
+}
+
+function activateMatchingHistoryTab(
+    workspace: ReturnType<typeof getEffectivePaneWorkspace>,
+    match: { paneId: string; tab: NavigableHistoryTab },
+    payload: OpenableHistoryPayload,
+) {
+    const handler = getOpenableHistoryTabHandler(payload.kind);
+    let panes = workspace.panes;
+    let tabId = match.tab.id;
+
+    if (handler.replaceCurrentEntry) {
+        const nextTab = handler.replaceCurrentEntry(
+            match.tab as never,
+            payload as never,
+        );
+        tabId = nextTab.id;
+        panes = workspace.panes.map((pane) =>
+            pane.id === match.paneId
+                ? createEditorPaneState(pane.id, {
+                      ...pane,
+                      tabs: replaceTab(pane.tabs, match.tab.id, nextTab),
+                  })
+                : pane,
+        );
+    }
+
+    return activatePaneTab(
+        {
+            layoutTree: workspace.layoutTree,
+            panes,
+            focusedPaneId: workspace.focusedPaneId,
+        },
+        match.paneId,
+        tabId,
+    );
+}
+
 function openOrReuseHistoryTab(
     state: Pick<
         EditorWorkspaceState,
@@ -1106,6 +1202,32 @@ function openOrReuseHistoryTab(
     payload: OpenableHistoryPayload,
 ) {
     const handler = getOpenableHistoryTabHandler(payload.kind);
+
+    const existingInPane = state.tabs.find(
+        (tab): tab is NavigableHistoryTab =>
+            isNavigableHistoryTab(tab) &&
+            tab.kind === payload.kind &&
+            handler.matchesOpenTarget(
+                normalizeHistoryTab(tab) as never,
+                payload as never,
+            ),
+    );
+    if (existingInPane) {
+        if (handler.replaceCurrentEntry) {
+            const nextTab = handler.replaceCurrentEntry(
+                normalizeHistoryTab(existingInPane) as never,
+                payload as never,
+            );
+            return {
+                tabs: replaceTab(state.tabs, existingInPane.id, nextTab),
+                ...activateTab(state, existingInPane.id),
+            };
+        }
+        return {
+            tabs: state.tabs,
+            ...activateTab(state, existingInPane.id),
+        };
+    }
 
     if (getTabOpenBehavior() === "new_tab") {
         const newTab = handler.createInitialTab(payload as never);
@@ -1152,6 +1274,38 @@ function openOrReuseHistoryTab(
     return {
         tabs: replaceTab(state.tabs, activeTab.id, nextTab),
     };
+}
+
+/** Focus an already-open note/file/pdf across panes, or open it in the file pane. */
+function openHistoryPayloadAcrossWorkspace(
+    state: Parameters<typeof mutatePaneWorkspace>[0],
+    payload: OpenableHistoryPayload,
+) {
+    const workspace = getEffectivePaneWorkspace(state);
+    const existing = findMatchingOpenableHistoryTab(workspace, payload);
+    if (existing) {
+        return activateMatchingHistoryTab(workspace, existing, payload) ?? state;
+    }
+
+    const target = resolveNonChatOpenTarget(workspace);
+    if (target.kind === "pane") {
+        return (
+            mutatePaneWorkspace(state, target.paneId, (pane) =>
+                openOrReuseHistoryTab(pane, payload),
+            ) ?? state
+        );
+    }
+
+    if (target.kind === "split-left-of-agent") {
+        // Caller handles split-left via insertExternalTabAtPaneDropTarget when
+        // the resource is not already open. Fall through to focused pane.
+    }
+
+    return (
+        mutateFocusedPaneWorkspace(state, (pane) =>
+            openOrReuseHistoryTab(pane, payload),
+        ) ?? state
+    );
 }
 
 function normalizeHydratedTab(tab: TabInput): Tab | null {
@@ -2276,30 +2430,70 @@ export function createEditorWorkspaceSlice<TState extends EditorWorkspaceStore>(
         fileExternalConflicts: new Set<string>(),
 
         openNote: (noteId, title, content) => {
+            const payload = {
+                kind: "note" as const,
+                noteId,
+                title,
+                content,
+            };
+            const workspace = getEffectivePaneWorkspace(get());
+            if (findMatchingOpenableHistoryTab(workspace, payload)) {
+                set(
+                    (state) =>
+                        openHistoryPayloadAcrossWorkspace(state, payload),
+                );
+                return;
+            }
+            const target = resolveNonChatOpenTarget(workspace);
+            if (target.kind === "split-left-of-agent") {
+                get().insertExternalTabAtPaneDropTarget(
+                    {
+                        kind: "note",
+                        noteId,
+                        title,
+                        content,
+                    },
+                    target.agentPaneId,
+                    "left",
+                );
+                return;
+            }
             set(
-                (state) =>
-                    mutateFocusedPaneWorkspace(state, (pane) =>
-                        openOrReuseHistoryTab(pane, {
-                            kind: "note",
-                            noteId,
-                            title,
-                            content,
-                        }),
-                    ) ?? state,
+                (state) => openHistoryPayloadAcrossWorkspace(state, payload),
             );
         },
 
         openPdf: (entryId, title, path) => {
+            const payload = {
+                kind: "pdf" as const,
+                entryId,
+                title,
+                path,
+            };
+            const workspace = getEffectivePaneWorkspace(get());
+            if (findMatchingOpenableHistoryTab(workspace, payload)) {
+                set(
+                    (state) =>
+                        openHistoryPayloadAcrossWorkspace(state, payload),
+                );
+                return;
+            }
+            const target = resolveNonChatOpenTarget(workspace);
+            if (target.kind === "split-left-of-agent") {
+                get().insertExternalTabAtPaneDropTarget(
+                    {
+                        kind: "pdf",
+                        entryId,
+                        title,
+                        path,
+                    },
+                    target.agentPaneId,
+                    "left",
+                );
+                return;
+            }
             set(
-                (state) =>
-                    mutateFocusedPaneWorkspace(state, (pane) =>
-                        openOrReuseHistoryTab(pane, {
-                            kind: "pdf",
-                            entryId,
-                            title,
-                            path,
-                        }),
-                    ) ?? state,
+                (state) => openHistoryPayloadAcrossWorkspace(state, payload),
             );
         },
 
@@ -2405,22 +2599,47 @@ export function createEditorWorkspaceSlice<TState extends EditorWorkspaceStore>(
             viewer,
             options,
         ) => {
+            const payload = {
+                kind: "file" as const,
+                relativePath,
+                title,
+                path,
+                content,
+                mimeType,
+                viewer,
+                sizeBytes: options?.sizeBytes ?? null,
+                contentTruncated: options?.contentTruncated ?? false,
+            };
+            const workspace = getEffectivePaneWorkspace(get());
+            if (findMatchingOpenableHistoryTab(workspace, payload)) {
+                set(
+                    (state) =>
+                        openHistoryPayloadAcrossWorkspace(state, payload),
+                );
+                return;
+            }
+            const target = resolveNonChatOpenTarget(workspace);
+            if (target.kind === "split-left-of-agent") {
+                get().insertExternalTabAtPaneDropTarget(
+                    {
+                        kind: "file",
+                        relativePath,
+                        title,
+                        path,
+                        content,
+                        mimeType,
+                        viewer,
+                        sizeBytes: options?.sizeBytes ?? null,
+                        contentTruncated:
+                            options?.contentTruncated ?? false,
+                    },
+                    target.agentPaneId,
+                    "left",
+                );
+                return;
+            }
             set(
-                (state) =>
-                    mutateFocusedPaneWorkspace(state, (pane) =>
-                        openOrReuseHistoryTab(pane, {
-                            kind: "file",
-                            relativePath,
-                            title,
-                            path,
-                            content,
-                            mimeType,
-                            viewer,
-                            sizeBytes: options?.sizeBytes ?? null,
-                            contentTruncated:
-                                options?.contentTruncated ?? false,
-                        }),
-                    ) ?? state,
+                (state) => openHistoryPayloadAcrossWorkspace(state, payload),
             );
         },
 
@@ -4419,11 +4638,51 @@ export function createEditorWorkspaceSlice<TState extends EditorWorkspaceStore>(
         },
 
         insertExternalTab: (tab, index) => {
-            set((state) => {
-                const incoming = normalizeExternalTab(tab);
-                if (!incoming) {
-                    return state;
+            const incoming = normalizeExternalTab(tab);
+            if (!incoming) {
+                return;
+            }
+
+            if (isNavigableHistoryTab(incoming)) {
+                const payload = historyPayloadFromTab(incoming);
+                if (payload) {
+                    const workspace = getEffectivePaneWorkspace(get());
+                    if (findMatchingOpenableHistoryTab(workspace, payload)) {
+                        set(
+                            (state) =>
+                                openHistoryPayloadAcrossWorkspace(
+                                    state,
+                                    payload,
+                                ),
+                        );
+                        return;
+                    }
                 }
+            }
+
+            if (!isChatTab(incoming)) {
+                const workspace = getEffectivePaneWorkspace(get());
+                const target = resolveNonChatOpenTarget(workspace);
+                if (target.kind === "split-left-of-agent") {
+                    get().insertExternalTabAtPaneDropTarget(
+                        incoming,
+                        target.agentPaneId,
+                        "left",
+                        index,
+                    );
+                    return;
+                }
+                if (target.kind === "pane") {
+                    get().insertExternalTabInPane(
+                        incoming,
+                        target.paneId,
+                        index,
+                    );
+                    return;
+                }
+            }
+
+            set((state) => {
                 return (
                     mutateFocusedPaneWorkspace(state, (pane) =>
                         insertNormalizedTab(pane, incoming, index),

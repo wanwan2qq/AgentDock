@@ -317,7 +317,7 @@ export const WORKSPACE_PHASE0_INVENTORY = [
         reads: [],
         writes: [],
         summary:
-            "AgentsSidebarPanel acts as a Comando-style launcher for workspace-owned chat sessions inside the left sidebar, without rendering the primary composer surface itself.",
+            "AgentsSidebarPanel acts as a Comando-style launcher for workspace-owned chat sessions inside the left sidebar, without rendering the primary composer surface itself. Opening a session prefers scheme A: dedicated agent pane to the right of files.",
         migrationIntent:
             "Keep this panel auxiliary and resist reintroducing a second primary chat surface here.",
     },

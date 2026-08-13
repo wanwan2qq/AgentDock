@@ -213,7 +213,7 @@ const defaults: Settings = {
     fileTreeScale: 114,
     agentsSidebarScale: 100,
     fileTreeStickyFolders: true,
-    tabOpenBehavior: "history",
+    tabOpenBehavior: "new_tab",
     terminalFontFamily: "",
     terminalFontSize: 13,
     claudeCodeOptimized: false,

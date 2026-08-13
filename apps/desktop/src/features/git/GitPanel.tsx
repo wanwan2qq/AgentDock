@@ -9,25 +9,13 @@ import {
     commitGitChanges,
     fetchGitBranches,
     fetchGitDiff,
-    fetchGitStatus,
     pullGit,
     pushGit,
     stageGitPaths,
     unstageGitPaths,
 } from "./api";
-import type { GitBranchList, GitFileStatus, GitStatusSnapshot } from "./types";
-
-const EMPTY_STATUS: GitStatusSnapshot = {
-    isRepo: false,
-    branch: null,
-    upstream: null,
-    ahead: 0,
-    behind: 0,
-    dirty: false,
-    files: [],
-    conflicts: [],
-    hasGit: true,
-};
+import { useGitStatusStore } from "./gitStatusStore";
+import type { GitBranchList, GitFileStatus } from "./types";
 
 function statusLabel(file: GitFileStatus) {
     if (file.conflict) return "C";
@@ -49,10 +37,17 @@ function statusColor(file: GitFileStatus) {
 
 export function GitPanel() {
     const vaultPath = useVaultStore((s) => s.vaultPath);
-    const [status, setStatus] = useState<GitStatusSnapshot>(EMPTY_STATUS);
+    const status = useGitStatusStore((s) => s.status);
+    const statusLoading = useGitStatusStore((s) => s.loading);
+    const busyInit = useGitStatusStore((s) => s.busyInit);
+    const statusError = useGitStatusStore((s) => s.error);
+    const refreshStatus = useGitStatusStore((s) => s.refresh);
+    const applyStatus = useGitStatusStore((s) => s.applyStatus);
+    const initRepo = useGitStatusStore((s) => s.initRepo);
+    const setVaultPath = useGitStatusStore((s) => s.setVaultPath);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [message, setMessage] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [loadingBranches, setLoadingBranches] = useState(false);
     const [busyAction, setBusyAction] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
@@ -65,17 +60,18 @@ export function GitPanel() {
         remote: [],
     });
 
+    const loading = statusLoading || loadingBranches;
+
     const refresh = useCallback(async () => {
         if (!vaultPath) {
-            setStatus(EMPTY_STATUS);
             setBranches({ current: null, local: [], remote: [] });
             return;
         }
-        setLoading(true);
+        setLoadingBranches(true);
         setError(null);
         try {
             const [next, nextBranches] = await Promise.all([
-                fetchGitStatus(),
+                refreshStatus(),
                 fetchGitBranches().catch((err) => {
                     logError("git-panel", "Failed to load branches", err);
                     return {
@@ -85,25 +81,49 @@ export function GitPanel() {
                     } satisfies GitBranchList;
                 }),
             ]);
-            setStatus(next);
+            if (next) {
+                setSelected((prev) => {
+                    const valid = new Set(
+                        next.files
+                            .map((file) => file.path)
+                            .filter((path) => prev.has(path)),
+                    );
+                    return valid;
+                });
+            }
             setBranches(nextBranches);
-            setSelected((prev) => {
-                const valid = new Set(
-                    next.files.map((file) => file.path).filter((path) => prev.has(path)),
-                );
-                return valid;
-            });
         } catch (err) {
             logError("git-panel", "Failed to load git status", err);
             setError(err instanceof Error ? err.message : String(err));
         } finally {
-            setLoading(false);
+            setLoadingBranches(false);
         }
-    }, [vaultPath]);
+    }, [refreshStatus, vaultPath]);
+
+    useEffect(() => {
+        setVaultPath(vaultPath);
+    }, [setVaultPath, vaultPath]);
 
     useEffect(() => {
         void refresh();
     }, [refresh]);
+
+    useEffect(() => {
+        setSelected((prev) => {
+            const valid = new Set(
+                status.files
+                    .map((file) => file.path)
+                    .filter((path) => prev.has(path)),
+            );
+            if (
+                valid.size === prev.size &&
+                [...valid].every((path) => prev.has(path))
+            ) {
+                return prev;
+            }
+            return valid;
+        });
+    }, [status.files]);
 
     const stagedFiles = useMemo(
         () => status.files.filter((file) => file.staged && !file.conflict),
@@ -127,7 +147,22 @@ export function GitPanel() {
             setError(null);
             setNotice(null);
             try {
-                await action();
+                const result = await action();
+                if (result && typeof result === "object") {
+                    if (
+                        "isRepo" in result &&
+                        "files" in result &&
+                        "hasGit" in result
+                    ) {
+                        applyStatus(result as typeof status);
+                    } else if (
+                        "status" in result &&
+                        result.status &&
+                        typeof result.status === "object"
+                    ) {
+                        applyStatus(result.status as typeof status);
+                    }
+                }
                 await refresh();
             } catch (err) {
                 logError("git-panel", `Git ${label} failed`, err);
@@ -136,7 +171,7 @@ export function GitPanel() {
                 setBusyAction(null);
             }
         },
-        [refresh],
+        [applyStatus, refresh],
     );
 
     const openRelativePath = useCallback(
@@ -243,13 +278,44 @@ export function GitPanel() {
             <div className="flex h-full flex-col overflow-hidden">
                 <PanelHeader
                     title="Git"
-                    loading={loading}
+                    loading={loading || busyInit}
                     onRefresh={() => void refresh()}
                 />
                 <EmptyState
                     title="未初始化仓库"
-                    body="当前文件夹不是 Git 仓库。可用系统终端执行 git init，或打开已有仓库文件夹。V1 不强制目录模板。"
+                    body="当前文件夹不是 Git 仓库。可一键初始化，或打开已有仓库文件夹。V1 不强制目录模板。"
                 />
+                <div className="px-3 pb-3">
+                    <button
+                        type="button"
+                        className="w-full rounded-md px-2 py-1.5 text-[12px]"
+                        style={{
+                            border: "1px solid var(--border)",
+                            background: "var(--bg-secondary)",
+                            color: "var(--text-primary)",
+                            opacity: busyInit ? 0.6 : 1,
+                        }}
+                        disabled={busyInit}
+                        onClick={() => {
+                            void initRepo().then((next) => {
+                                if (next?.isRepo) {
+                                    setNotice("已初始化 Git 仓库");
+                                    void refresh();
+                                }
+                            });
+                        }}
+                    >
+                        {busyInit ? "初始化中…" : "初始化仓库"}
+                    </button>
+                    {(error || statusError) && (
+                        <p
+                            className="mt-2 text-[11px]"
+                            style={{ color: "#dc2626" }}
+                        >
+                            {error || statusError}
+                        </p>
+                    )}
+                </div>
             </div>
         );
     }

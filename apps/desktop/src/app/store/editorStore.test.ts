@@ -1197,7 +1197,7 @@ describe("editorStore navigation history", () => {
         ).toEqual(["session-a", "session-b"]);
     });
 
-    it("openNote always creates a new tab", () => {
+    it("openNote creates a new tab for a different note", () => {
         useEditorStore.setState({
             tabs: [
                 makeTab({
@@ -1248,7 +1248,7 @@ describe("editorStore navigation history", () => {
         expect(tabNavigationIndex).toBe(1);
     });
 
-    it("openNote creates a new tab even when the active tab already shows the note", () => {
+    it("openNote focuses the existing tab when the note is already open", () => {
         useEditorStore.setState({
             tabs: [
                 makeTab({
@@ -1257,21 +1257,28 @@ describe("editorStore navigation history", () => {
                     title: "Same",
                     content: "same",
                 }),
+                makeTab({
+                    id: "tab-b",
+                    noteId: "notes/other",
+                    title: "Other",
+                    content: "other",
+                }),
             ],
-            activeTabId: "tab-a",
-            tabNavigationHistory: ["tab-a"],
-            tabNavigationIndex: 0,
+            activeTabId: "tab-b",
+            tabNavigationHistory: ["tab-a", "tab-b"],
+            tabNavigationIndex: 1,
         });
 
-        useEditorStore.getState().openNote("notes/same", "Same", "same");
+        useEditorStore.getState().openNote("notes/same", "Same", "updated");
 
         const { tabs, activeTabId } = useEditorStore.getState();
-        const openedTab = tabs[1];
         expect(tabs).toHaveLength(2);
-        expect(isNoteTab(openedTab) ? openedTab.noteId : null).toBe(
-            "notes/same",
-        );
-        expect(activeTabId).toBe(openedTab?.id);
+        expect(activeTabId).toBe("tab-a");
+        expect(tabs[0]).toMatchObject({
+            id: "tab-a",
+            noteId: "notes/same",
+            content: "updated",
+        });
     });
 
     it("openNote creates a new tab when no tabs exist", () => {
@@ -1516,6 +1523,10 @@ describe("editorStore navigation history", () => {
 });
 
 describe("editorStore tab history mode", () => {
+    beforeEach(() => {
+        useSettingsStore.getState().setSetting("tabOpenBehavior", "history");
+    });
+
     it("reuses the focused chat tab and navigates between AI sessions", () => {
         useEditorStore.getState().openChat("session-a", { title: "First" });
         const tabId = useEditorStore.getState().activeTabId;
@@ -1726,7 +1737,7 @@ describe("editorStore tab history mode", () => {
         });
     });
 
-    it("openNote reuses the active tab and pushes note history by default", () => {
+    it("openNote reuses the active tab and pushes note history in history mode", () => {
         useEditorStore.setState({
             tabs: [
                 makeTab({
@@ -1797,7 +1808,7 @@ describe("editorStore tab history mode", () => {
         });
     });
 
-    it("openFile reuses the active file tab and pushes file history by default", () => {
+    it("openFile reuses the active file tab and pushes file history in history mode", () => {
         useEditorStore.setState({
             tabs: [
                 makeFileTab({
@@ -3589,6 +3600,7 @@ describe("editorStore tab management", () => {
     });
 
     it("applies the configured fit-width default when opening a pdf into history", () => {
+        useSettingsStore.getState().setSetting("tabOpenBehavior", "history");
         useVaultStore.setState({ vaultPath: "/vaults/project-alpha" });
         useEditorStore.setState({
             tabs: [

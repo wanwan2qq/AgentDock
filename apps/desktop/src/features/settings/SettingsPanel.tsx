@@ -859,10 +859,13 @@ function GeneralSettings({
     ]);
     const showTabs = sectionHasSettingsSearchMatches(searchQuery, "Tabs", [
         [
+            "打开方式",
             "Open behavior",
-            "Choose whether opening notes, files, and AI chats reuses the current tab history or creates a new tab.",
+            "新标签",
+            "历史",
             "History",
             "New tab",
+            "未打开则新建，已打开则聚焦",
         ],
     ]);
 
@@ -890,15 +893,22 @@ function GeneralSettings({
             <SearchableRow
                 searchQuery={searchQuery}
                 section="Tabs"
-                label="Open behavior"
-                description="Choose whether opening notes, files, and AI chats reuses the current tab history or creates a new tab."
-                keywords={["History", "New tab"]}
+                label="打开方式"
+                description="新标签（默认）：未打开则新建，已打开则聚焦该标签。历史：在当前标签内前进/后退（打开会替换当前内容，类似 Obsidian）。无论哪种模式，同一文件/笔记不会重复开多个标签。"
+                keywords={[
+                    "History",
+                    "New tab",
+                    "Open behavior",
+                    "打开方式",
+                    "历史",
+                    "新标签",
+                ]}
                 control={
                     <SegmentedControl
                         value={tabOpenBehavior}
                         options={[
-                            { value: "history", label: "History" },
-                            { value: "new_tab", label: "New tab" },
+                            { value: "new_tab", label: "新标签" },
+                            { value: "history", label: "历史" },
                         ]}
                         onChange={(value) =>
                             setSetting("tabOpenBehavior", value)

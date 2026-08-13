@@ -18,6 +18,7 @@ import {
 import {
     CLAUDE_TERMINAL_RUNTIME_ID,
     getRuntimeDisplayName,
+    getRuntimeGuidance,
     PROVIDER_CATALOG,
 } from "../ai/utils/runtimeMetadata";
 import {
@@ -361,6 +362,7 @@ function getProviderSearchValues(
             ? "NEVERWRITE_GROK_ACP_BIN"
             : undefined,
         getMethodDisplayName(setupStatus),
+        getRuntimeGuidance(provider.id),
         error,
         ...(setupStatus?.authMethods.flatMap((method) => [
             method.id,
@@ -1690,40 +1692,16 @@ export function AIProvidersSettings({
                                                 </div>
                                             </div>
 
-                                            {/* Claude Code note */}
-                                            {isTerminalRuntime && (
-                                                <div
-                                                    style={{
-                                                        padding:
-                                                            "8px 14px 10px",
-                                                        fontSize: 11,
-                                                        color: "var(--text-secondary)",
-                                                        borderTop:
-                                                            "1px solid var(--border)",
-                                                    }}
-                                                >
-                                                    Model, skip permissions,
-                                                    and other Claude Code
-                                                    options are in{" "}
-                                                    <strong
-                                                        style={{
-                                                            color: "var(--text-primary)",
-                                                        }}
-                                                    >
-                                                        Settings → Terminal
-                                                    </strong>
-                                                    .
-                                                </div>
-                                            )}
-
-                                            {/* Expanded content — not shown for terminal runtime */}
-                                            {!isTerminalRuntime &&
-                                                isExpanded &&
-                                                provider.id === "claude-acp" && (
+                                            {/* Primary assistant guidance */}
+                                            {(isTerminalRuntime ||
+                                                isExpanded) &&
+                                                getRuntimeGuidance(
+                                                    provider.id,
+                                                ) && (
                                                     <div
                                                         style={{
                                                             padding:
-                                                                "10px 14px",
+                                                                "8px 14px 10px",
                                                             fontSize: 11,
                                                             color: "var(--text-secondary)",
                                                             borderTop:
@@ -1731,33 +1709,9 @@ export function AIProvidersSettings({
                                                             lineHeight: 1.5,
                                                         }}
                                                     >
-                                                        <strong
-                                                            style={{
-                                                                color: "var(--text-primary)",
-                                                            }}
-                                                        >
-                                                            Claude subscription
-                                                        </strong>{" "}
-                                                        authentication only
-                                                        works with{" "}
-                                                        <strong
-                                                            style={{
-                                                                color: "var(--text-primary)",
-                                                            }}
-                                                        >
-                                                            Claude Code
-                                                        </strong>{" "}
-                                                        in the terminal. To use
-                                                        this provider, configure
-                                                        an{" "}
-                                                        <strong
-                                                            style={{
-                                                                color: "var(--text-primary)",
-                                                            }}
-                                                        >
-                                                            Anthropic API key
-                                                        </strong>{" "}
-                                                        below.
+                                                        {getRuntimeGuidance(
+                                                            provider.id,
+                                                        )}
                                                     </div>
                                                 )}
                                             {!isTerminalRuntime && isExpanded &&
@@ -2109,6 +2063,7 @@ export function AIProvidersSettings({
                             const installed = runtimes.some(
                                 (r) => r.runtime.id === provider.id,
                             );
+                            const guidance = getRuntimeGuidance(provider.id);
                             return (
                                 <Fragment key={provider.id}>
                                     {i > 0 && (
@@ -2125,85 +2080,116 @@ export function AIProvidersSettings({
                                             display: "flex",
                                             alignItems: "center",
                                             justifyContent: "space-between",
-                                            height: 44,
-                                            padding: "0 14px",
+                                            minHeight: 44,
+                                            padding: guidance
+                                                ? "10px 14px"
+                                                : "0 14px",
                                             backgroundColor:
                                                 "var(--bg-secondary)",
+                                            gap: 12,
                                         }}
                                     >
                                         <div
                                             style={{
                                                 display: "flex",
-                                                alignItems: "center",
-                                                gap: 10,
+                                                flexDirection: "column",
+                                                gap: 2,
+                                                minWidth: 0,
                                             }}
                                         >
-                                            <span
+                                            <div
                                                 style={{
-                                                    fontSize: 13,
-                                                    fontWeight: 500,
-                                                    color: "var(--text-primary)",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 10,
                                                 }}
                                             >
-                                                {provider.name}
-                                            </span>
-                                            <span
-                                                style={{
-                                                    fontSize: 12,
-                                                    color: "var(--text-secondary)",
-                                                }}
-                                            >
-                                                {provider.company}
-                                            </span>
+                                                <span
+                                                    style={{
+                                                        fontSize: 13,
+                                                        fontWeight: 500,
+                                                        color: "var(--text-primary)",
+                                                    }}
+                                                >
+                                                    {provider.name}
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: "var(--text-secondary)",
+                                                    }}
+                                                >
+                                                    {provider.company}
+                                                </span>
+                                            </div>
+                                            {guidance ? (
+                                                <span
+                                                    style={{
+                                                        fontSize: 11,
+                                                        color: "var(--text-secondary)",
+                                                        lineHeight: 1.45,
+                                                    }}
+                                                >
+                                                    {guidance}
+                                                </span>
+                                            ) : null}
                                         </div>
-                                        {runtimeInventoryPending ? (
-                                            <span
-                                                style={{
-                                                    fontSize: 11,
-                                                    fontWeight: 600,
-                                                    color: "var(--text-secondary)",
-                                                }}
-                                            >
-                                                Checking…
-                                            </span>
-                                        ) : installed ? (
-                                            <span
-                                                style={{
-                                                    fontSize: 11,
-                                                    fontWeight: 600,
-                                                    color: "#34d399",
-                                                }}
-                                            >
-                                                Installed
-                                            </span>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (
-                                                        provider.id ===
-                                                        CLAUDE_TERMINAL_RUNTIME_ID
-                                                    ) {
-                                                        void openUrl(
-                                                            "https://claude.ai/code",
-                                                        );
-                                                    }
-                                                }}
-                                                style={{
-                                                    padding: "4px 10px",
-                                                    borderRadius: 6,
-                                                    fontSize: 11,
-                                                    fontWeight: 600,
-                                                    border: "1px solid color-mix(in srgb, #34d399 40%, transparent)",
-                                                    backgroundColor:
-                                                        "transparent",
-                                                    color: "#34d399",
-                                                    cursor: "pointer",
-                                                }}
-                                            >
-                                                Install
-                                            </button>
-                                        )}
+                                        <div
+                                            style={{
+                                                flexShrink: 0,
+                                                alignSelf: "flex-start",
+                                                paddingTop: guidance ? 2 : 0,
+                                            }}
+                                        >
+                                            {runtimeInventoryPending ? (
+                                                <span
+                                                    style={{
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                        color: "var(--text-secondary)",
+                                                    }}
+                                                >
+                                                    Checking…
+                                                </span>
+                                            ) : installed ? (
+                                                <span
+                                                    style={{
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                        color: "#34d399",
+                                                    }}
+                                                >
+                                                    Installed
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (
+                                                            provider.id ===
+                                                            CLAUDE_TERMINAL_RUNTIME_ID
+                                                        ) {
+                                                            void openUrl(
+                                                                "https://claude.ai/code",
+                                                            );
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        padding: "4px 10px",
+                                                        borderRadius: 6,
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                        border: "1px solid color-mix(in srgb, #34d399 40%, transparent)",
+                                                        backgroundColor:
+                                                            "transparent",
+                                                        color: "#34d399",
+                                                        cursor: "pointer",
+                                                    }}
+                                                >
+                                                    Install
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </Fragment>
                             );

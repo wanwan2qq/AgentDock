@@ -24,6 +24,7 @@ import { REQUEST_CLOSE_ACTIVE_TAB_EVENT } from "./features/editor/Editor";
 import { EditorPaneContent } from "./features/editor/EditorPaneContent";
 import { MultiPaneWorkspace } from "./features/editor/MultiPaneWorkspace";
 import { EditorChromeBar } from "./features/editor/EditorChromeBar";
+import { GitStatusBar } from "./features/git/GitStatusBar";
 import { openUntitledMarkdownNote } from "./features/editor/markdownNoteCreation";
 import { useBookmarkStore } from "./app/store/bookmarkStore";
 import { CommandPalette } from "./features/command-palette/CommandPalette";
@@ -2249,6 +2250,7 @@ export default function App() {
                             >
                                 <MultiPaneWorkspace />
                             </div>
+                            <GitStatusBar />
                         </div>
                     }
                     right={<RightPanel />}

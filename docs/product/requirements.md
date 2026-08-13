@@ -33,7 +33,7 @@
 | 类型 | 期望 |
 |------|------|
 | Markdown | 优质预览、链接/导航体验接近笔记工具 |
-| HTML | 应用内可读（报告、仪表盘、交互页等 Agent 产物） |
+| HTML | 应用内可读；预览失败时可「用默认浏览器打开」 |
 | CSV | 表格化阅读，最好可简单编辑并回写 |
 | 图片 | 内置预览（缩放等基础能力） |
 
@@ -82,6 +82,6 @@
 2. MD / HTML / CSV / 图片预览（CSV 可先只读表格）  
 3. 对接本机 Claude Code、OpenCode（ACP 或终端）  
 4. **不强制知识库目录模板**——目录结构、是否使用 `AGENTS.md` 等由使用者自行控制  
-5. 基础 Git：status / diff / pull / commit / push；冲突给出文件列表  
+5. 基础 Git：status / diff / pull / commit / push；冲突给出文件列表；底栏状态条；非仓可一键 init  
 6. 复用既有 Agent 变更 review（本仓库已有能力）  
 7. （可选）仅提供最小 `.gitignore` 建议项，不强制写入固定目录骨架

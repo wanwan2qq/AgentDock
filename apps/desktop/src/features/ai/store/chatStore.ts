@@ -43,6 +43,7 @@ import {
     selectEditorWorkspaceTabs,
     useEditorStore,
 } from "../../../app/store/editorStore";
+import { openChatInAgentPane } from "../../../app/store/openChatInAgentPane";
 import { getPreferredWorkspaceChatSessionIdForSession } from "../chatWorkspaceSelectors";
 import {
     useVaultStore,
@@ -12739,7 +12740,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
             const activeSessionId = get().activeSessionId;
             if (activeSessionId) {
                 const activeSession = get().sessionsById[activeSessionId];
-                useEditorStore.getState().openChat(activeSessionId, {
+                openChatInAgentPane(activeSessionId, {
                     title: activeSession
                         ? getSessionTitle(activeSession)
                         : "Chat",
@@ -12763,7 +12764,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
                 const createdSession =
                     nextState.sessionsById[createdSessionId] ?? null;
-                useEditorStore.getState().openChat(createdSessionId, {
+                openChatInAgentPane(createdSessionId, {
                     title: createdSession
                         ? getSessionTitle(createdSession)
                         : "Chat",
@@ -13023,7 +13024,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     historySessionId: newHistoryId,
                     runtimeId: session.runtimeId,
                 });
-                useEditorStore.getState().openChat(forkedSessionId, {
+                openChatInAgentPane(forkedSessionId, {
                     title: forkedTitle,
                     historySessionId: newHistoryId,
                 });

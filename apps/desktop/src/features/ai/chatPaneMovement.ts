@@ -4,6 +4,7 @@ import {
     useEditorStore,
 } from "../../app/store/editorStore";
 import { createChatTab } from "../../app/store/editorTabs";
+import { openChatInAgentPane } from "../../app/store/openChatInAgentPane";
 import type { WorkspaceDropTarget } from "../../app/store/workspaceContracts";
 import {
     focusClaudeTerminalAgentSession,
@@ -289,7 +290,7 @@ export function openChatSessionInWorkspace(
         return sessionId;
     }
     const { title, historySessionId } = prepareChatSessionForWorkspace(sessionId);
-    useEditorStore.getState().openChat(sessionId, {
+    openChatInAgentPane(sessionId, {
         title,
         paneId: options?.paneId,
         insertIndex: options?.insertIndex,
