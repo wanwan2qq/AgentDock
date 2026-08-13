@@ -7,6 +7,7 @@ pub const CLAUDE_RUNTIME_ID: &str = "claude-acp";
 pub const GROK_RUNTIME_ID: &str = "grok-acp";
 pub const KILO_RUNTIME_ID: &str = "kilo-acp";
 pub const OPENCODE_RUNTIME_ID: &str = "opencode-acp";
+pub const CURSOR_RUNTIME_ID: &str = "cursor-acp";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

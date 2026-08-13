@@ -87,6 +87,19 @@ const RUNTIME_METADATA: RuntimeMetadata[] = [
             "user_input",
         ],
     },
+    {
+        id: "cursor-acp",
+        name: "Cursor",
+        company: "Cursor",
+        description: "Cursor CLI running as a native ACP agent (`agent acp`).",
+        capabilities: [
+            "attachments",
+            "permissions",
+            "plans",
+            "terminal_output",
+            "create_session",
+        ],
+    },
 ];
 
 export const PROVIDER_CATALOG = [

@@ -74,6 +74,20 @@ export function AIProviderIcon({
         );
     }
 
+    if (runtimeId.includes("cursor")) {
+        return (
+            <svg
+                className={className}
+                fill="currentColor"
+                height={size}
+                viewBox="0 0 24 24"
+                width={size}
+            >
+                <path d="M4 4h7.5v7.5H4V4zm8.5 0H20v7.5h-7.5V4zM4 12.5H11.5V20H4v-7.5zm8.5 3.75 3.75-3.75H20v7.5h-7.5v-3.75z" />
+            </svg>
+        );
+    }
+
     if (runtimeId.includes("grok")) {
         return (
             <svg

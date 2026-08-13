@@ -62,13 +62,18 @@ function getRunningStatusLabel(runtimeName: string) {
 }
 
 function authTerminalOutputIndicatesSuccess(runtimeId: string, output: string) {
-    if (runtimeId === "grok-acp" || runtimeId === "opencode-acp") {
+    if (
+        runtimeId === "grok-acp" ||
+        runtimeId === "opencode-acp" ||
+        runtimeId === "cursor-acp"
+    ) {
         const normalized = output.toLowerCase();
         return (
             normalized.includes("authentication successful") ||
             normalized.includes("login successful") ||
             normalized.includes("successfully authenticated") ||
-            normalized.includes("successfully logged in")
+            normalized.includes("successfully logged in") ||
+            normalized.includes("you are now logged in")
         );
     }
 

@@ -78,6 +78,12 @@ const RUNTIME_IMAGE_ATTACHMENT_LIMITS: Record<string, ImageAttachmentLimits> = {
         maxImagesPerMessage: MAX_IMAGE_ATTACHMENTS_PER_MESSAGE,
         allowedMimeTypes: CONSERVATIVE_IMAGE_ATTACHMENT_MIME_TYPES,
     },
+    "cursor-acp": {
+        runtimeLabel: "Cursor",
+        maxBytes: CONSERVATIVE_BASE64_RAW_IMAGE_ATTACHMENT_BYTES,
+        maxImagesPerMessage: MAX_IMAGE_ATTACHMENTS_PER_MESSAGE,
+        allowedMimeTypes: CONSERVATIVE_IMAGE_ATTACHMENT_MIME_TYPES,
+    },
 };
 
 export function getImageAttachmentLimits(

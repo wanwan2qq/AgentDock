@@ -474,6 +474,7 @@ async function main() {
       "grok-acp",
       "kilo-acp",
       "opencode-acp",
+      "cursor-acp",
     ]) {
       assert(
         runtimes.some((runtime) => runtime.runtime.id === runtimeId),

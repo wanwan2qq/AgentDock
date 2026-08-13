@@ -47,7 +47,8 @@ use neverwrite_ai::{
     AI_SESSION_ERROR_EVENT, AI_SESSION_UPDATED_EVENT, AI_STATUS_EVENT, AI_THINKING_COMPLETED_EVENT,
     AI_THINKING_DELTA_EVENT, AI_THINKING_STARTED_EVENT, AI_TOKEN_USAGE_EVENT,
     AI_TOOL_ACTIVITY_EVENT, AI_URL_ELICITATION_REQUEST_EVENT, AI_USER_INPUT_REQUEST_EVENT,
-    CLAUDE_RUNTIME_ID, CODEX_RUNTIME_ID, GROK_RUNTIME_ID, KILO_RUNTIME_ID, OPENCODE_RUNTIME_ID,
+    CLAUDE_RUNTIME_ID, CODEX_RUNTIME_ID, CURSOR_RUNTIME_ID, GROK_RUNTIME_ID, KILO_RUNTIME_ID,
+    OPENCODE_RUNTIME_ID,
 };
 use portable_pty::{
     native_pty_system, Child as PtyChild, ChildKiller, CommandBuilder, MasterPty, PtySize,
@@ -123,7 +124,9 @@ const AUTH_TERMINAL_DEFAULT_COLS: u16 = 100;
 const AUTH_TERMINAL_DEFAULT_ROWS: u16 = 28;
 const AUTH_TERMINAL_MONITOR_INTERVAL: Duration = Duration::from_millis(120);
 const AUTH_TERMINAL_OUTPUT_CHUNK_SIZE: usize = 4096;
-const ACP_SESSION_START_TIMEOUT: Duration = Duration::from_secs(15);
+// Cursor ACP authenticate + session/new regularly takes ~12s on a warm CLI;
+// keep headroom for cold starts and large model catalogs in the response.
+const ACP_SESSION_START_TIMEOUT: Duration = Duration::from_secs(60);
 const RUNTIME_SETUP_STORE_VERSION: u32 = 2;
 const RUNTIME_SECRET_SERVICE: &str = "NeverWrite AI Provider Secrets";
 const RUNTIME_SECRET_STORE_MODE_ENV: &str = "NEVERWRITE_AI_SECRET_STORE";
@@ -131,6 +134,7 @@ const LEGACY_GEMINI_RUNTIME_ID: &str = "gemini-acp";
 const LEGACY_GEMINI_SECRET_ENV_KEYS: &[&str] = &["GEMINI_API_KEY", "GOOGLE_API_KEY"];
 const RUNTIME_SETUP_LOAD_ERROR_MESSAGE: &str = "Secure credential storage is unavailable. Reconnect this AI provider or configure an environment variable before starting a session.";
 const OPENCODE_AUTH_UNVERIFIED_MESSAGE: &str = "OpenCode auth is managed by the OpenCode CLI. NeverWrite could not verify local OpenCode credentials, but OpenCode may still use /connect, environment variables, or a project .env.";
+const CURSOR_AUTH_UNVERIFIED_MESSAGE: &str = "Cursor auth is managed by the Cursor CLI (`agent login`). NeverWrite could not verify local Cursor credentials, but Cursor may still use CURSOR_API_KEY, CURSOR_AUTH_TOKEN, or a prior CLI login.";
 
 #[derive(Debug, Clone, Copy)]
 struct RuntimeDefinition {
@@ -201,6 +205,16 @@ const RUNTIME_DEFINITIONS: &[RuntimeDefinition] = &[
         description: "OpenCode ACP-compatible agent runtime.",
         default_executable: "opencode",
         bin_env_var: "NEVERWRITE_OPENCODE_ACP_BIN",
+        acp_args: SHELL_ACP_ARGS,
+        acp_protocol: AcpProtocolFlavor::Current,
+        supports_native_resume: false,
+    },
+    RuntimeDefinition {
+        id: CURSOR_RUNTIME_ID,
+        name: "Cursor",
+        description: "Cursor CLI running as a native ACP agent (`agent acp`).",
+        default_executable: "agent",
+        bin_env_var: "NEVERWRITE_CURSOR_ACP_BIN",
         acp_args: SHELL_ACP_ARGS,
         acp_protocol: AcpProtocolFlavor::Current,
         supports_native_resume: false,
@@ -755,6 +769,8 @@ fn is_secret_runtime_env_key(key: &str) -> bool {
             | "XAI_API_KEY"
             | "OPENCODE_API_KEY"
             | "KILO_API_KEY"
+            | "CURSOR_API_KEY"
+            | "CURSOR_AUTH_TOKEN"
     )
 }
 
@@ -3895,6 +3911,7 @@ fn acp_auth_handshake_request(
     let method_id = match auth_method {
         "xai-api-key" => handshake.env_method_id,
         "grok-login" => handshake.external_method_id,
+        "cursor-login" => handshake.external_method_id,
         unsupported => {
             return Err(format!(
                 "{} auth method '{}' cannot be used for the ACP auth handshake.",
@@ -6691,6 +6708,8 @@ fn setup_status_for_with_inherited_auth(
     } else if runtime_id == OPENCODE_RUNTIME_ID && auth_method.as_deref() == Some("opencode-login")
     {
         Some(OPENCODE_AUTH_UNVERIFIED_MESSAGE.to_string())
+    } else if runtime_id == CURSOR_RUNTIME_ID && auth_method.as_deref() == Some("cursor-login") {
+        Some(CURSOR_AUTH_UNVERIFIED_MESSAGE.to_string())
     } else {
         setup.message
     };
@@ -6859,7 +6878,15 @@ fn effective_auth_method_for_acp_process_spec(
             return inherited_auth_method.or_else(|| setup.auth_method.clone());
         }
     }
-    setup.auth_method.clone().or(inherited_auth_method)
+    setup
+        .auth_method
+        .clone()
+        .or(inherited_auth_method)
+        // Cursor CLI login is ambient once `agent login` has succeeded; default
+        // the ACP handshake to cursor_login even before the setup UI is used.
+        .or_else(|| {
+            (runtime_id == CURSOR_RUNTIME_ID).then(|| "cursor-login".to_string())
+        })
 }
 
 fn acp_auth_handshake_for_runtime(runtime_id: &str) -> Option<AcpAuthHandshake> {
@@ -6868,6 +6895,15 @@ fn acp_auth_handshake_for_runtime(runtime_id: &str) -> Option<AcpAuthHandshake> 
             env_method_id: "xai.api_key",
             external_method_id: "cached_token",
             meta: Some(grok_acp_auth_meta()),
+        });
+    }
+    if runtime_id == CURSOR_RUNTIME_ID {
+        // Cursor advertises ACP method id `cursor_login` and expects authenticate
+        // before session/new when using CLI login credentials.
+        return Some(AcpAuthHandshake {
+            env_method_id: "cursor_login",
+            external_method_id: "cursor_login",
+            meta: None,
         });
     }
     None
@@ -7026,7 +7062,20 @@ fn runtime_binary_name(base: &str) -> String {
 
 fn resolve_known_runtime_fallback(runtime_id: &str) -> Option<PathBuf> {
     resolve_grok_official_runtime_fallback(runtime_id)
+        .or_else(|| resolve_cursor_official_runtime_fallback(runtime_id))
         .or_else(|| resolve_macos_homebrew_runtime_fallback(runtime_id))
+}
+
+fn resolve_cursor_official_runtime_fallback(runtime_id: &str) -> Option<PathBuf> {
+    if runtime_id != CURSOR_RUNTIME_ID {
+        return None;
+    }
+    let home = home_dir()?;
+    let candidate = home
+        .join(".local")
+        .join("bin")
+        .join(runtime_binary_name(default_executable_name(runtime_id)));
+    find_executable_candidate(candidate, &executable_extensions_for_path_lookup())
 }
 
 fn resolve_grok_official_runtime_fallback(runtime_id: &str) -> Option<PathBuf> {
@@ -7043,7 +7092,10 @@ fn resolve_grok_official_runtime_fallback(runtime_id: &str) -> Option<PathBuf> {
 
 #[cfg(target_os = "macos")]
 fn resolve_macos_homebrew_runtime_fallback(runtime_id: &str) -> Option<PathBuf> {
-    if !matches!(runtime_id, GROK_RUNTIME_ID | OPENCODE_RUNTIME_ID) {
+    if !matches!(
+        runtime_id,
+        GROK_RUNTIME_ID | OPENCODE_RUNTIME_ID | CURSOR_RUNTIME_ID
+    ) {
         return None;
     }
     ["/opt/homebrew/bin", "/usr/local/bin"]
@@ -7063,6 +7115,7 @@ fn default_terminal_auth_method(runtime_id: &str) -> &'static str {
         GROK_RUNTIME_ID => "grok-login",
         KILO_RUNTIME_ID => "kilo-login",
         OPENCODE_RUNTIME_ID => "opencode-login",
+        CURSOR_RUNTIME_ID => "cursor-login",
         _ => "terminal-login",
     }
 }
@@ -7117,6 +7170,10 @@ fn auth_terminal_launch_config(
         (OPENCODE_RUNTIME_ID, "opencode-login") => {
             args.extend(["auth".to_string(), "login".to_string()]);
             "OpenCode Login".to_string()
+        }
+        (CURSOR_RUNTIME_ID, "cursor-login") => {
+            args.push("login".to_string());
+            "Cursor Login".to_string()
         }
         _ => {
             return Err(format!(
@@ -7349,6 +7406,15 @@ fn inherited_auth_method(
                     auth_invalidated_at_ms,
                 )
             }),
+        CURSOR_RUNTIME_ID => cursor_env_auth_present()
+            .then(|| "cursor-login".to_string())
+            .or_else(|| {
+                inherited_persisted_auth_method(
+                    runtime_id,
+                    include_persisted,
+                    auth_invalidated_at_ms,
+                )
+            }),
         _ => None,
     }
 }
@@ -7412,6 +7478,9 @@ fn persisted_cli_auth_method_for_home_with_invalidated_at(
         OPENCODE_RUNTIME_ID if active_opencode_auth_file_exists(home, auth_invalidated_at_ms) => {
             Some("opencode-login".to_string())
         }
+        CURSOR_RUNTIME_ID if active_cursor_auth_marker_exists(home, auth_invalidated_at_ms) => {
+            Some("cursor-login".to_string())
+        }
         _ => None,
     }
 }
@@ -7461,6 +7530,32 @@ fn opencode_env_auth_present() -> bool {
     opencode_env_auth_keys()
         .iter()
         .any(|key| env_secret_present(key))
+}
+
+fn cursor_env_auth_keys() -> &'static [&'static str] {
+    &["CURSOR_API_KEY", "CURSOR_AUTH_TOKEN"]
+}
+
+fn cursor_env_auth_present() -> bool {
+    cursor_env_auth_keys()
+        .iter()
+        .any(|key| env_secret_present(key))
+}
+
+fn cursor_auth_marker_candidates(home: &Path) -> Vec<PathBuf> {
+    // Cursor CLI stores login state under the user config directory. Treat any
+    // non-empty marker/auth file newer than disconnect invalidation as inherited.
+    vec![
+        home.join(".cursor").join("cli-config.json"),
+        home.join(".cursor").join("auth.json"),
+        home.join(".config").join("cursor").join("auth.json"),
+    ]
+}
+
+fn active_cursor_auth_marker_exists(home: &Path, auth_invalidated_at_ms: Option<u64>) -> bool {
+    cursor_auth_marker_candidates(home)
+        .into_iter()
+        .any(|path| timestamped_non_empty_file_is_active(&path, auth_invalidated_at_ms))
 }
 
 fn grok_auth_file_path(home: &Path) -> PathBuf {
@@ -7617,12 +7712,17 @@ fn should_persist_auth_method(
 fn is_persistable_external_auth_method(runtime_id: &str, method_id: &str) -> bool {
     matches!(
         (runtime_id, method_id),
-        (GROK_RUNTIME_ID, "grok-login") | (OPENCODE_RUNTIME_ID, "opencode-login")
+        (GROK_RUNTIME_ID, "grok-login")
+            | (OPENCODE_RUNTIME_ID, "opencode-login")
+            | (CURSOR_RUNTIME_ID, "cursor-login")
     )
 }
 
 fn is_invalidation_tracked_external_auth_runtime(runtime_id: &str) -> bool {
-    matches!(runtime_id, GROK_RUNTIME_ID | OPENCODE_RUNTIME_ID)
+    matches!(
+        runtime_id,
+        GROK_RUNTIME_ID | OPENCODE_RUNTIME_ID | CURSOR_RUNTIME_ID
+    )
 }
 
 fn is_local_auth_method(method_id: &str) -> bool {
@@ -7910,6 +8010,12 @@ fn auth_methods(runtime_id: &str) -> Vec<AiAuthMethod> {
             description: "Open the OpenCode CLI sign-in flow in an integrated terminal."
                 .to_string(),
         }],
+        CURSOR_RUNTIME_ID => vec![AiAuthMethod {
+            id: "cursor-login".to_string(),
+            name: "Cursor login".to_string(),
+            description: "Open the Cursor CLI sign-in flow (`agent login`) in an integrated terminal."
+                .to_string(),
+        }],
         _ => vec![],
     }
 }
@@ -7921,6 +8027,7 @@ fn auth_method_ids(runtime_id: &str) -> Vec<&'static str> {
         GROK_RUNTIME_ID => vec!["grok-login", "xai-api-key"],
         KILO_RUNTIME_ID => vec!["kilo-login", "kilo-api-key"],
         OPENCODE_RUNTIME_ID => vec!["opencode-login"],
+        CURSOR_RUNTIME_ID => vec!["cursor-login"],
         _ => vec![],
     }
 }
@@ -8505,6 +8612,12 @@ fn native_image_attachment_limits_for_runtime(
         },
         Some(OPENCODE_RUNTIME_ID) => NativeImageAttachmentLimits {
             runtime_label: "OpenCode",
+            max_bytes: CONSERVATIVE_NATIVE_BASE64_RAW_IMAGE_ATTACHMENT_BYTES,
+            max_images_per_message: MAX_NATIVE_IMAGE_ATTACHMENTS_PER_MESSAGE,
+            allowed_mime_types: CONSERVATIVE_NATIVE_IMAGE_MIME_TYPES,
+        },
+        Some(CURSOR_RUNTIME_ID) => NativeImageAttachmentLimits {
+            runtime_label: "Cursor",
             max_bytes: CONSERVATIVE_NATIVE_BASE64_RAW_IMAGE_ATTACHMENT_BYTES,
             max_images_per_message: MAX_NATIVE_IMAGE_ATTACHMENTS_PER_MESSAGE,
             allowed_mime_types: CONSERVATIVE_NATIVE_IMAGE_MIME_TYPES,
@@ -9105,6 +9218,16 @@ fn auth_terminal_output_indicates_success(runtime_id: &str, buffer: &str) -> boo
                 || lower.contains("login successful")
                 || lower.contains("successfully authenticated")
                 || lower.contains("successfully logged in")
+        }
+        CURSOR_RUNTIME_ID => {
+            let lower = buffer.to_ascii_lowercase();
+            lower.contains("authentication successful")
+                || lower.contains("login successful")
+                || lower.contains("logged in successfully")
+                || lower.contains("successfully authenticated")
+                || lower.contains("successfully logged in")
+                || lower.contains("successfully signed in")
+                || lower.contains("you are now logged in")
         }
         GROK_RUNTIME_ID => {
             let lower = buffer.to_ascii_lowercase();
@@ -9906,6 +10029,7 @@ mod tests {
         assert!(!runtime_supports_native_resume(GROK_RUNTIME_ID));
         assert!(!runtime_supports_native_resume(KILO_RUNTIME_ID));
         assert!(!runtime_supports_native_resume(OPENCODE_RUNTIME_ID));
+        assert!(!runtime_supports_native_resume(CURSOR_RUNTIME_ID));
     }
 
     #[test]
@@ -12364,6 +12488,7 @@ mod tests {
             CODEX_RUNTIME_ID,
             KILO_RUNTIME_ID,
             OPENCODE_RUNTIME_ID,
+            CURSOR_RUNTIME_ID,
         ] {
             assert_eq!(
                 acp_protocol_flavor(runtime_id),
@@ -16644,5 +16769,101 @@ mod tests {
 
         assert_eq!(spec.args, vec!["acp".to_string()]);
         assert_eq!(spec.runtime_id, OPENCODE_RUNTIME_ID);
+    }
+
+    #[test]
+    fn cursor_runtime_is_registered_with_expected_launch_contract() {
+        let definition = runtime_definition(CURSOR_RUNTIME_ID).unwrap();
+        assert_eq!(definition.name, "Cursor");
+        assert_eq!(definition.default_executable, "agent");
+        assert_eq!(definition.bin_env_var, "NEVERWRITE_CURSOR_ACP_BIN");
+        assert_eq!(definition.acp_args, ["acp"]);
+
+        let descriptors = runtime_descriptors();
+        assert!(descriptors
+            .iter()
+            .any(|descriptor| descriptor.runtime.id == CURSOR_RUNTIME_ID));
+    }
+
+    #[test]
+    fn acp_process_spec_launches_cursor_with_acp_arg() {
+        let current_exe = std::env::current_exe().unwrap();
+        let setup = RuntimeSetupState {
+            custom_binary_path: Some(current_exe.display().to_string()),
+            auth_method: Some("cursor-login".to_string()),
+            ..RuntimeSetupState::default()
+        };
+
+        let spec = acp_process_spec(
+            CURSOR_RUNTIME_ID,
+            &setup,
+            std::env::current_dir().unwrap(),
+        )
+        .expect("Cursor ACP process spec should resolve");
+
+        assert_eq!(spec.args, vec!["acp".to_string()]);
+        assert_eq!(spec.runtime_id, CURSOR_RUNTIME_ID);
+    }
+
+    #[test]
+    fn auth_terminal_launch_config_uses_cursor_login_command() {
+        let current_exe = std::env::current_exe().unwrap();
+        let setup = RuntimeSetupState {
+            custom_binary_path: Some(current_exe.display().to_string()),
+            ..RuntimeSetupState::default()
+        };
+        let config = auth_terminal_launch_config(
+            CURSOR_RUNTIME_ID,
+            "cursor-login",
+            &setup,
+            std::env::current_dir().unwrap(),
+        )
+        .expect("Cursor login launch config should resolve");
+
+        assert_eq!(config.args, vec!["login".to_string()]);
+        assert_eq!(config.display_name, "Cursor Login");
+    }
+
+    #[test]
+    fn cursor_auth_terminal_success_output_is_detected_before_exit() {
+        assert!(auth_terminal_output_indicates_success(
+            CURSOR_RUNTIME_ID,
+            "Login successful. You are now logged in."
+        ));
+        assert!(!auth_terminal_output_indicates_success(
+            CURSOR_RUNTIME_ID,
+            "Waiting for browser authentication..."
+        ));
+    }
+
+    #[test]
+    fn acp_auth_handshake_maps_cursor_login() {
+        let setup = RuntimeSetupState {
+            auth_method: Some("cursor-login".to_string()),
+            auth_ready: true,
+            ..RuntimeSetupState::default()
+        };
+        let spec = acp_process_spec(
+            CURSOR_RUNTIME_ID,
+            &setup,
+            std::env::current_dir().unwrap(),
+        )
+        .expect("Cursor ACP process spec should resolve with a custom or PATH binary");
+
+        // Prefer asserting handshake mapping even when binary resolution varies.
+        let handshake_spec = AcpProcessSpec {
+            program: PathBuf::from("agent"),
+            args: vec!["acp".to_string()],
+            cwd: std::env::current_dir().unwrap(),
+            env: HashMap::new(),
+            runtime_id: CURSOR_RUNTIME_ID.to_string(),
+            auth_method: Some("cursor-login".to_string()),
+            auth_handshake: acp_auth_handshake_for_runtime(CURSOR_RUNTIME_ID),
+        };
+        let handshake_request = acp_auth_handshake_request(&handshake_spec)
+            .expect("Cursor handshake should be valid")
+            .expect("Cursor should request ACP authenticate");
+        assert_eq!(handshake_request.method_id, "cursor_login");
+        let _ = spec;
     }
 }

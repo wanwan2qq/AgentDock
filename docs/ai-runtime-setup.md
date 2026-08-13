@@ -24,10 +24,11 @@ and terminal-auth routing helpers are in
 | `grok-acp` | `grok --no-auto-update agent stdio` | No. Must be available from PATH or a configured binary override. | Grok terminal login, xAI API key |
 | `kilo-acp` | `kilo acp` | No. Must be available from PATH or a configured binary override. | Kilo terminal login |
 | `opencode-acp` | `opencode acp` | No. Must be available from PATH or a configured binary override. | OpenCode terminal login |
+| `cursor-acp` | `agent acp` | No. Must be available from PATH, `~/.local/bin/agent`, or a configured binary override. | Cursor terminal login (`agent login`) |
 
 NeverWrite currently supports two ACP compatibility paths:
 
-- `Current14`: Claude, Codex, Kilo, and OpenCode use the current ACP session
+- `Current14`: Claude, Codex, Kilo, OpenCode, and Cursor use the current ACP session
   config path.
 - `Legacy12`: Grok uses the legacy ACP model/mode path.
 
@@ -53,7 +54,7 @@ For every provider, the backend resolves the runtime command in this order:
 3. Packaged release resources, when available.
 4. Development vendor fallback for Codex and Claude.
 5. A command found on the app process `PATH`.
-6. macOS Homebrew fallback paths for Grok and OpenCode.
+6. Known install fallbacks (`~/.local/bin/agent` for Cursor; macOS Homebrew for Grok/OpenCode/Cursor).
 
 The provider-specific runtime binary overrides are:
 
@@ -64,10 +65,11 @@ The provider-specific runtime binary overrides are:
 | `NEVERWRITE_GROK_ACP_BIN` | Grok |
 | `NEVERWRITE_KILO_ACP_BIN` | Kilo |
 | `NEVERWRITE_OPENCODE_ACP_BIN` | OpenCode |
+| `NEVERWRITE_CURSOR_ACP_BIN` | Cursor |
 
 The values may be absolute paths or command names resolvable on `PATH`. For
-Grok, Kilo, and OpenCode, NeverWrite appends the ACP arguments automatically:
-`grok --no-auto-update agent stdio`, `kilo acp`, and `opencode acp`.
+Grok, Kilo, OpenCode, and Cursor, NeverWrite appends the ACP arguments automatically:
+`grok --no-auto-update agent stdio`, `kilo acp`, `opencode acp`, and `agent acp`.
 
 Packaged builds use `NEVERWRITE_ELECTRON_ACP_RESOURCE_DIR` internally to point
 the native backend at staged Electron resources. In normal app usage this is set
@@ -91,12 +93,13 @@ The backend also detects existing CLI auth files and environment secrets:
 | Grok | `XAI_API_KEY` or active non-empty Grok CLI auth under `~/.grok/`, currently `~/.grok/auth.json` |
 | Kilo | Non-empty Kilo auth file, including `~/.local/share/kilo/auth.json` on Unix-like systems |
 | OpenCode | `OPENCODE_API_KEY`, provider keys inherited by OpenCode, or active `opencode/auth.json` in the platform data directory |
+| Cursor | `CURSOR_API_KEY`, `CURSOR_AUTH_TOKEN`, or non-empty Cursor CLI auth markers such as `~/.cursor/cli-config.json` / `~/.cursor/auth.json` |
 
 Codex ChatGPT auth is implemented through the ACP `authenticate` request and
 requires a resolved Codex runtime binary before NeverWrite marks it connected.
 Codex does not use the integrated auth terminal.
 
-Claude, Grok, Kilo, and OpenCode expose integrated terminal auth methods.
+Claude, Grok, Kilo, OpenCode, and Cursor expose integrated terminal auth methods.
 NeverWrite starts the provider CLI in a PTY and marks auth pending before
 launch. A zero exit code marks the provider verified; Grok and OpenCode can
 also be marked verified when terminal output contains success strings recognized
@@ -225,6 +228,18 @@ Because OpenCode is not bundled by default, install the CLI separately or
 configure `NEVERWRITE_OPENCODE_ACP_BIN`. NeverWrite launches sessions as
 `opencode acp` and opens auth as `opencode auth login`.
 
+### Cursor
+
+Use Cursor terminal login from the setup UI (`agent login`), pre-existing Cursor
+CLI auth markers, or `CURSOR_API_KEY` / `CURSOR_AUTH_TOKEN` in the environment.
+Disconnecting Cursor clears NeverWrite's local selection and persists an
+invalidation marker, but it does not delete Cursor CLI auth files.
+
+Because Cursor is not bundled by default, install the Cursor CLI separately
+(typically `~/.local/bin/agent`) or configure `NEVERWRITE_CURSOR_ACP_BIN`.
+NeverWrite launches sessions as `agent acp` and opens auth as `agent login`.
+See [Cursor ACP docs](https://cursor.com/docs/cli/acp).
+
 ## Environment Overrides
 
 These `NEVERWRITE_*` variables are relevant to AI runtime setup and packaging:
@@ -236,6 +251,7 @@ These `NEVERWRITE_*` variables are relevant to AI runtime setup and packaging:
 | `NEVERWRITE_GROK_ACP_BIN` | Runtime launch override for Grok in dev or local troubleshooting. |
 | `NEVERWRITE_KILO_ACP_BIN` | Runtime launch override for Kilo in dev or local troubleshooting. |
 | `NEVERWRITE_OPENCODE_ACP_BIN` | Runtime launch override for OpenCode in dev or local troubleshooting. |
+| `NEVERWRITE_CURSOR_ACP_BIN` | Runtime launch override for Cursor (`agent`) in dev or local troubleshooting. |
 | `NEVERWRITE_APP_DATA_DIR` | Overrides app data storage, including `ai/runtime-setup.json`; Electron sets this for the sidecar. |
 | `NEVERWRITE_AI_SECRET_STORE=memory` | Test/smoke-only opt-in for in-memory secrets when no OS keyring is available. Do not use for production persistence. |
 | `NEVERWRITE_NATIVE_BACKEND_PATH` | Forces Electron to use a specific native backend sidecar. Useful when testing a local sidecar build. |

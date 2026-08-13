@@ -32,6 +32,10 @@ export function isIntegratedTerminalAuthMethod(
         return methodId === "opencode-login";
     }
 
+    if (runtimeId === "cursor-acp") {
+        return methodId === "cursor-login";
+    }
+
     return false;
 }
 
@@ -40,6 +44,7 @@ export function isIntegratedTerminalAuthMethodId(methodId?: string) {
         isClaudeTerminalAuthMethodId(methodId) ||
         methodId === "grok-login" ||
         methodId === "kilo-login" ||
-        methodId === "opencode-login"
+        methodId === "opencode-login" ||
+        methodId === "cursor-login"
     );
 }

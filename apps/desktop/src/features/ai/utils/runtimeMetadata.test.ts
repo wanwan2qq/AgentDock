@@ -80,6 +80,7 @@ describe("runtimeMetadata", () => {
         expect(getRuntimeDisplayName("kilo-acp")).toBe("Kilo");
         expect(getRuntimeDisplayName("grok-acp")).toBe("Grok");
         expect(getRuntimeDisplayName("opencode-acp")).toBe("OpenCode");
+        expect(getRuntimeDisplayName("cursor-acp")).toBe("Cursor");
         expect(getRuntimeDisplayName(undefined, undefined)).toBe("Assistant");
     });
 });

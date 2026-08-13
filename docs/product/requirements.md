@@ -41,7 +41,7 @@
 
 ### 2. 与编程助手协同
 
-- 支持用 **Claude Code、OpenCode** 等编程助手高效生成、更新知识库  
+- 支持用 **Claude Code、OpenCode、Cursor** 等编程助手高效生成、更新知识库  
 - 知识库以**本地文件**为真相源，便于 Agent 直接读写  
 - 人可审阅 Agent 的写入结果（diff / review），而不是黑盒覆盖  
 - 工作流低摩擦：打开知识库目录 → Agent 读写 → 人预览多格式产物  

@@ -38,6 +38,7 @@ interface DropdownFieldProps {
 const SEARCHABLE_MODEL_RUNTIME_IDS = new Set([
     "kilo-acp",
     "opencode-acp",
+    "cursor-acp",
 ]);
 const GROK_RUNTIME_ID = "grok-acp";
 const CLAUDE_RUNTIME_ID = "claude-acp";

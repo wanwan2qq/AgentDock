@@ -24,7 +24,7 @@
 ### 本应用更强（产品层）
 
 - **人审 Agent 改动**：inline review、Review 页、整文件/hunk 保留或拒绝——适合知识库  
-- **多助手同工作区**：Claude / OpenCode / Codex 等可切换，围着同一 vault  
+- **多助手同工作区**：Claude / OpenCode / Codex / Cursor 等可切换，围着同一 vault  
 - **知识库场景**：MD/CSV/HTML/图同窗；比纯代码仓库 CLI 更贴用法  
 - **会话资产**：transcript、历史、fork/resume 等做进 App  
 
