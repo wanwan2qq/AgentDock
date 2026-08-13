@@ -37,6 +37,7 @@ function renderMessage(
             action?: AIUserInputAction,
         ) => void;
         onDismissMessage?: (messageId: string) => void;
+        onRetryConnection?: (sessionId: string) => void;
     } = {},
 ) {
     return renderComponent(
@@ -47,6 +48,7 @@ function renderMessage(
             visibleWorkCycleId={options.visibleWorkCycleId}
             onUserInputResponse={options.onUserInputResponse}
             onDismissMessage={options.onDismissMessage}
+            onRetryConnection={options.onRetryConnection}
         />,
     );
 }
@@ -133,6 +135,50 @@ describe("AIChatMessageItem errors", () => {
         fireEvent.click(screen.getByRole("button", { name: "Dismiss error" }));
 
         expect(onDismissMessage).toHaveBeenCalledWith("error:1");
+    });
+
+    it("shows a Chinese reconnect retry action for ACP disconnect errors", () => {
+        const onRetryConnection = vi.fn();
+
+        renderMessage(
+            {
+                id: "error:disconnect",
+                role: "assistant",
+                kind: "error",
+                content: "助手连接已断开。",
+                timestamp: Date.now(),
+                meta: { reconnectable: true },
+            },
+            {
+                sessionId: "session-1",
+                onRetryConnection,
+            },
+        );
+
+        expect(screen.getByText("助手连接已断开。")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "重试连接" }));
+        expect(onRetryConnection).toHaveBeenCalledWith("session-1");
+    });
+
+    it("localizes persisted English reconnect errors in the timeline", () => {
+        renderMessage(
+            {
+                id: "error:en",
+                role: "assistant",
+                kind: "error",
+                content:
+                    "Could not reconnect this chat. Start a new session with saved transcript context?",
+                timestamp: Date.now(),
+            },
+            { sessionId: "session-1", onRetryConnection: vi.fn() },
+        );
+
+        expect(
+            screen.getByText("无法恢复此对话。可重试连接，或新建对话继续。"),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText(/Could not reconnect this chat/),
+        ).not.toBeInTheDocument();
     });
 });
 

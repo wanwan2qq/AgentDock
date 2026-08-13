@@ -1,6 +1,7 @@
 import { formatShortcutAction } from "../../app/shortcuts/format";
 import type { ShortcutActionId } from "../../app/shortcuts/registry";
 import { getDesktopPlatform } from "../../app/utils/platform";
+import { createNewChatInWorkspace } from "../ai/chatPaneMovement";
 
 interface WorkspacePaneEmptyStateProps {
     paneId: string;
@@ -33,19 +34,38 @@ export function WorkspacePaneEmptyState({
 }: WorkspacePaneEmptyStateProps) {
     return (
         <div
-            className="flex h-full items-center justify-center p-6"
+            className="flex h-full flex-col items-center justify-center gap-4 p-6"
             data-workspace-empty-pane={paneId}
         >
             <p
                 className="max-w-md text-center text-sm leading-8"
                 style={{ color: "var(--text-secondary)" }}
             >
-                Open a file
-                <ShortcutHint action="quick_switcher" />, browse commands
-                <ShortcutHint action="command_palette" />, start a chat
-                <ShortcutHint action="new_agent" />, or launch a terminal
-                <ShortcutHint action="new_terminal" />.
+                打开文件
+                <ShortcutHint action="quick_switcher" />
+                ，浏览命令
+                <ShortcutHint action="command_palette" />
+                ，开始对话
+                <ShortcutHint action="new_agent" />
+                ，或打开终端
+                <ShortcutHint action="new_terminal" />
+                。
             </p>
+            <button
+                type="button"
+                className="rounded-md px-3 py-1.5 text-xs"
+                style={{
+                    color: "var(--text-primary)",
+                    backgroundColor:
+                        "color-mix(in srgb, var(--accent) 14%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
+                }}
+                onClick={() => {
+                    void createNewChatInWorkspace();
+                }}
+            >
+                新建对话
+            </button>
         </div>
     );
 }

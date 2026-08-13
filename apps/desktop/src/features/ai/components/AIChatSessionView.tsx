@@ -82,6 +82,7 @@ import {
     ChatPromptOutlineMenu,
     type ChatPromptOutlineItem,
 } from "./ChatPromptOutlineMenu";
+import { createNewChatInWorkspace } from "../chatPaneMovement";
 
 const EMPTY_COMPOSER_PARTS: AIComposerPart[] = [];
 const EMPTY_QUEUED_MESSAGES: QueuedChatMessage[] = [];
@@ -614,10 +615,26 @@ export function AIChatSessionView({ paneId, tabId }: AIChatSessionViewProps) {
     if (!sessionId) {
         return (
             <div
-                className="flex h-full items-center justify-center"
+                className="flex h-full flex-col items-center justify-center gap-3 px-6"
                 style={{ color: "var(--text-secondary)" }}
             >
-                No active chat session
+                <p className="text-center text-sm">还没有打开的对话</p>
+                <button
+                    type="button"
+                    className="rounded-md px-3 py-1.5 text-xs"
+                    style={{
+                        color: "var(--text-primary)",
+                        backgroundColor:
+                            "color-mix(in srgb, var(--accent) 14%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
+                        pointerEvents: "auto",
+                    }}
+                    onClick={() => {
+                        void createNewChatInWorkspace();
+                    }}
+                >
+                    新建对话
+                </button>
             </div>
         );
     }

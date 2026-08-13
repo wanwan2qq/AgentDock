@@ -12993,7 +12993,7 @@ describe("chatStore", () => {
                     (message) =>
                         message.kind === "status" &&
                         message.content ===
-                            "The AI runtime lost its connection. Reconnecting with saved context...",
+                            "助手连接已断开，正在用已保存上下文重连…",
                 ),
         ).toBe(true);
     });
@@ -13071,7 +13071,7 @@ describe("chatStore", () => {
         ).toMatchObject({
             kind: "error",
             content:
-                "Could not reconnect this chat. Start a new session with saved transcript context?",
+                "无法恢复此对话。可重试连接，或新建对话继续。",
         });
         expect(
             useChatStore.getState().sessionsById["persisted:history-1"]
@@ -13208,7 +13208,7 @@ describe("chatStore", () => {
                     (message) =>
                         message.kind === "error" &&
                         message.content ===
-                            "Could not reconnect this chat. Start a new session with saved transcript context?",
+                            "无法恢复此对话。可重试连接，或新建对话继续。",
                 ) ?? [];
 
         expect(failedMessages).toHaveLength(1);
@@ -13232,7 +13232,7 @@ describe("chatStore", () => {
                             role: "assistant",
                             kind: "error",
                             content:
-                                "Could not reconnect this chat. Start a new session with saved transcript context?",
+                                "无法恢复此对话。可重试连接，或新建对话继续。",
                             timestamp: 10,
                         },
                     ],
@@ -13371,7 +13371,7 @@ describe("chatStore", () => {
                     (message) =>
                         message.kind === "error" &&
                         message.content ===
-                            "Could not reconnect this chat. Start a new session with saved transcript context?",
+                            "无法恢复此对话。可重试连接，或新建对话继续。",
                 ),
         ).toBe(false);
         expect(
@@ -14802,7 +14802,7 @@ describe("chatStore", () => {
                 .sessionsById["persisted:history-1"]?.messages.some(
                     (message) =>
                         message.kind === "status" &&
-                        message.content === "Reconnecting saved chat...",
+                        message.content === "正在恢复已保存的对话…",
                 ),
         ).toBe(true);
 
@@ -15820,7 +15820,7 @@ describe("chatStore", () => {
                 .sessionsById[parent.sessionId]?.messages.some(
                     (message) =>
                         message.kind === "error" &&
-                        message.content === "The ACP process exited.",
+                        message.content === "助手连接已断开。",
                 ),
         ).toBe(true);
         expect(
@@ -15830,7 +15830,7 @@ describe("chatStore", () => {
                     (message) =>
                         message.kind === "status" &&
                         message.content ===
-                            "The AI runtime lost its connection. Reconnecting with saved context...",
+                            "助手连接已断开，正在用已保存上下文重连…",
                 ),
         ).toBe(true);
         expect(

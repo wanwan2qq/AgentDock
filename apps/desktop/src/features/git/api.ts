@@ -51,3 +51,7 @@ export function checkoutGitBranch(branch: string) {
         createTracking: true,
     });
 }
+
+export function ignoreNeverwriteDirectory() {
+    return vaultInvoke<GitStatusSnapshot>("git_ignore_neverwrite");
+}

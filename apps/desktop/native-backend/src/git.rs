@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::OnceLock;
@@ -107,6 +108,10 @@ pub fn invoke(command: &str, args: Value) -> Result<Value, String> {
             let input: CheckoutInput = parse_input(args)?;
             checkout_branch(&input.vault_path, &input.branch, input.create_tracking)
         }
+        "git_ignore_neverwrite" => {
+            let input: VaultScopedInput = parse_input(args)?;
+            ignore_neverwrite(&input.vault_path)
+        }
         _ => Err(format!("Unknown git command: {command}")),
     }
 }
@@ -128,6 +133,7 @@ fn get_status(vault_path: &str) -> Result<Value, String> {
             "files": [],
             "conflicts": [],
             "hasGit": false,
+            "neverwriteIgnored": true,
         }));
     }
     if !is_git_repo(&root)? {
@@ -141,6 +147,7 @@ fn get_status(vault_path: &str) -> Result<Value, String> {
             "files": [],
             "conflicts": [],
             "hasGit": true,
+            "neverwriteIgnored": true,
         }));
     }
 
@@ -193,6 +200,7 @@ fn get_status(vault_path: &str) -> Result<Value, String> {
         .map(|file| file.path.clone())
         .collect();
     let dirty = !files.is_empty();
+    let neverwrite_ignored = neverwrite_is_ignored(&root);
 
     Ok(json!({
         "isRepo": true,
@@ -211,6 +219,7 @@ fn get_status(vault_path: &str) -> Result<Value, String> {
         })).collect::<Vec<_>>(),
         "conflicts": conflicts,
         "hasGit": true,
+        "neverwriteIgnored": neverwrite_ignored,
     }))
 }
 
@@ -672,6 +681,43 @@ fn init_repo(vault_path: &str) -> Result<Value, String> {
     get_status(vault_path)
 }
 
+fn neverwrite_is_ignored(root: &Path) -> bool {
+    match run_git(root, &["check-ignore", "-q", "--", ".neverwrite/"]) {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
+}
+
+fn ignore_neverwrite(vault_path: &str) -> Result<Value, String> {
+    let root = normalize_vault_path(vault_path)?;
+    require_git_repo(&root)?;
+    if neverwrite_is_ignored(&root) {
+        return get_status(vault_path);
+    }
+
+    let gitignore_path = root.join(".gitignore");
+    let existing = if gitignore_path.exists() {
+        fs::read_to_string(&gitignore_path)
+            .map_err(|error| format!("Failed to read .gitignore: {error}"))?
+    } else {
+        String::new()
+    };
+
+    let mut next = existing;
+    if !next.is_empty() && !next.ends_with('\n') {
+        next.push('\n');
+    }
+    if !next.is_empty() {
+        next.push('\n');
+    }
+    next.push_str(".neverwrite/\n");
+
+    fs::write(&gitignore_path, next)
+        .map_err(|error| format!("Failed to write .gitignore: {error}"))?;
+
+    get_status(vault_path)
+}
+
 fn normalize_vault_path(vault_path: &str) -> Result<PathBuf, String> {
     let trimmed = vault_path.trim();
     if trimmed.is_empty() {
@@ -912,5 +958,39 @@ mod tests {
         commit(root.to_str().unwrap(), "add hello", &[]).unwrap();
         let clean = get_status(root.to_str().unwrap()).unwrap();
         assert_eq!(clean["dirty"], false);
+        assert_eq!(clean["neverwriteIgnored"], false);
+
+        fs::create_dir_all(root.join(".neverwrite/sessions")).unwrap();
+        fs::write(root.join(".neverwrite/sessions/a.json"), "{}\n").unwrap();
+        let before_ignore = get_status(root.to_str().unwrap()).unwrap();
+        assert_eq!(before_ignore["neverwriteIgnored"], false);
+        assert!(before_ignore["files"].as_array().unwrap().iter().any(|file| {
+            file["path"]
+                .as_str()
+                .unwrap_or("")
+                .starts_with(".neverwrite/")
+        }));
+
+        let after_ignore = ignore_neverwrite(root.to_str().unwrap()).unwrap();
+        assert_eq!(after_ignore["neverwriteIgnored"], true);
+        assert!(!after_ignore["files"].as_array().unwrap().iter().any(|file| {
+            file["path"]
+                .as_str()
+                .unwrap_or("")
+                .starts_with(".neverwrite/")
+        }));
+        let gitignore = fs::read_to_string(root.join(".gitignore")).unwrap();
+        assert!(gitignore.lines().any(|line| line.trim() == ".neverwrite/"));
+
+        let again = ignore_neverwrite(root.to_str().unwrap()).unwrap();
+        assert_eq!(again["neverwriteIgnored"], true);
+        let gitignore_again = fs::read_to_string(root.join(".gitignore")).unwrap();
+        assert_eq!(
+            gitignore_again
+                .lines()
+                .filter(|line| line.trim() == ".neverwrite/")
+                .count(),
+            1
+        );
     }
 }

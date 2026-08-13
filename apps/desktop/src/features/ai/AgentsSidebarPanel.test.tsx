@@ -164,7 +164,9 @@ describe("AgentsSidebarPanel", () => {
     it("opens a provider menu from the plus button before creating a chat", async () => {
         renderComponent(<AgentsSidebarPanel />);
 
-        fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+        fireEvent.click(
+            screen.getAllByRole("button", { name: "新建对话" })[0]!,
+        );
 
         expect(
             chatPaneMovementMock.createNewChatInWorkspace,
@@ -187,6 +189,22 @@ describe("AgentsSidebarPanel", () => {
         ).toBeNull();
     });
 
+    it("shows a Chinese empty-state CTA that opens the provider menu", async () => {
+        renderComponent(<AgentsSidebarPanel />);
+
+        expect(
+            screen.getByText("这个知识库还没有对话"),
+        ).toBeInTheDocument();
+
+        fireEvent.click(
+            screen.getAllByRole("button", { name: "新建对话" })[1]!,
+        );
+
+        expect(
+            await screen.findByRole("button", { name: "Codex" }),
+        ).toBeInTheDocument();
+    });
+
     it("keeps existing chats unfiled until the user explicitly moves one", async () => {
         const session = createSession("session-alpha", "Alpha task", "idle", 100);
         useChatStore.setState((state) => ({
@@ -197,7 +215,7 @@ describe("AgentsSidebarPanel", () => {
         renderComponent(<AgentsSidebarPanel />);
 
         expect(screen.getByText("Alpha task")).toBeInTheDocument();
-        fireEvent.click(screen.getByRole("button", { name: "New folder" }));
+        fireEvent.click(screen.getByRole("button", { name: "新建文件夹" }));
         fireEvent.change(screen.getByRole("textbox", { name: "Folder name" }), {
             target: { value: "Research" },
         });
@@ -365,7 +383,9 @@ describe("AgentsSidebarPanel", () => {
 
         renderComponent(<AgentsSidebarPanel />);
 
-        fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+        fireEvent.click(
+            screen.getAllByRole("button", { name: "新建对话" })[0]!,
+        );
         fireEvent.click(
             await screen.findByRole("button", { name: "Claude Code" }),
         );

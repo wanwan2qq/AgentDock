@@ -910,6 +910,7 @@ impl NativeBackend {
             | "devtools_check_binary"
             | "devtools_read_claude_transcript" => self.devtools.invoke(command, args),
             "git_get_status"
+            | "git_init"
             | "git_diff"
             | "git_stage"
             | "git_unstage"
@@ -918,7 +919,8 @@ impl NativeBackend {
             | "git_push"
             | "git_list_conflicts"
             | "git_list_branches"
-            | "git_checkout" => git::invoke(command, args),
+            | "git_checkout"
+            | "git_ignore_neverwrite" => git::invoke(command, args),
             "spellcheck_list_languages"
             | "spellcheck_list_catalog"
             | "spellcheck_check_text"

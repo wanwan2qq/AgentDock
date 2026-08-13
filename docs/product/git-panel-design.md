@@ -12,7 +12,7 @@
 
 | Command | 入参 | 出参要点 |
 |---------|------|----------|
-| `git_get_status` | `vaultPath` | `isRepo` / `branch` / `ahead`/`behind` / `files[]` / `conflicts[]` / `hasGit` |
+| `git_get_status` | `vaultPath` | `isRepo` / `branch` / `ahead`/`behind` / `files[]` / `conflicts[]` / `hasGit` / `neverwriteIgnored` |
 | `git_init` | `vaultPath` | 仅 `git init`（无目录骨架）；已是仓则返回当前 status |
 | `git_diff` | `vaultPath`, `path?`, `staged?` | `diff` 文本 |
 | `git_stage` | `vaultPath`, `paths[]` | 更新后的 status |
@@ -23,6 +23,7 @@
 | `git_list_conflicts` | `vaultPath` | `conflicts[]` |
 | `git_list_branches` | `vaultPath` | `current` / `local[]` / `remote[]` |
 | `git_checkout` | `vaultPath`, `branch`, `createTracking?` | `git switch`；远端-only 时可建本地跟踪分支 |
+| `git_ignore_neverwrite` | `vaultPath` | 确认后由 UI 调用：若未忽略则追加 `.neverwrite/` 到 `.gitignore`；已忽略则 no-op |
 
 ## UI
 
@@ -30,6 +31,7 @@
 
 - 非 Git / 无 git 二进制：提示文案；非仓可一键 `git init`
 - 有仓：分支 + ahead/behind、Pull/Push、冲突/已暂存/更改列表、diff 预览、commit message
+- 有仓且未忽略 `.neverwrite/`：提示「忽略本地会话目录」（需确认后写入 `.gitignore`）
 
 编辑区底栏 `GitStatusBar`（共享 `gitStatusStore`）：
 

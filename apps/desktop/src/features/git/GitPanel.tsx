@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { confirm } from "@neverwrite/runtime";
 import { useVaultStore } from "../../app/store/vaultStore";
 import { resolveVaultAbsolutePath } from "../../app/utils/vaultPaths";
 import { getPathBaseName } from "../../app/utils/path";
@@ -9,6 +10,7 @@ import {
     commitGitChanges,
     fetchGitBranches,
     fetchGitDiff,
+    ignoreNeverwriteDirectory,
     pullGit,
     pushGit,
     stageGitPaths,
@@ -409,6 +411,58 @@ export function GitPanel() {
                     />
                 </div>
             </div>
+
+            {!status.neverwriteIgnored ? (
+                <div
+                    className="mx-3 mb-2 rounded-md px-2 py-1.5 text-[11px] leading-5"
+                    style={{
+                        background:
+                            "color-mix(in srgb, var(--accent) 10%, var(--bg-secondary))",
+                        color: "var(--text-primary)",
+                        border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
+                    }}
+                >
+                    <div>
+                        本地会话目录{" "}
+                        <code className="text-[10px]">.neverwrite/</code>{" "}
+                        尚未被 Git 忽略，容易把聊天记录弄进版本库。
+                    </div>
+                    <div className="mt-1.5">
+                        <ActionButton
+                            label={
+                                busyAction === "ignore-neverwrite"
+                                    ? "写入中…"
+                                    : "忽略本地会话目录"
+                            }
+                            primary
+                            disabled={busyAction != null}
+                            onClick={() => {
+                                void (async () => {
+                                    const approved = await confirm(
+                                        "将把 .neverwrite/ 追加到 .gitignore，避免本地会话目录进入版本控制。是否继续？",
+                                        {
+                                            title: "忽略本地会话目录",
+                                            kind: "info",
+                                            okLabel: "写入 .gitignore",
+                                            cancelLabel: "取消",
+                                        },
+                                    );
+                                    if (!approved) return;
+                                    await runAction(
+                                        "ignore-neverwrite",
+                                        async () => {
+                                            await ignoreNeverwriteDirectory();
+                                            setNotice(
+                                                "已写入 .gitignore：.neverwrite/",
+                                            );
+                                        },
+                                    );
+                                })();
+                            }}
+                        />
+                    </div>
+                </div>
+            ) : null}
 
             {error ? (
                 <div

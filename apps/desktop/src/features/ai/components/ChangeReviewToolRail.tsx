@@ -22,6 +22,10 @@ import { useChatRowUiEntry } from "./chatRowUiPresentation";
 import type { AIChatMessage, AIFileDiff } from "../types";
 import { MarkdownContent } from "./MarkdownContent";
 import type { ChatPillMetrics } from "./chatPillMetrics";
+import {
+    previewToolFailureReason,
+    resolveToolFailureReason,
+} from "./toolFailureReason";
 
 interface ChangeReviewToolRailProps {
     readonly diffs: readonly AIFileDiff[];
@@ -248,6 +252,15 @@ function ChangeReviewToolRailRow({
         : false;
     const isFailed = status === "failed" || status === "error";
     const isInProgress = status === "in_progress" || status === "pending";
+    const failureReason = isFailed
+        ? resolveToolFailureReason(message.content, {
+              title: message.title,
+              label: actionLabel,
+          })
+        : null;
+    const failureReasonPreview = failureReason
+        ? previewToolFailureReason(failureReason)
+        : null;
 
     return (
         <div
@@ -402,6 +415,16 @@ function ChangeReviewToolRailRow({
                     <Chevron expanded={expanded} />
                 </button>
             </div>
+            {failureReasonPreview ? (
+                <div
+                    className="mt-0.5 truncate pl-9 text-[10px] leading-4"
+                    data-change-review-failure-reason="true"
+                    style={{ color: "#f87171", opacity: 0.92 }}
+                    title={failureReason ?? undefined}
+                >
+                    {failureReasonPreview}
+                </div>
+            ) : null}
 
             {expanded ? (
                 <div className="ml-5 mt-1 overflow-hidden pl-2">

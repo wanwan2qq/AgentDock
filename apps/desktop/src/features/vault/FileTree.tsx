@@ -12,6 +12,10 @@ import { confirm, open } from "@neverwrite/runtime";
 import { openPath, revealItemInDir } from "@neverwrite/runtime";
 import { vaultInvoke } from "../../app/utils/vaultInvoke";
 import {
+    formatVaultOpenMessage,
+    formatVaultOpenProgressDetail,
+} from "../../app/vaultOpenUi";
+import {
     canOpenVaultFileEntryInApp,
     closeOpenTabsForVaultPath,
     getVaultEntryDisplayName,
@@ -1694,14 +1698,11 @@ function OpenVaultForm() {
     const isLoading = useVaultStore((s) => s.isLoading);
     const vaultOpenState = useVaultStore((s) => s.vaultOpenState);
     const error = useVaultStore((s) => s.error);
-    const progressUnit = vaultOpenState.message.toLowerCase().includes("link")
-        ? "links"
-        : "notes";
 
     const handleOpen = async () => {
         const selected = await open({
             directory: true,
-            title: "Select vault",
+            title: "选择知识库文件夹",
         });
         if (selected) openVault(selected);
     };
@@ -1712,7 +1713,7 @@ function OpenVaultForm() {
                 className="text-sm font-medium"
                 style={{ color: "var(--text-primary)" }}
             >
-                Open vault
+                打开知识库
             </p>
             <button
                 onClick={handleOpen}
@@ -1720,7 +1721,7 @@ function OpenVaultForm() {
                 className="text-sm py-1.5 rounded font-medium cursor-pointer"
                 style={{ backgroundColor: "var(--accent)", color: "#fff" }}
             >
-                {isLoading ? "Opening…" : "Select folder"}
+                {isLoading ? "正在打开…" : "选择文件夹"}
             </button>
             {isLoading && (
                 <div
@@ -1732,12 +1733,10 @@ function OpenVaultForm() {
                     }}
                 >
                     <div style={{ color: "var(--text-primary)" }}>
-                        {vaultOpenState.message || "Preparing vault..."}
+                        {formatVaultOpenMessage(vaultOpenState)}
                     </div>
                     <div className="mt-1">
-                        {vaultOpenState.total > 0
-                            ? `${vaultOpenState.processed.toLocaleString()} / ${vaultOpenState.total.toLocaleString()} ${progressUnit}`
-                            : "Calculating progress..."}
+                        {formatVaultOpenProgressDetail(vaultOpenState)}
                     </div>
                     <button
                         type="button"
@@ -1748,7 +1747,7 @@ function OpenVaultForm() {
                             color: "var(--text-primary)",
                         }}
                     >
-                        Cancel
+                        取消
                     </button>
                 </div>
             )}

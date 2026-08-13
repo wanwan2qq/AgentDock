@@ -33,6 +33,13 @@ import { SettingsPanel } from "./features/settings";
 import { useCommandStore } from "./features/command-palette/store/commandStore";
 import { getPathBaseName } from "./app/utils/path";
 import {
+    formatVaultOpenHeading,
+    formatVaultOpenMessage,
+    formatVaultOpenProgressDetail,
+    formatVaultOpenSnapshotHint,
+    formatVaultOpenStage,
+} from "./app/vaultOpenUi";
+import {
     ATTACH_EXTERNAL_TAB_EVENT,
     type AttachExternalTabPayload,
     getCurrentWindowLabel,
@@ -362,10 +369,7 @@ function VaultOpeningOverlay() {
     const hasProgress = openState.total > 0;
     const vaultName = openState.path
         ? getPathBaseName(openState.path)
-        : "Vault";
-    const progressUnit = openState.message.toLowerCase().includes("link")
-        ? "links"
-        : "notes";
+        : "知识库";
 
     return (
         <div
@@ -385,13 +389,13 @@ function VaultOpeningOverlay() {
                 }}
             >
                 <div
-                    className="uppercase"
                     style={{
                         ...VAULT_OVERLAY_STRIP_LABEL,
                         color: "var(--accent)",
+                        letterSpacing: "0.04em",
                     }}
                 >
-                    Opening vault
+                    {formatVaultOpenHeading()}
                 </div>
                 <div
                     className="mt-2 text-lg font-semibold"
@@ -403,7 +407,7 @@ function VaultOpeningOverlay() {
                     className="mt-1 text-sm"
                     style={{ color: "var(--text-secondary)" }}
                 >
-                    {openState.message || "Preparing vault..."}
+                    {formatVaultOpenMessage(openState)}
                 </div>
 
                 <div
@@ -413,36 +417,38 @@ function VaultOpeningOverlay() {
                             "color-mix(in srgb, var(--border) 35%, transparent)",
                     }}
                 >
-                    <div
-                        style={{
-                            width: hasProgress
-                                ? `${Math.min(
-                                      100,
-                                      Math.max(
-                                          6,
-                                          (openState.processed /
-                                              openState.total) *
-                                              100,
-                                      ),
-                                  )}%`
-                                : "18%",
-                            height: "100%",
-                            background:
-                                "linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, white))",
-                            transition: "width 160ms ease",
-                        }}
-                    />
+                    {hasProgress ? (
+                        <div
+                            style={{
+                                width: `${Math.min(
+                                    100,
+                                    Math.max(
+                                        6,
+                                        (openState.processed /
+                                            openState.total) *
+                                            100,
+                                    ),
+                                )}%`,
+                                height: "100%",
+                                background:
+                                    "linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, white))",
+                                transition: "width 160ms ease",
+                            }}
+                        />
+                    ) : (
+                        <div className="vault-open-indeterminate-bar" />
+                    )}
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
                     <span
-                        className="uppercase"
                         style={{
                             ...VAULT_OVERLAY_STRIP_LABEL,
                             color: "var(--text-secondary)",
+                            letterSpacing: "0.04em",
                         }}
                     >
-                        {openState.stage.replaceAll("_", " ")}
+                        {formatVaultOpenStage(openState.stage)}
                     </span>
                     <span
                         className="text-xs"
@@ -451,9 +457,7 @@ function VaultOpeningOverlay() {
                             opacity: 0.85,
                         }}
                     >
-                        {hasProgress
-                            ? `${openState.processed.toLocaleString()} / ${openState.total.toLocaleString()} ${progressUnit}`
-                            : "Preparing index"}
+                        {formatVaultOpenProgressDetail(openState)}
                     </span>
                 </div>
 
@@ -465,7 +469,7 @@ function VaultOpeningOverlay() {
                             opacity: 0.85,
                         }}
                     >
-                        Reusing persisted snapshot before syncing changes.
+                        {formatVaultOpenSnapshotHint()}
                     </div>
                 )}
 
@@ -477,7 +481,7 @@ function VaultOpeningOverlay() {
                         onMouseLeave={() => setCancelHovered(false)}
                         onFocus={() => setCancelHovered(true)}
                         onBlur={() => setCancelHovered(false)}
-                        className="rounded-sm px-2.5 py-1 text-xs uppercase"
+                        className="rounded-sm px-2.5 py-1 text-xs"
                         style={{
                             color: cancelHovered
                                 ? "var(--text-primary)"
@@ -488,14 +492,14 @@ function VaultOpeningOverlay() {
                             border: cancelHovered
                                 ? "1px solid color-mix(in srgb, var(--text-primary) 18%, transparent)"
                                 : "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
-                            letterSpacing: "0.1em",
+                            letterSpacing: "0.04em",
                             fontWeight: 600,
                             cursor: "pointer",
                             transition:
                                 "background-color 120ms ease, color 120ms ease, border-color 120ms ease",
                         }}
                     >
-                        Cancel
+                        取消
                     </button>
                 </div>
             </div>

@@ -190,6 +190,9 @@ describe("ToolActivityItem", () => {
         expect(screen.getByText("Updated")).toBeInTheDocument();
         expect(screen.getByText("Failed")).toBeInTheDocument();
         expect(
+            screen.getByText("Command exited with status 1"),
+        ).toBeInTheDocument();
+        expect(
             view.container.querySelector('[data-tool-activity-row="attention"]'),
         ).toHaveAttribute("data-tool-activity-status", "failed");
     });
@@ -216,11 +219,16 @@ describe("ToolActivityItem", () => {
         );
         expect(row).toHaveAttribute("data-tool-activity-status", "failed");
         expect(screen.getByText("Failed")).toBeInTheDocument();
-        expect(screen.queryByText(reason)).not.toBeInTheDocument();
+        expect(screen.getByText(reason)).toBeInTheDocument();
+        expect(
+            view.container.querySelector(
+                '[data-tool-activity-failure-reason="true"]',
+            ),
+        ).toHaveAttribute("title", reason);
 
         fireEvent.click(row!);
 
-        expect(screen.getByText(reason)).toBeInTheDocument();
+        expect(screen.getAllByText(reason).length).toBeGreaterThanOrEqual(1);
         expect(row).toHaveAttribute("aria-expanded", "true");
     });
 

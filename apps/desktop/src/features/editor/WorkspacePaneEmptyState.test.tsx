@@ -1,14 +1,21 @@
 import "@testing-library/jest-dom/vitest";
-import { screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { formatShortcutAction } from "../../app/shortcuts/format";
 import { useEditorStore } from "../../app/store/editorStore";
 import { getDesktopPlatform } from "../../app/utils/platform";
 import { renderComponent } from "../../test/test-utils";
 import { WorkspacePaneEmptyState } from "./WorkspacePaneEmptyState";
 
+const chatPaneMovementMock = vi.hoisted(() => ({
+    createNewChatInWorkspace: vi.fn(async () => null),
+}));
+
+vi.mock("../ai/chatPaneMovement", () => chatPaneMovementMock);
+
 describe("WorkspacePaneEmptyState", () => {
     beforeEach(() => {
+        chatPaneMovementMock.createNewChatInWorkspace.mockClear();
         useEditorStore.getState().hydrateWorkspace(
             [
                 {
@@ -21,21 +28,17 @@ describe("WorkspacePaneEmptyState", () => {
         );
     });
 
-    it("shows a compact empty state message with shortcut hints", () => {
+    it("shows a compact Chinese empty state with shortcut hints and new-chat CTA", () => {
         const { container } = renderComponent(
             <WorkspacePaneEmptyState paneId="primary" />,
         );
 
-        // The placeholder lists each action with its keyboard shortcut.
-        // Text nodes are interleaved with <kbd> elements, so assert on the
-        // paragraph's combined text content.
         const text = container.textContent ?? "";
-        expect(text).toContain("Open a file");
-        expect(text).toContain("browse commands");
-        expect(text).toContain("start a chat");
-        expect(text).toContain("launch a terminal");
+        expect(text).toContain("打开文件");
+        expect(text).toContain("浏览命令");
+        expect(text).toContain("开始对话");
+        expect(text).toContain("打开终端");
 
-        // Shortcuts are resolved from the registry for the current test platform.
         const hints = Array.from(
             container.querySelectorAll("kbd"),
             (kbd) => kbd.textContent,
@@ -49,11 +52,18 @@ describe("WorkspacePaneEmptyState", () => {
         ]);
 
         expect(
-            screen.queryByRole("button", { name: "New Note" }),
-        ).not.toBeInTheDocument();
+            screen.getByRole("button", { name: "新建对话" }),
+        ).toBeInTheDocument();
+    });
+
+    it("creates a chat from the empty-state CTA", () => {
+        renderComponent(<WorkspacePaneEmptyState paneId="primary" />);
+
+        fireEvent.click(screen.getByRole("button", { name: "新建对话" }));
+
         expect(
-            screen.queryByRole("button", { name: "New Agent" }),
-        ).not.toBeInTheDocument();
+            chatPaneMovementMock.createNewChatInWorkspace,
+        ).toHaveBeenCalledTimes(1);
     });
 
     it("keeps pane identity marker for drop and targeting logic", () => {

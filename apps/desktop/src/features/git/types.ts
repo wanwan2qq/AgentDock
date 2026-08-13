@@ -17,6 +17,8 @@ export interface GitStatusSnapshot {
     files: GitFileStatus[];
     conflicts: string[];
     hasGit: boolean;
+    /** True when `.neverwrite/` is already covered by gitignore (or not a repo). */
+    neverwriteIgnored: boolean;
 }
 
 export interface GitDiffResult {

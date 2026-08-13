@@ -19,6 +19,10 @@ import type {
     AIUrlElicitationAction,
     AIUserInputAction,
 } from "../types";
+import {
+    isReconnectableDisconnectMessage,
+    localizeDisconnectOrRuntimeError,
+} from "../utils/acpDisconnectMessages";
 import { ChatInlinePill } from "./ChatInlinePill";
 import { ChatVaultReference } from "./ChatVaultReference";
 import { MarkdownContent } from "./MarkdownContent";
@@ -683,6 +687,7 @@ interface AIChatMessageItemProps {
         action: AIUrlElicitationAction,
     ) => void;
     onDismissMessage?: (messageId: string) => void;
+    onRetryConnection?: (sessionId: string) => void | Promise<void>;
 }
 
 function stripMarkdownBold(text: string) {
@@ -2278,11 +2283,26 @@ function ChangeReviewPanel({
 
 function ErrorMessage({
     message,
+    sessionId,
     onDismiss,
+    onRetryConnection,
 }: {
     message: AIChatMessage;
+    sessionId?: string | null;
     onDismiss?: (messageId: string) => void;
+    onRetryConnection?: (sessionId: string) => void | Promise<void>;
 }) {
+    const [retrying, setRetrying] = useState(false);
+    const displayContent =
+        localizeDisconnectOrRuntimeError(message.content) ?? message.content;
+    const canRetry =
+        Boolean(sessionId) &&
+        Boolean(onRetryConnection) &&
+        !retrying &&
+        (message.meta?.reconnectable === true ||
+            isReconnectableDisconnectMessage(message.content) ||
+            isReconnectableDisconnectMessage(displayContent));
+
     return (
         <div
             className="group flex min-w-0 max-w-full items-start gap-2 rounded-lg px-2.5 py-2 pr-1.5"
@@ -2307,15 +2327,42 @@ function ErrorMessage({
                 <circle cx="7" cy="7" r="5.5" />
                 <path d="M7 4.5v3M7 9.5h.005" />
             </svg>
-            <span
-                className="min-w-0 whitespace-pre-wrap"
-                style={{
-                    overflowWrap: "anywhere",
-                    wordBreak: "break-word",
-                }}
-            >
-                {message.content}
-            </span>
+            <div className="min-w-0 flex-1">
+                <div
+                    className="whitespace-pre-wrap"
+                    style={{
+                        overflowWrap: "anywhere",
+                        wordBreak: "break-word",
+                    }}
+                >
+                    {displayContent}
+                </div>
+                {(canRetry || retrying) && sessionId && onRetryConnection ? (
+                    <button
+                        type="button"
+                        className="mt-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium disabled:opacity-60"
+                        style={{
+                            color: "#fecaca",
+                            border: "1px solid color-mix(in srgb, #fecaca 35%, transparent)",
+                            backgroundColor:
+                                "color-mix(in srgb, #fecaca 10%, transparent)",
+                        }}
+                        disabled={retrying}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setRetrying(true);
+                            void Promise.resolve(onRetryConnection(sessionId))
+                                .catch(() => {})
+                                .finally(() => {
+                                    setRetrying(false);
+                                });
+                        }}
+                    >
+                        {retrying ? "正在重试…" : "重试连接"}
+                    </button>
+                ) : null}
+            </div>
             {onDismiss ? (
                 <button
                     type="button"
@@ -3259,6 +3306,7 @@ export const AIChatMessageItem = memo(function AIChatMessageItem({
     onUrlElicitationOpen,
     onUrlElicitationResponse,
     onDismissMessage,
+    onRetryConnection,
 }: AIChatMessageItemProps) {
     const diffPresentationMode = readOnly
         ? message.diffs?.length || message.reviewDiffs?.length
@@ -3319,7 +3367,9 @@ export const AIChatMessageItem = memo(function AIChatMessageItem({
         return (
             <ErrorMessage
                 message={message}
+                sessionId={sessionId}
                 onDismiss={readOnly ? undefined : onDismissMessage}
+                onRetryConnection={readOnly ? undefined : onRetryConnection}
             />
         );
     }

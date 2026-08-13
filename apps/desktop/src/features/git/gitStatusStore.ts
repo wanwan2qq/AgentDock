@@ -13,7 +13,15 @@ export const EMPTY_GIT_STATUS: GitStatusSnapshot = {
     files: [],
     conflicts: [],
     hasGit: true,
+    neverwriteIgnored: true,
 };
+
+function normalizeStatus(status: GitStatusSnapshot): GitStatusSnapshot {
+    return {
+        ...status,
+        neverwriteIgnored: status.neverwriteIgnored ?? !status.isRepo,
+    };
+}
 
 const POLL_MS = 8_000;
 
@@ -76,7 +84,7 @@ export const useGitStatusStore = create<GitStatusStore>((set, get) => ({
     },
 
     applyStatus: (status) => {
-        set({ status, error: null });
+        set({ status: normalizeStatus(status), error: null });
     },
 
     refresh: async () => {
@@ -88,7 +96,7 @@ export const useGitStatusStore = create<GitStatusStore>((set, get) => ({
         const seq = ++refreshSeq;
         set({ loading: true, error: null });
         try {
-            const status = await fetchGitStatus();
+            const status = normalizeStatus(await fetchGitStatus());
             if (seq !== refreshSeq || get().vaultPath !== vaultPath) {
                 return null;
             }
@@ -110,7 +118,7 @@ export const useGitStatusStore = create<GitStatusStore>((set, get) => ({
         if (!vaultPath) return null;
         set({ busyInit: true, error: null });
         try {
-            const status = await initGitRepo();
+            const status = normalizeStatus(await initGitRepo());
             set({ status, busyInit: false, error: null });
             return status;
         } catch (err) {

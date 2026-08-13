@@ -524,7 +524,7 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
                 ...IDLE_OPEN_STATE,
                 path,
                 stage: "scanning",
-                message: "Preparing vault...",
+                message: "正在打开知识库…",
             },
         });
 

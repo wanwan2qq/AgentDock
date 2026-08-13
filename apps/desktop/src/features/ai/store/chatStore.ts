@@ -173,6 +173,13 @@ import {
     CLAUDE_TERMINAL_DESCRIPTOR,
     buildClaudeTerminalSetupStatus,
 } from "../utils/claudeTerminalRuntime";
+import {
+    ACP_RECONNECT_FAILED_ZH,
+    ACP_RECONNECTING_CONTEXT_ZH,
+    ACP_RECONNECTING_SAVED_ZH,
+    isReconnectableDisconnectMessage,
+    localizeDisconnectOrRuntimeError,
+} from "../utils/acpDisconnectMessages";
 import { checkClaudeCodeInstalled } from "../../terminal/claudeCodeTerminal";
 import {
     normalizeActivityDisplayMode,
@@ -199,13 +206,11 @@ const RUNTIME_CONTEXT_RECOVERY_STATUS_EVENT_ID =
     "neverwrite:recovery:runtime-context";
 const CLOSED_SUBAGENT_QUEUE_CANCELLED_STATUS_EVENT_ID =
     "neverwrite:subagent:queue-cancelled";
-const SAVED_CHAT_RECONNECTING_STATUS_TITLE = "Reconnecting saved chat...";
-const RUNTIME_CONTEXT_RECOVERY_STATUS_TITLE =
-    "The AI runtime lost its connection. Reconnecting with saved context...";
+const SAVED_CHAT_RECONNECTING_STATUS_TITLE = ACP_RECONNECTING_SAVED_ZH;
+const RUNTIME_CONTEXT_RECOVERY_STATUS_TITLE = ACP_RECONNECTING_CONTEXT_ZH;
 const CLOSED_SUBAGENT_QUEUE_CANCELLED_STATUS_TITLE =
     "Queued messages were cancelled because this subagent was closed by its parent thread.";
-const SAVED_CHAT_RECONNECT_FAILED_MESSAGE =
-    "Could not reconnect this chat. Start a new session with saved transcript context?";
+const SAVED_CHAT_RECONNECT_FAILED_MESSAGE = ACP_RECONNECT_FAILED_ZH;
 export const REMOVED_GEMINI_ACP_COMPOSER_MESSAGE =
     "Gemini ACP is no longer supported by Google.";
 const _pendingTrackedPersistedReconcileByKey = new Map<
@@ -1533,6 +1538,8 @@ interface ChatStore {
     ) => Promise<boolean>;
     loadOlderMessages: (sessionId: string) => Promise<boolean>;
     resumeSession: (sessionId: string) => Promise<string | null>;
+    /** Force a same-session reconnect after ACP disconnect / resume failure. */
+    retrySessionConnection: (sessionId: string) => Promise<string | null>;
     loadSession: (sessionId: string) => Promise<void>;
     setModel: (modelId: string, sessionId?: string) => Promise<void>;
     setMode: (modeId: string, sessionId?: string) => Promise<void>;
@@ -1771,6 +1778,9 @@ function isProviderQuotaErrorMessage(message: string) {
 
 function isRuntimeSessionDisconnectedErrorMessage(message: string) {
     const normalized = message.trim().toLowerCase();
+    if (isReconnectableDisconnectMessage(message)) {
+        return true;
+    }
     return (
         normalized.includes("runtime session is not connected") ||
         normalized.includes("resource_not_found") ||
@@ -1781,6 +1791,11 @@ function isRuntimeSessionDisconnectedErrorMessage(message: string) {
 function normalizeAiErrorMessage(message: string, runtimeId?: string | null) {
     if (message.includes("No hay vault abierto")) {
         return "Open a vault before starting a chat.";
+    }
+
+    const localizedDisconnect = localizeDisconnectOrRuntimeError(message);
+    if (localizedDisconnect) {
+        return localizedDisconnect;
     }
 
     if (isContextTooLargeErrorMessage(message)) {
@@ -1835,7 +1850,10 @@ function createTextMessage(
     };
 }
 
-function createErrorMessage(content: string): AIChatMessage {
+function createErrorMessage(
+    content: string,
+    options?: { reconnectable?: boolean },
+): AIChatMessage {
     return {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -1843,7 +1861,24 @@ function createErrorMessage(content: string): AIChatMessage {
         content,
         title: "Runtime error",
         timestamp: Date.now(),
+        ...(options?.reconnectable
+            ? { meta: { reconnectable: true } }
+            : {}),
     };
+}
+
+function appendSessionError(session: AIChatSession, content: string) {
+    const normalized = normalizeSessionTranscript(session);
+    const lastMessage = normalized.messages.at(-1);
+    if (lastMessage?.kind === "error" && lastMessage.content === content) {
+        return normalized;
+    }
+    return appendSessionMessage(
+        normalized,
+        createErrorMessage(content, {
+            reconnectable: isReconnectableDisconnectMessage(content),
+        }),
+    );
 }
 
 function recomputeActivePlanMessageId(session: AIChatSession) {
@@ -2026,15 +2061,6 @@ function upsertSessionMessage(
             ? (currentMessage.workCycleId ?? message.workCycleId)
             : message.workCycleId,
     }));
-}
-
-function appendSessionError(session: AIChatSession, content: string) {
-    const normalized = normalizeSessionTranscript(session);
-    const lastMessage = normalized.messages.at(-1);
-    if (lastMessage?.kind === "error" && lastMessage.content === content) {
-        return normalized;
-    }
-    return appendSessionMessage(normalized, createErrorMessage(content));
 }
 
 function stampElapsedOnTurnStartedSession(
@@ -8568,7 +8594,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     ...removeSessionMessage(session, messageId),
                     resumeReconnectFailed:
                         message.kind === "error" &&
-                        message.content === SAVED_CHAT_RECONNECT_FAILED_MESSAGE
+                        isReconnectableDisconnectMessage(message.content)
                             ? false
                             : session.resumeReconnectFailed,
                 };
@@ -8655,8 +8681,10 @@ export const useChatStore = create<ChatStore>((set, get) => {
                                         sessionId,
                                     ),
                                 ),
-                                message ??
-                                    "The AI runtime disconnected unexpectedly.",
+                                normalizeAiErrorMessage(
+                                    message ??
+                                        "The AI runtime disconnected unexpectedly.",
+                                ),
                             ),
                             failedAt,
                         ),
@@ -9798,24 +9826,61 @@ export const useChatStore = create<ChatStore>((set, get) => {
                 return null;
             }
             if (session.isPendingSessionCreation) return sessionId;
-            if (isLiveRuntimeSession(session)) return sessionId;
+            const shouldForceReconnect =
+                session.resumeReconnectFailed === true ||
+                session.status === "error" ||
+                session.runtimeState === "detached" ||
+                session.runtimeState === "persisted_only" ||
+                getSessionTranscriptMessages(session).some(
+                    (message) =>
+                        message.kind === "error" &&
+                        isReconnectableDisconnectMessage(message.content),
+                );
+            if (isLiveRuntimeSession(session) && !shouldForceReconnect) {
+                return sessionId;
+            }
             if (session.isResumingSession) return sessionId;
 
             set((currentState) => {
                 const currentSession = currentState.sessionsById[sessionId];
-                if (!currentSession || isLiveRuntimeSession(currentSession)) {
+                if (!currentSession) {
                     return currentState;
                 }
+                if (
+                    isLiveRuntimeSession(currentSession) &&
+                    !(
+                        currentSession.resumeReconnectFailed === true ||
+                        currentSession.status === "error" ||
+                        getSessionTranscriptMessages(currentSession).some(
+                            (message) =>
+                                message.kind === "error" &&
+                                isReconnectableDisconnectMessage(
+                                    message.content,
+                                ),
+                        )
+                    )
+                ) {
+                    return currentState;
+                }
+
+                const preparedSession = {
+                    ...currentSession,
+                    isResumingSession: true,
+                    resumeReconnectFailed: false,
+                    // Ensure a previously "live" but broken session can re-enter
+                    // the resume path instead of no-oping.
+                    runtimeState:
+                        currentSession.runtimeState === "live"
+                            ? ("detached" as const)
+                            : (currentSession.runtimeState ?? "persisted_only"),
+                    isPersistedSession: true,
+                };
 
                 return {
                     sessionsById: {
                         ...currentState.sessionsById,
                         [sessionId]: upsertSessionStatusMessage(
-                            {
-                                ...currentSession,
-                                isResumingSession: true,
-                                resumeReconnectFailed: false,
-                            },
+                            preparedSession,
                             createSavedChatReconnectingStatus(sessionId),
                         ),
                     },
@@ -10147,7 +10212,9 @@ export const useChatStore = create<ChatStore>((set, get) => {
                 });
                 get().applySessionError({
                     session_id: sessionId,
-                    message: SAVED_CHAT_RECONNECT_FAILED_MESSAGE,
+                    // Prefer the concrete runtime failure (e.g. 60s create timeout)
+                    // over a generic reconnect copy so the timeline stays actionable.
+                    message: message || SAVED_CHAT_RECONNECT_FAILED_MESSAGE,
                 });
                 if (isAuthenticationErrorMessage(message, failedSession.runtimeId)) {
                     await get().refreshSetupStatus(
@@ -10156,6 +10223,51 @@ export const useChatStore = create<ChatStore>((set, get) => {
                 }
                 return null;
             }
+        },
+
+        retrySessionConnection: async (sessionId) => {
+            const session = get().sessionsById[sessionId];
+            if (!session) return null;
+
+            set((state) => {
+                const current = state.sessionsById[sessionId];
+                if (!current) return state;
+
+                const nextMessages = getSessionTranscriptMessages(current).filter(
+                    (message) =>
+                        !(
+                            message.kind === "error" &&
+                            isReconnectableDisconnectMessage(message.content)
+                        ),
+                );
+
+                return {
+                    sessionsById: {
+                        ...state.sessionsById,
+                        [sessionId]: replaceSessionTranscript(
+                            {
+                                ...current,
+                                isResumingSession: false,
+                                resumeReconnectFailed: false,
+                                runtimeState:
+                                    current.runtimeState === "live"
+                                        ? "detached"
+                                        : (current.runtimeState ??
+                                          "persisted_only"),
+                                isPersistedSession: true,
+                                status:
+                                    current.status === "streaming" ||
+                                    current.status === "error"
+                                        ? "idle"
+                                        : current.status,
+                            },
+                            nextMessages,
+                        ),
+                    },
+                };
+            });
+
+            return get().resumeSession(sessionId);
         },
 
         loadSession: async (sessionId) => {

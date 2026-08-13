@@ -1246,8 +1246,8 @@ export function AgentsSidebarPanel() {
                     <button
                         type="button"
                         onClick={handleCreateFolder}
-                        title="New folder"
-                        aria-label="New folder"
+                        title="新建文件夹"
+                        aria-label="新建文件夹"
                         className="ub-chrome-btn flex h-5 w-5 cursor-pointer items-center justify-center rounded"
                         style={{
                             width: metrics.actionButtonSize,
@@ -1285,8 +1285,8 @@ export function AgentsSidebarPanel() {
                                 payload: undefined,
                             });
                         }}
-                        title="New chat"
-                        aria-label="New chat"
+                        title="新建对话"
+                        aria-label="新建对话"
                         className="ub-chrome-btn flex h-5 w-5 cursor-pointer items-center justify-center rounded"
                         style={{
                             width: metrics.actionButtonSize,
@@ -1311,7 +1311,7 @@ export function AgentsSidebarPanel() {
                     <button
                         type="button"
                         onClick={() => openChatHistoryInWorkspace()}
-                        title="Open chat history"
+                        title="打开对话历史"
                         className="ub-chrome-btn cursor-pointer rounded px-1.5 py-0.5 text-[10.5px]"
                         style={{
                             color: "var(--text-secondary)",
@@ -1320,7 +1320,7 @@ export function AgentsSidebarPanel() {
                             fontSize: metrics.summaryFontSize,
                         }}
                     >
-                        History
+                        历史
                     </button>
                 </div>
             </div>
@@ -1333,13 +1333,28 @@ export function AgentsSidebarPanel() {
                     <PlaceholderMessage
                         body={
                             vaultPath
-                                ? "No chats yet for this vault."
-                                : "Open a vault to start chatting."
+                                ? "这个知识库还没有对话"
+                                : "打开知识库后开始对话"
+                        }
+                        actionLabel={vaultPath ? "新建对话" : undefined}
+                        onAction={
+                            vaultPath
+                                ? (anchor) => {
+                                      const rect =
+                                          anchor.getBoundingClientRect();
+                                      setContextMenu(null);
+                                      setNewChatMenu({
+                                          x: rect.left,
+                                          y: rect.bottom + 4,
+                                          payload: undefined,
+                                      });
+                                  }
+                                : undefined
                         }
                     />
                 ) : filteredCount === 0 ? (
                     <PlaceholderMessage
-                        body={`No threads match "${filterText.trim()}".`}
+                        body={`没有匹配「${filterText.trim()}」的对话`}
                     />
                 ) : (
                     <>
@@ -1545,15 +1560,40 @@ function AgentSidebarDragGhost({ preview }: { preview: AgentDragPreview }) {
     );
 }
 
-function PlaceholderMessage({ body }: { body: string }) {
+function PlaceholderMessage({
+    body,
+    actionLabel,
+    onAction,
+}: {
+    body: string;
+    actionLabel?: string;
+    onAction?: (anchor: HTMLElement) => void;
+}) {
     return (
-        <div className="flex min-h-[80px] items-center justify-center px-3 py-6">
+        <div className="flex min-h-[120px] flex-col items-center justify-center gap-3 px-3 py-6">
             <p
                 className="text-center text-[11px] leading-[1.5]"
                 style={{ color: "var(--text-secondary)" }}
             >
                 {body}
             </p>
+            {actionLabel && onAction ? (
+                <button
+                    type="button"
+                    className="rounded-md px-2.5 py-1 text-[11px]"
+                    style={{
+                        color: "var(--text-primary)",
+                        backgroundColor:
+                            "color-mix(in srgb, var(--accent) 14%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
+                    }}
+                    onClick={(event) => {
+                        onAction(event.currentTarget);
+                    }}
+                >
+                    {actionLabel}
+                </button>
+            ) : null}
         </div>
     );
 }

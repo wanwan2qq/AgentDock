@@ -105,6 +105,17 @@ function isNearBottom(el: HTMLElement) {
     );
 }
 
+/** Pin the chat scroller to the absolute bottom (handles late layout / streaming growth). */
+export function pinChatListToBottom(container: HTMLElement) {
+    container.scrollTop = container.scrollHeight;
+    const rows = container.querySelectorAll<HTMLElement>("[data-chat-row]");
+    const lastRow = rows.item(rows.length - 1);
+    if (lastRow) {
+        lastRow.scrollIntoView({ block: "end", inline: "nearest" });
+    }
+    container.scrollTop = container.scrollHeight;
+}
+
 function formatElapsedRunTime(durationMs: number) {
     const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
     const hours = Math.floor(totalSeconds / 3600);
@@ -282,6 +293,7 @@ function renderTimelineRow(
             action: AIUrlElicitationAction,
         ) => void;
         onDismissMessage?: (messageId: string) => void;
+        onRetryConnection?: (sessionId: string) => void;
         highlightedMessageId?: string | null;
         forceExpandedMessageId?: string | null;
         forceExpandedForSearch?: boolean;
@@ -338,6 +350,7 @@ function renderTimelineMessage(
             action: AIUrlElicitationAction,
         ) => void;
         onDismissMessage?: (messageId: string) => void;
+        onRetryConnection?: (sessionId: string) => void;
     },
 ) {
     return (
@@ -364,6 +377,9 @@ function renderTimelineMessage(
             }
             onDismissMessage={
                 options.readOnly ? undefined : options.onDismissMessage
+            }
+            onRetryConnection={
+                options.readOnly ? undefined : options.onRetryConnection
             }
         />
     );
@@ -406,6 +422,9 @@ export const AIChatMessageList = memo(function AIChatMessageList({
         enabled: findOpen,
     });
     const wasNearBottomRef = useRef(true);
+    // After the user clicks「滚到底」, keep pinning through streaming growth until
+    // they scroll away from the bottom again.
+    const followBottomRef = useRef(false);
     const pendingPrependAdjustmentRef = useRef<{
         previousScrollHeight: number;
         previousScrollTop: number;
@@ -425,6 +444,9 @@ export const AIChatMessageList = memo(function AIChatMessageList({
     );
     const rowUiSessionId = resolveChatRowUiSessionId(sessionId);
     const dismissMessage = useChatStore((state) => state.dismissMessage);
+    const retrySessionConnection = useChatStore(
+        (state) => state.retrySessionConnection,
+    );
     const activityDisplayMode = useChatStore(
         (state) => state.toolActivityDisplayMode,
     );
@@ -435,12 +457,34 @@ export const AIChatMessageList = memo(function AIChatMessageList({
         },
         [dismissMessage, sessionId],
     );
+    const handleRetryConnection = useCallback(
+        async (targetSessionId: string) => {
+            await retrySessionConnection(targetSessionId);
+        },
+        [retrySessionConnection],
+    );
 
     const scrollToBottom = useCallback(() => {
         const container = containerRef.current;
         if (!container) return;
-        container.scrollTop = container.scrollHeight;
+
+        followBottomRef.current = true;
+        wasNearBottomRef.current = true;
+        pinChatListToBottom(container);
         setShowScrollButton(false);
+
+        // Streaming / markdown layout can grow after the first paint.
+        requestAnimationFrame(() => {
+            const latest = containerRef.current;
+            if (!latest || !followBottomRef.current) return;
+            pinChatListToBottom(latest);
+            requestAnimationFrame(() => {
+                const again = containerRef.current;
+                if (!again || !followBottomRef.current) return;
+                pinChatListToBottom(again);
+                setShowScrollButton(!isNearBottom(again));
+            });
+        });
     }, []);
 
     const handleScroll = useCallback(() => {
@@ -449,6 +493,7 @@ export const AIChatMessageList = memo(function AIChatMessageList({
 
         const nearBottom = isNearBottom(container);
         wasNearBottomRef.current = nearBottom;
+        followBottomRef.current = nearBottom;
         if (nearBottom) {
             setShowScrollButton(false);
         } else {
@@ -598,6 +643,7 @@ export const AIChatMessageList = memo(function AIChatMessageList({
             onUrlElicitationOpen,
             onUrlElicitationResponse,
             onDismissMessage: handleDismissMessage,
+            onRetryConnection: handleRetryConnection,
             forceExpandedMessageId: scrollToMessageId,
             forceExpandedForSearch: findOpen && findQuery.trim().length > 0,
             highlightedMessageId: outlineHighlightedMessageId,
@@ -610,6 +656,7 @@ export const AIChatMessageList = memo(function AIChatMessageList({
             scrollToMessageId,
             findQuery,
             handleDismissMessage,
+            handleRetryConnection,
             outlineHighlightedMessageId,
             onPermissionResponse,
             onUserInputResponse,
@@ -631,6 +678,7 @@ export const AIChatMessageList = memo(function AIChatMessageList({
             readPersistedChatMessageListViewState(viewStateScope);
         wasNearBottomRef.current =
             pendingRestoreRef.current?.nearBottom ?? true;
+        followBottomRef.current = wasNearBottomRef.current;
         previousMessagesRef.current = messages;
         previousStatusRef.current = status;
         pendingPrependAdjustmentRef.current = null;
@@ -657,6 +705,7 @@ export const AIChatMessageList = memo(function AIChatMessageList({
 
         pendingRestoreRef.current = null;
         wasNearBottomRef.current = pendingState.nearBottom;
+        followBottomRef.current = pendingState.nearBottom;
         setShowScrollButton(!pendingState.nearBottom);
     }, [timelineRows, viewStateScope]);
 
@@ -669,6 +718,7 @@ export const AIChatMessageList = memo(function AIChatMessageList({
                 isNearBottom,
             );
             wasNearBottomRef.current = persistedState?.nearBottom ?? true;
+            followBottomRef.current = wasNearBottomRef.current;
         };
     }, [viewStateScope]);
 
@@ -690,13 +740,33 @@ export const AIChatMessageList = memo(function AIChatMessageList({
                 container.scrollHeight -
                 previousScrollHeight +
                 previousScrollTop;
+            followBottomRef.current = false;
+            wasNearBottomRef.current = false;
             queueMicrotask(() => setShowScrollButton(true));
-        } else if (wasNearBottomRef.current) {
-            container.scrollTop = container.scrollHeight;
-            queueMicrotask(() => setShowScrollButton(false));
+        } else if (wasNearBottomRef.current || followBottomRef.current) {
+            pinChatListToBottom(container);
+            wasNearBottomRef.current = true;
+            followBottomRef.current = true;
+            const frameId = window.requestAnimationFrame(() => {
+                const latest = containerRef.current;
+                if (!latest) return;
+                if (wasNearBottomRef.current || followBottomRef.current) {
+                    pinChatListToBottom(latest);
+                }
+                setShowScrollButton(!isNearBottom(latest));
+            });
+
+            previousMessagesRef.current = messages;
+            previousStatusRef.current = status;
+
+            return () => {
+                window.cancelAnimationFrame(frameId);
+            };
         } else {
             const frameId = window.requestAnimationFrame(() => {
-                setShowScrollButton(true);
+                const latest = containerRef.current;
+                if (!latest) return;
+                setShowScrollButton(!isNearBottom(latest));
             });
 
             previousMessagesRef.current = messages;
@@ -941,7 +1011,8 @@ export const AIChatMessageList = memo(function AIChatMessageList({
                         color: "var(--text-secondary)",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                     }}
-                    aria-label="Scroll to bottom"
+                    aria-label="滚到底部"
+                    title="滚到底部"
                 >
                     <svg
                         width="14"

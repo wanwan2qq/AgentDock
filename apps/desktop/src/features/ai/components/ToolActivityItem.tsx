@@ -13,6 +13,10 @@ import {
 import { useChatStore } from "../store/chatStore";
 import type { AIChatMessage, AIChatSession } from "../types";
 import { useStoredRowExpanded } from "./chatRowUiPresentation";
+import {
+    previewToolFailureReason,
+    resolveToolFailureReason,
+} from "./toolFailureReason";
 
 export interface ToolTargetContextMenuPayload {
     target: string;
@@ -325,6 +329,15 @@ export function ToolActivityItem({
         message.content !== message.title
             ? message.content
             : null;
+    const failureReason = isFailed
+        ? resolveToolFailureReason(message.content, {
+              title: message.title,
+              label,
+          })
+        : null;
+    const failureReasonPreview = failureReason
+        ? previewToolFailureReason(failureReason)
+        : null;
     const canOpenTarget = target
         ? canOpenAiEditedFileByAbsolutePath(target)
         : false;
@@ -469,6 +482,16 @@ export function ToolActivityItem({
                 {detail ? <Chevron expanded={expanded} /> : null}
                 <OpenSessionActionButton message={message} />
             </div>
+            {failureReasonPreview ? (
+                <div
+                    className="mt-0.5 truncate pl-8 text-[10px] leading-4"
+                    data-tool-activity-failure-reason="true"
+                    style={{ color: "#f87171", opacity: 0.92 }}
+                    title={failureReason ?? undefined}
+                >
+                    {failureReasonPreview}
+                </div>
+            ) : null}
             {expanded && detail ? (
                 <pre
                     className="mt-1 max-h-40 overflow-y-auto rounded px-2 py-1.5"

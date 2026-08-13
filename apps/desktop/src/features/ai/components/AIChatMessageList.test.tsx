@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderComponent } from "../../../test/test-utils";
 import type { AIChatMessage } from "../types";
-import { AIChatMessageList } from "./AIChatMessageList";
+import { AIChatMessageList, pinChatListToBottom } from "./AIChatMessageList";
 import { resetChatMessageListViewState } from "./chatMessageListViewState";
 import { resetChatRowUiStore } from "../store/chatRowUiStore";
 import { useChatStore } from "../store/chatStore";
@@ -435,6 +435,92 @@ describe("AIChatMessageList streaming run indicator", () => {
         ).toBe(140);
         expect(screen.getByText("Long message 0")).toBeInTheDocument();
         expect(screen.getByText("Long message 139")).toBeInTheDocument();
+    });
+
+    it("shows 滚到底部 when scrolled up and pins to the absolute bottom on click", async () => {
+        const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+        const scrollIntoView = vi.fn();
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+            configurable: true,
+            value: scrollIntoView,
+        });
+
+        try {
+            const messages = createLongTranscript(140);
+            const view = renderComponent(
+                <AIChatMessageList
+                    sessionId="session-scroll-bottom"
+                    messages={messages}
+                    status="idle"
+                />,
+            );
+            const scrollContainer = getScrollContainer(view.container);
+            configureScrollableViewport(scrollContainer);
+
+            act(() => {
+                scrollContainer.scrollTop = 4_000;
+                scrollContainer.dispatchEvent(new Event("scroll"));
+            });
+
+            const button = screen.getByRole("button", { name: "滚到底部" });
+            expect(button).toBeInTheDocument();
+
+            await act(async () => {
+                fireEvent.click(button);
+                await new Promise<void>((resolve) => {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => resolve());
+                    });
+                });
+            });
+
+            expect(scrollContainer.scrollTop).toBe(12_000);
+            expect(
+                screen.queryByRole("button", { name: "滚到底部" }),
+            ).not.toBeInTheDocument();
+            expect(scrollIntoView).toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+                configurable: true,
+                value: originalScrollIntoView,
+            });
+        }
+    });
+
+    it("pinChatListToBottom scrolls the last chat row into view", () => {
+        const container = document.createElement("div");
+        const row = document.createElement("div");
+        row.setAttribute("data-chat-row", "true");
+        container.appendChild(row);
+        document.body.appendChild(container);
+
+        Object.defineProperty(container, "scrollHeight", {
+            configurable: true,
+            get: () => 900,
+        });
+        let scrollTop = 0;
+        Object.defineProperty(container, "scrollTop", {
+            configurable: true,
+            get: () => scrollTop,
+            set: (value: number) => {
+                scrollTop = value;
+            },
+        });
+        const scrollIntoView = vi.fn();
+        Object.defineProperty(row, "scrollIntoView", {
+            configurable: true,
+            value: scrollIntoView,
+        });
+
+        pinChatListToBottom(container);
+
+        expect(scrollTop).toBe(900);
+        expect(scrollIntoView).toHaveBeenCalledWith({
+            block: "end",
+            inline: "nearest",
+        });
+
+        container.remove();
     });
 
     it("scopes row keys by session id", () => {
