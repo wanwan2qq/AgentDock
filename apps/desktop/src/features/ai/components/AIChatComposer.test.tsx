@@ -116,7 +116,7 @@ function renderComposer({
     );
 
     const composer = screen.getByRole("textbox", {
-        name: "Message NeverWrite",
+        name: "Message AgentDock",
     });
     return {
         composer,
@@ -783,7 +783,7 @@ describe("AIChatComposer mention picker", () => {
         );
 
         const composer = screen.getByRole("textbox", {
-            name: "Message NeverWrite",
+            name: "Message AgentDock",
         });
         composer.textContent = "@alpha";
         setCaret(composer.firstChild as Text, 6);
@@ -827,7 +827,7 @@ describe("AIChatComposer mention picker", () => {
         );
 
         const composer = screen.getByRole("textbox", {
-            name: "Message NeverWrite",
+            name: "Message AgentDock",
         });
         composer.textContent = "@alpha";
         setCaret(composer.firstChild as Text, 6);
@@ -876,7 +876,7 @@ describe("AIChatComposer mention picker", () => {
         );
 
         const composer = screen.getByRole("textbox", {
-            name: "Message NeverWrite",
+            name: "Message AgentDock",
         });
         composer.textContent = "@main";
         setCaret(composer.firstChild as Text, 5);
@@ -924,7 +924,7 @@ describe("AIChatComposer mention picker", () => {
         );
 
         const composer = screen.getByRole("textbox", {
-            name: "Message NeverWrite",
+            name: "Message AgentDock",
         });
         composer.textContent = "@data";
         setCaret(composer.firstChild as Text, 5);
@@ -966,7 +966,7 @@ describe("AIChatComposer mention picker", () => {
         );
 
         const composer = screen.getByRole("textbox", {
-            name: "Message NeverWrite",
+            name: "Message AgentDock",
         });
         composer.textContent = "@";
         setCaret(composer.firstChild as Text, 1);
@@ -1012,7 +1012,7 @@ describe("AIChatComposer mention picker", () => {
         );
 
         const composer = screen.getByRole("textbox", {
-            name: "Message NeverWrite",
+            name: "Message AgentDock",
         });
         composer.textContent = "@sr";
         setCaret(composer.firstChild as Text, 3);

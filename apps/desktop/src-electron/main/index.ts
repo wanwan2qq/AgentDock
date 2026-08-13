@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { app, BrowserWindow, protocol, session } from "electron";
 import { installNativeMenus, refreshDockMenu } from "./menu";
 import { createAppWindow, getWindowByLabel } from "./window";
@@ -14,6 +16,8 @@ import {
 } from "./appLogger";
 import { installYouTubeEmbedIdentityHeaders } from "./youtubeEmbedIdentity";
 
+const APP_DISPLAY_NAME = "AgentDock";
+const LEGACY_APP_DISPLAY_NAME = "NeverWrite";
 const WINDOWS_APP_USER_MODEL_ID =
     process.env.NEVERWRITE_ELECTRON_APP_ID?.trim() || "com.neverwrite";
 
@@ -30,13 +34,20 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 function configureAppIdentity() {
-    app.setName("NeverWrite");
+    app.setName(APP_DISPLAY_NAME);
+    // Keep existing NeverWrite userData so local settings/vaults still resolve.
+    const appDataDir = app.getPath("appData");
+    const legacyUserData = path.join(appDataDir, LEGACY_APP_DISPLAY_NAME);
+    const brandedUserData = path.join(appDataDir, APP_DISPLAY_NAME);
+    if (fs.existsSync(legacyUserData) && !fs.existsSync(brandedUserData)) {
+        app.setPath("userData", legacyUserData);
+    }
     if (process.platform === "win32") {
         app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
     }
     if (process.platform === "darwin") {
         app.setAboutPanelOptions({
-            applicationName: "NeverWrite",
+            applicationName: APP_DISPLAY_NAME,
             applicationVersion: app.getVersion(),
         });
     }
@@ -46,7 +57,7 @@ configureAppIdentity();
 initializeAppLogger(app.getPath("userData"));
 installConsoleLogCapture();
 installProcessDiagnostics();
-writeAppLog("main", "info", "NeverWrite main process starting", {
+writeAppLog("main", "info", `${APP_DISPLAY_NAME} main process starting`, {
     version: app.getVersion(),
     packaged: app.isPackaged,
     platform: process.platform,

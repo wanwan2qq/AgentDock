@@ -3203,7 +3203,7 @@ function SponsorsSettings({
         [
             [
                 "Buy Me a Coffee",
-                "Support NeverWrite development with a one-time contribution.",
+                `Support ${APP_BRAND_NAME} development with a one-time contribution.`,
                 "coffee",
                 "donate",
                 "support",
@@ -3236,7 +3236,7 @@ function SponsorsSettings({
                 searchQuery={searchQuery}
                 section="Support"
                 label="Buy Me a Coffee"
-                description="Support NeverWrite development with a one-time contribution."
+                description={`Support ${APP_BRAND_NAME} development with a one-time contribution.`}
                 keywords={["coffee", "donate", "support"]}
                 control={
                     <SettingsActionButton
@@ -4499,7 +4499,7 @@ const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
     ai_providers: "AI runtimes, authentication, and API keys",
     ai: "AI assistant chat preferences",
     feedback: "GitHub issues, discussions, and feedback links",
-    sponsors: "Ways to support NeverWrite development",
+    sponsors: `Ways to support ${APP_BRAND_NAME} development`,
 };
 
 const STATIC_CATEGORY_SEARCH_VALUES: Record<Category, readonly SearchValue[]> = {
@@ -4596,7 +4596,7 @@ const STATIC_CATEGORY_SEARCH_VALUES: Record<Category, readonly SearchValue[]> = 
         "Coffee",
         "Donate",
         "Funding",
-        "Support NeverWrite",
+        `Support ${APP_BRAND_NAME}`,
     ],
     terminal: [
         "Terminal",

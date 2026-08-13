@@ -13,10 +13,10 @@ const distArch =
 function defaultPackagedExecutableCandidates() {
     if (process.platform === "darwin") {
         const appRelativePath = path.join(
-            "NeverWrite.app",
+            "AgentDock.app",
             "Contents",
             "MacOS",
-            "NeverWrite",
+            "AgentDock",
         );
         return [
             path.join(outputRoot, `mac-${distArch}`, appRelativePath),
@@ -26,8 +26,8 @@ function defaultPackagedExecutableCandidates() {
 
     if (process.platform === "win32") {
         return [
-            path.join(outputRoot, `win-${distArch}-unpacked`, "NeverWrite.exe"),
-            path.join(outputRoot, "win-unpacked", "NeverWrite.exe"),
+            path.join(outputRoot, `win-${distArch}-unpacked`, "AgentDock.exe"),
+            path.join(outputRoot, "win-unpacked", "AgentDock.exe"),
         ];
     }
     if (process.platform === "linux") {

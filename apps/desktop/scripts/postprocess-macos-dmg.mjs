@@ -80,8 +80,15 @@ function findSingleFile(rootDir, matcher, description) {
     return matches[0];
 }
 
+const PACKAGED_APP_NAME = "AgentDock.app";
+
 function findPackagedApp(distDir) {
     const candidates = [
+        path.join(distDir, "mac-universal", PACKAGED_APP_NAME),
+        path.join(distDir, "mac", PACKAGED_APP_NAME),
+        path.join(distDir, "mac-arm64", PACKAGED_APP_NAME),
+        path.join(distDir, "mac-x64", PACKAGED_APP_NAME),
+        // Legacy productName from earlier builds.
         path.join(distDir, "mac-universal", "NeverWrite.app"),
         path.join(distDir, "mac", "NeverWrite.app"),
         path.join(distDir, "mac-arm64", "NeverWrite.app"),
@@ -94,7 +101,7 @@ function findPackagedApp(distDir) {
         }
     }
 
-    throw new Error(`Could not find packaged NeverWrite.app in ${distDir}.`);
+    throw new Error(`Could not find packaged ${PACKAGED_APP_NAME} in ${distDir}.`);
 }
 
 function removeIfExists(filePath) {
@@ -165,6 +172,13 @@ function detachDmg(mountPoint) {
 
 function validateMountedApp(appPath, requireNotarization) {
     assertElectronFrameworkBinary(appPath);
+
+    // Unsigned local builds skip signature checks — electron-builder leaves an
+    // incomplete signature that fails `codesign --verify --strict`.
+    if (!requireNotarization) {
+        return;
+    }
+
     assertCodexRuntimeSignatures(appPath);
     run("codesign", [
         "--verify",
@@ -173,11 +187,6 @@ function validateMountedApp(appPath, requireNotarization) {
         "--verbose=2",
         appPath,
     ]);
-
-    if (!requireNotarization) {
-        return;
-    }
-
     run("stapler", ["validate", appPath]);
     run("spctl", ["-a", "-vv", "-t", "execute", appPath]);
 }
@@ -188,11 +197,17 @@ function validateDmg(dmgPath, requireNotarization) {
 
     try {
         attachDmg(dmgPath, mountPoint);
-        const appPath = path.join(mountPoint, "NeverWrite.app");
-        if (!fs.existsSync(appPath)) {
-            throw new Error(`Mounted DMG is missing NeverWrite.app: ${appPath}`);
+        const appPath = path.join(mountPoint, PACKAGED_APP_NAME);
+        const legacyAppPath = path.join(mountPoint, "NeverWrite.app");
+        const mountedAppPath = fs.existsSync(appPath)
+            ? appPath
+            : legacyAppPath;
+        if (!fs.existsSync(mountedAppPath)) {
+            throw new Error(
+                `Mounted DMG is missing ${PACKAGED_APP_NAME}: ${appPath}`,
+            );
         }
-        validateMountedApp(appPath, requireNotarization);
+        validateMountedApp(mountedAppPath, requireNotarization);
     } finally {
         detachDmg(mountPoint);
         removeIfExists(tempDir);
@@ -212,7 +227,7 @@ function rebuildDmg({ appPath, dmgPath }) {
             "--extattr",
             "--acl",
             appPath,
-            path.join(dmgRoot, "NeverWrite.app"),
+            path.join(dmgRoot, PACKAGED_APP_NAME),
         ]);
         fs.symlinkSync("/Applications", path.join(dmgRoot, "Applications"));
         run("hdiutil", [

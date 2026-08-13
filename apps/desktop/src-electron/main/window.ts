@@ -143,8 +143,8 @@ function getTitle(label: string, options: Record<string, unknown> | undefined) {
     if (typeof options?.title === "string" && options.title.trim()) {
         return options.title;
     }
-    if (label === "settings") return "Settings - NeverWrite";
-    return "NeverWrite";
+    if (label === "settings") return "Settings - AgentDock";
+    return "AgentDock";
 }
 
 function getBooleanOption(

@@ -468,6 +468,45 @@ async function resolveClaudeEmbeddedSource() {
     );
 }
 
+async function pruneEmbeddedNodeRuntime(destinationNodeRoot) {
+    // Official Node tarballs ship C/C++ headers and docs unused at runtime.
+    for (const relativePath of [
+        "include",
+        "share",
+        "CHANGELOG.md",
+        "README.md",
+    ]) {
+        await fs.rm(path.join(destinationNodeRoot, relativePath), {
+            recursive: true,
+            force: true,
+        });
+    }
+}
+
+async function pruneClaudeEmbeddedRuntime(destinationClaudeRoot) {
+    // Keep dist/ + production node_modules; drop source/dev scaffolding.
+    for (const relativePath of [
+        "src",
+        "docs",
+        "test",
+        "tests",
+        ".git",
+        ".github",
+        "vitest.config.ts",
+        "eslint.config.js",
+        "tsconfig.json",
+        "release-please-config.json",
+        "README.md",
+        "CHANGELOG.md",
+        "package-lock.json",
+    ]) {
+        await fs.rm(path.join(destinationClaudeRoot, relativePath), {
+            recursive: true,
+            force: true,
+        });
+    }
+}
+
 async function stageEmbeddedNodeRuntime(nodeSource) {
     const destinationNodeRoot = path.join(embeddedDir, "node");
 
@@ -476,6 +515,7 @@ async function stageEmbeddedNodeRuntime(nodeSource) {
             recursive: true,
             dereference: true,
         });
+        await pruneEmbeddedNodeRuntime(destinationNodeRoot);
         return;
     }
 
@@ -493,6 +533,7 @@ async function stageEmbeddedNodeRuntime(nodeSource) {
             path.join(destinationBinDir, entry.name),
         );
     }
+    await pruneEmbeddedNodeRuntime(destinationNodeRoot);
 }
 
 async function lipoCreate(inputPaths, outputPath) {
@@ -525,6 +566,7 @@ async function stageUniversalEmbeddedNodeRuntime(nodeSource) {
         recursive: true,
         dereference: true,
     });
+    await pruneEmbeddedNodeRuntime(destinationNodeRoot);
     await lipoCreate(
         [nodeSource.arm64Binary, nodeSource.x64Binary],
         path.join(destinationNodeRoot, "bin", "node"),
@@ -783,10 +825,12 @@ if (nodeSource.kind === "universal-directory") {
 } else {
     await stageEmbeddedNodeRuntime(nodeSource);
 }
-await fs.cp(claudeEmbeddedSource, path.join(embeddedDir, "claude-agent-acp"), {
+const stagedClaudeRoot = path.join(embeddedDir, "claude-agent-acp");
+await fs.cp(claudeEmbeddedSource, stagedClaudeRoot, {
     recursive: true,
     dereference: true,
 });
+await pruneClaudeEmbeddedRuntime(stagedClaudeRoot);
 
 await ensureExecutableIfNeeded(stagedPath);
 for (const binary of stagingCodexRuntime) {

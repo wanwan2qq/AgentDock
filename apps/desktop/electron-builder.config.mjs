@@ -130,17 +130,51 @@ const macAdditionalBinaries = collectMacAdditionalBinaries(
     STAGED_NATIVE_BACKEND_DIR,
 );
 
+// Main process only needs electron-updater (and its deps). Renderer deps are
+// already bundled into out/electron by Vite — shipping them again in asar is
+// pure dead weight (~300MB+).
+const MAIN_PROCESS_NODE_MODULES = [
+    "electron-updater",
+    "builder-util-runtime",
+    "debug",
+    "ms",
+    "fs-extra",
+    "graceful-fs",
+    "jsonfile",
+    "universalify",
+    "js-yaml",
+    "argparse",
+    "sax",
+    "semver",
+    "tiny-typed-emitter",
+    "lazy-val",
+    "lodash.escaperegexp",
+    "lodash.isequal",
+    // Optional native helpers pulled in for PDF/canvas paths; keep unpacked.
+    "@napi-rs",
+    "fsevents",
+];
+
 export default {
     appId: process.env.NEVERWRITE_ELECTRON_APP_ID?.trim() || "com.neverwrite",
-    productName: "NeverWrite",
-    executableName: "NeverWrite",
+    productName: "AgentDock",
+    executableName: "AgentDock",
     asar: true,
     directories: {
         output: outputDir,
         buildResources: "build",
     },
     artifactName: "${productName}-${version}-${os}-${arch}.${ext}",
-    files: ["out/electron/**/*", "package.json"],
+    files: [
+        "out/electron/**/*",
+        "package.json",
+        "!node_modules/**/*",
+        ...MAIN_PROCESS_NODE_MODULES.flatMap((packageName) => [
+            `node_modules/${packageName}/**/*`,
+            `node_modules/${packageName}`,
+        ]),
+    ],
+    asarUnpack: ["node_modules/@napi-rs/**/*", "node_modules/fsevents/**/*"],
     extraResources: [
         {
             from: "out/native-backend",
@@ -155,7 +189,7 @@ export default {
     ],
     protocols: [
         {
-            name: "NeverWrite",
+            name: "AgentDock",
             schemes: ["neverwrite"],
         },
     ],
@@ -198,7 +232,7 @@ export default {
     nsis: {
         oneClick: false,
         perMachine: false,
-        shortcutName: "NeverWrite",
+        shortcutName: "AgentDock",
         allowElevation: true,
         allowToChangeInstallationDirectory: false,
         differentialPackage: true,

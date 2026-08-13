@@ -68,7 +68,15 @@ test("macOS universal x64ArchFiles covers packaged native binaries", () => {
 });
 
 test("Codex runtime resources remain outside app.asar", () => {
-    assert.deepEqual(config.files, ["out/electron/**/*", "package.json"]);
+    assert.equal(config.productName, "AgentDock");
+    assert.ok(config.files.includes("out/electron/**/*"));
+    assert.ok(config.files.includes("package.json"));
+    assert.ok(config.files.includes("!node_modules/**/*"));
+    assert.ok(config.files.includes("node_modules/electron-updater/**/*"));
+    assert.deepEqual(config.asarUnpack, [
+        "node_modules/@napi-rs/**/*",
+        "node_modules/fsevents/**/*",
+    ]);
     assert.deepEqual(config.extraResources[0], {
         from: "out/native-backend",
         to: "native-backend",

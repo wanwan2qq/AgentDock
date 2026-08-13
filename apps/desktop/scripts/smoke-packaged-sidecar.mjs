@@ -28,7 +28,7 @@ const smokeTimeoutMs =
 function defaultPackagedSidecarCandidates() {
     if (process.platform === "darwin") {
         const appRelativePath = path.join(
-            "NeverWrite.app",
+            "AgentDock.app",
             "Contents",
             "Resources",
             "native-backend",

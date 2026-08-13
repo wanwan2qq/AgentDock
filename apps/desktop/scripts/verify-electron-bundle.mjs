@@ -38,7 +38,7 @@ export const REQUIRED_RESOURCE_PATHS = {
         "native-backend/embedded/claude-agent-acp/node_modules/zod/package.json",
     ],
 };
-const DEFAULT_PRODUCT_NAME = "NeverWrite";
+const DEFAULT_PRODUCT_NAME = "AgentDock";
 const PROJECT_DIR = path.dirname(import.meta.dirname);
 
 function normalizeWindowsVersion(version) {
