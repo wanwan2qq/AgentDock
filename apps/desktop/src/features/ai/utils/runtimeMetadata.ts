@@ -100,6 +100,19 @@ const RUNTIME_METADATA: RuntimeMetadata[] = [
             "create_session",
         ],
     },
+    {
+        id: "custom-acp",
+        name: "Custom ACP",
+        company: "Custom",
+        description: "Any ACP-compatible executable launched with `acp`.",
+        capabilities: [
+            "attachments",
+            "permissions",
+            "plans",
+            "terminal_output",
+            "create_session",
+        ],
+    },
 ];
 
 export const PROVIDER_CATALOG = [
@@ -143,6 +156,8 @@ export function getRuntimeGuidance(runtimeId?: string | null): string | null {
             return "OpenCode CLI 以 ACP 接入（`opencode acp`）。适合已有 OpenCode 配置的用户；稳定性因版本而异，可选。";
         case "cursor-acp":
             return "Cursor CLI 以 ACP 接入（`agent acp`）。先在本机执行 `agent login`，或设置 CURSOR_API_KEY / CURSOR_AUTH_TOKEN。";
+        case "custom-acp":
+            return "通用 ACP：在「运行时可执行文件」填任意兼容 ACP 的二进制。启动时会附加参数 `acp`（与 Cursor / OpenCode 相同）。登录由该 CLI 自己处理。";
         default:
             return null;
     }

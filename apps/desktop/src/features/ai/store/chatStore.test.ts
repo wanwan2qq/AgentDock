@@ -12972,6 +12972,10 @@ describe("chatStore", () => {
             return defaultInvokeImplementation(command, args);
         });
 
+        // Isolate detach behavior from the eng-track auto-retry path.
+        const retrySessionConnection = vi.fn(async () => null);
+        useChatStore.setState({ retrySessionConnection });
+
         useChatStore
             .getState()
             .setComposerParts(createTextParts("Continue"), activeSessionId);
@@ -12995,7 +12999,10 @@ describe("chatStore", () => {
                         message.content ===
                             "助手连接已断开，正在用已保存上下文重连…",
                 ),
-        ).toBe(true);
+        ).toBe(false);
+        await vi.waitFor(() => {
+            expect(retrySessionConnection).toHaveBeenCalledWith(activeSessionId);
+        });
     });
 
     it("aborts resume when the required persisted transcript page cannot be loaded", async () => {
@@ -15976,7 +15983,7 @@ describe("chatStore", () => {
                 .sessionsById[parent.sessionId]?.messages.some(
                     (message) =>
                         message.kind === "error" &&
-                        message.content === "助手连接已断开。",
+                        message.content.includes("助手进程已退出"),
                 ),
         ).toBe(true);
         expect(
@@ -15988,10 +15995,69 @@ describe("chatStore", () => {
                         message.content ===
                             "助手连接已断开，正在用已保存上下文重连…",
                 ),
-        ).toBe(true);
+        ).toBe(false);
         expect(
             useChatStore.getState().sessionsById[otherRuntime.sessionId],
         ).toBe(otherRuntime);
+    });
+
+    it("auto-retries the active session once after a runtime disconnect", async () => {
+        const sessionId = "session-active-live";
+        useChatStore.setState((state) => ({
+            ...state,
+            sessionsById: {
+                [sessionId]: {
+                    ...createSessionWithTrackedFiles(sessionId, []),
+                    runtimeId: "codex-acp",
+                    runtimeState: "live",
+                    status: "idle",
+                    messages: [
+                        {
+                            id: "u1",
+                            role: "user",
+                            kind: "text",
+                            content: "hello",
+                            timestamp: 1,
+                        },
+                    ],
+                },
+            },
+            sessionOrder: [sessionId],
+            activeSessionId: sessionId,
+            lastFocusedSessionId: sessionId,
+            composerPartsBySessionId: {
+                [sessionId]: createTextParts("draft still here"),
+            },
+        }));
+
+        const retrySessionConnection = vi.fn(async () => null);
+        useChatStore.setState({ retrySessionConnection });
+
+        useChatStore.getState().applyRuntimeConnection({
+            runtime_id: "codex-acp",
+            status: "error",
+            message: "The ACP process exited.",
+        });
+
+        await vi.waitFor(() => {
+            expect(retrySessionConnection).toHaveBeenCalledTimes(1);
+            expect(retrySessionConnection).toHaveBeenCalledWith(sessionId);
+        });
+
+        expect(
+            useChatStore.getState().composerPartsBySessionId[sessionId],
+        ).toEqual(createTextParts("draft still here"));
+
+        // Failed auto-retry must not loop on the next disconnect event.
+        retrySessionConnection.mockClear();
+        useChatStore.getState().applyRuntimeConnection({
+            runtime_id: "codex-acp",
+            status: "error",
+            message: "The ACP process exited again.",
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(retrySessionConnection).not.toHaveBeenCalled();
     });
 
     it("clears virtualized row UI state when deleting a session", async () => {

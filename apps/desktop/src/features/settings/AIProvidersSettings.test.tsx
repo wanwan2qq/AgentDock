@@ -166,6 +166,31 @@ function addOpenCodeProvider(
     });
 }
 
+function addCustomAcpProvider(
+    providers: ReturnType<typeof createDefaultProviders>,
+    statusOverrides: Partial<AIRuntimeSetupStatus> = {},
+) {
+    providers.descriptors.push(
+        createRuntimeDescriptor("custom-acp", "Custom ACP"),
+    );
+    providers.statuses["custom-acp"] = createSetupStatus({
+        runtimeId: "custom-acp",
+        binaryReady: false,
+        binarySource: "missing",
+        binaryPath: undefined,
+        hasCustomBinaryPath: false,
+        authMethods: [
+            {
+                id: "custom-cli",
+                name: "Custom ACP binary",
+                description:
+                    "Launch any ACP-compatible executable. Login is handled by that CLI.",
+            },
+        ],
+        ...statusOverrides,
+    });
+}
+
 function addGrokProvider(
     providers: ReturnType<typeof createDefaultProviders>,
     statusOverrides: Partial<AIRuntimeSetupStatus> = {},
@@ -797,5 +822,69 @@ describe("AIProvidersSettings", () => {
                 vaultPath: null,
             });
         });
+    });
+
+    it("saves a custom ACP executable without opening a sign-in terminal", async () => {
+        const providers = createDefaultProviders();
+        addCustomAcpProvider(providers);
+        mockProviders(providers);
+        apiMocks.aiUpdateSetup.mockResolvedValue(
+            createSetupStatus({
+                runtimeId: "custom-acp",
+                binaryReady: true,
+                binaryPath: "/usr/local/bin/my-agent",
+                binarySource: "custom",
+                hasCustomBinaryPath: true,
+                authReady: true,
+                authMethod: "custom-cli",
+                onboardingRequired: false,
+                authMethods: [
+                    {
+                        id: "custom-cli",
+                        name: "Custom ACP binary",
+                        description: "Launch any ACP-compatible executable.",
+                    },
+                ],
+            }),
+        );
+        apiMocks.aiStartAuth.mockResolvedValue(
+            createSetupStatus({
+                runtimeId: "custom-acp",
+                binaryReady: true,
+                hasCustomBinaryPath: true,
+                authReady: true,
+                authMethod: "custom-cli",
+                onboardingRequired: false,
+                authMethods: [
+                    {
+                        id: "custom-cli",
+                        name: "Custom ACP binary",
+                        description: "Launch any ACP-compatible executable.",
+                    },
+                ],
+            }),
+        );
+
+        renderComponent(<AIProvidersSettings />);
+
+        await openProvider("Custom ACP");
+        fireEvent.change(screen.getByLabelText("Runtime binary"), {
+            target: { value: "/usr/local/bin/my-agent" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "保存并连接" }));
+
+        await waitFor(() => {
+            expect(apiMocks.aiUpdateSetup).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    runtimeId: "custom-acp",
+                    customBinaryPath: "/usr/local/bin/my-agent",
+                }),
+            );
+            expect(apiMocks.aiStartAuth).toHaveBeenCalledWith(
+                { methodId: "custom-cli", runtimeId: "custom-acp" },
+                null,
+            );
+        });
+        expect(apiMocks.aiStartAuthTerminalSession).not.toHaveBeenCalled();
     });
 });

@@ -217,6 +217,37 @@ const _pendingTrackedPersistedReconcileByKey = new Map<
     string,
     ReturnType<typeof setTimeout>
 >();
+/** Sessions that already received one automatic reconnect attempt after detach. */
+const _autoRuntimeReconnectAttemptedSessionIds = new Set<string>();
+
+function scheduleAutoRuntimeReconnect(sessionId: string) {
+    if (!sessionId) return;
+    if (_autoRuntimeReconnectAttemptedSessionIds.has(sessionId)) {
+        return;
+    }
+    const latest = useChatStore.getState();
+    const isPreferred =
+        latest.activeSessionId === sessionId ||
+        latest.lastFocusedSessionId === sessionId;
+    if (!isPreferred) {
+        return;
+    }
+    _autoRuntimeReconnectAttemptedSessionIds.add(sessionId);
+    void latest
+        .retrySessionConnection(sessionId)
+        .then((nextSessionId) => {
+            if (!nextSessionId) {
+                return;
+            }
+            _autoRuntimeReconnectAttemptedSessionIds.delete(sessionId);
+            if (nextSessionId !== sessionId) {
+                _autoRuntimeReconnectAttemptedSessionIds.delete(nextSessionId);
+            }
+        })
+        .catch(() => {
+            // Keep the session id in the set so we do not loop.
+        });
+}
 
 function clearTrackedPersistedReconciliationTimers() {
     for (const timeoutId of _pendingTrackedPersistedReconcileByKey.values()) {
@@ -8722,15 +8753,13 @@ export const useChatStore = create<ChatStore>((set, get) => {
                         status: "error" as const,
                         resumeContextPending: true,
                     };
+                    // Do not insert a fake "正在重连…" status here — nothing has
+                    // started reconnecting yet. Auto-retry / resumeSession will
+                    // add a real in-progress recovery status when they run.
                     const revertedSession = finalizeActionLogForWorkCycle(
                         stampElapsedOnTurnStartedSession(
                             appendSessionError(
-                                upsertSessionStatusMessage(
-                                    detachedSession,
-                                    createRuntimeContextRecoveryStatus(
-                                        sessionId,
-                                    ),
-                                ),
+                                detachedSession,
                                 normalizeAiErrorMessage(
                                     message ??
                                         "The AI runtime disconnected unexpectedly.",
@@ -8808,6 +8837,23 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     void persistSession(session);
                 }
             }
+
+            if (affectedSessionIds.length === 0) {
+                return;
+            }
+
+            const latest = get();
+            if (
+                latest.activeSessionId &&
+                affectedSessionIds.includes(latest.activeSessionId)
+            ) {
+                scheduleAutoRuntimeReconnect(latest.activeSessionId);
+            } else if (
+                latest.lastFocusedSessionId &&
+                affectedSessionIds.includes(latest.lastFocusedSessionId)
+            ) {
+                scheduleAutoRuntimeReconnect(latest.lastFocusedSessionId);
+            }
         },
 
         applyTokenUsage: ({ session_id, used, size, cost }) => {
@@ -8837,6 +8883,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
             // flush buffered text/thinking deltas first to keep messageOrder in
             // runtime order (matches the other timeline-inserting handlers).
             flushDeltasBeforeTimelineInsert();
+            let normalizedErrorMessage = "";
             set((state) => {
                 const sessionRuntimeId = session_id
                     ? state.sessionsById[session_id]?.runtimeId
@@ -8847,6 +8894,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     rawMessage,
                     effectiveRuntimeId,
                 );
+                normalizedErrorMessage = message;
                 const runtimeSetupStatus = getSetupStatusForRuntime(
                     state.setupStatusByRuntimeId,
                     effectiveRuntimeId,
@@ -8912,12 +8960,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                         ? ("detached" as const)
                         : (revertedSession.runtimeState ?? "live"),
                 };
-                const sessionWithRecoveryStatus = shouldDetachRuntimeSession
-                    ? upsertSessionStatusMessage(
-                          erroredSession,
-                          createRuntimeContextRecoveryStatus(session_id),
-                      )
-                    : erroredSession;
+                const sessionWithRecoveryStatus = erroredSession;
                 return {
                     setupStatusByRuntimeId: nextSetupStatusByRuntimeId,
                     runtimeConnectionByRuntimeId:
@@ -8971,6 +9014,14 @@ export const useChatStore = create<ChatStore>((set, get) => {
             if (session_id) {
                 const updatedSession = get().sessionsById[session_id];
                 if (updatedSession) persistSession(updatedSession);
+                if (
+                    updatedSession?.runtimeState === "detached" &&
+                    isRuntimeSessionDisconnectedErrorMessage(
+                        normalizedErrorMessage,
+                    )
+                ) {
+                    scheduleAutoRuntimeReconnect(session_id);
+                }
             }
         },
 
@@ -13375,6 +13426,7 @@ export function resetChatStore() {
     _queueDrainLocks.clear();
     _pendingStopBySessionId.clear();
     _pendingSessionPersistence.clear();
+    _autoRuntimeReconnectAttemptedSessionIds.clear();
     _deltaBuffer.messageDelta.clear();
     _deltaBuffer.thinkingDelta.clear();
     _suppressedRuntimeUserEchoByKey.clear();

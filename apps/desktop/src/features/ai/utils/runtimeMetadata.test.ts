@@ -26,6 +26,11 @@ describe("runtimeMetadata", () => {
                     name: "Grok",
                     company: "xAI",
                 }),
+                expect.objectContaining({
+                    id: "custom-acp",
+                    name: "Custom ACP",
+                    company: "Custom",
+                }),
             ]),
         );
     });
@@ -84,6 +89,7 @@ describe("runtimeMetadata", () => {
         expect(getRuntimeGuidance("claude-acp")).toContain("ACP");
         expect(getRuntimeGuidance("opencode-acp")).toContain("OpenCode");
         expect(getRuntimeGuidance("cursor-acp")).toContain("agent acp");
+        expect(getRuntimeGuidance("custom-acp")).toContain("通用 ACP");
         expect(getRuntimeGuidance("grok-acp")).toBeNull();
     });
 
@@ -93,6 +99,7 @@ describe("runtimeMetadata", () => {
         expect(getRuntimeDisplayName("grok-acp")).toBe("Grok");
         expect(getRuntimeDisplayName("opencode-acp")).toBe("OpenCode");
         expect(getRuntimeDisplayName("cursor-acp")).toBe("Cursor");
+        expect(getRuntimeDisplayName("custom-acp")).toBe("Custom ACP");
         expect(getRuntimeDisplayName(undefined, undefined)).toBe("Assistant");
     });
 });

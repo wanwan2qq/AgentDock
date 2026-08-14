@@ -47,8 +47,8 @@ use neverwrite_ai::{
     AI_SESSION_ERROR_EVENT, AI_SESSION_UPDATED_EVENT, AI_STATUS_EVENT, AI_THINKING_COMPLETED_EVENT,
     AI_THINKING_DELTA_EVENT, AI_THINKING_STARTED_EVENT, AI_TOKEN_USAGE_EVENT,
     AI_TOOL_ACTIVITY_EVENT, AI_URL_ELICITATION_REQUEST_EVENT, AI_USER_INPUT_REQUEST_EVENT,
-    CLAUDE_RUNTIME_ID, CODEX_RUNTIME_ID, CURSOR_RUNTIME_ID, GROK_RUNTIME_ID, KILO_RUNTIME_ID,
-    OPENCODE_RUNTIME_ID,
+    CLAUDE_RUNTIME_ID, CODEX_RUNTIME_ID, CURSOR_RUNTIME_ID, CUSTOM_RUNTIME_ID, GROK_RUNTIME_ID,
+    KILO_RUNTIME_ID, OPENCODE_RUNTIME_ID,
 };
 use portable_pty::{
     native_pty_system, Child as PtyChild, ChildKiller, CommandBuilder, MasterPty, PtySize,
@@ -215,6 +215,16 @@ const RUNTIME_DEFINITIONS: &[RuntimeDefinition] = &[
         description: "Cursor CLI running as a native ACP agent (`agent acp`).",
         default_executable: "agent",
         bin_env_var: "NEVERWRITE_CURSOR_ACP_BIN",
+        acp_args: SHELL_ACP_ARGS,
+        acp_protocol: AcpProtocolFlavor::Current,
+        supports_native_resume: false,
+    },
+    RuntimeDefinition {
+        id: CUSTOM_RUNTIME_ID,
+        name: "Custom ACP",
+        description: "Any ACP-compatible executable (launched with `acp`).",
+        default_executable: "",
+        bin_env_var: "NEVERWRITE_CUSTOM_ACP_BIN",
         acp_args: SHELL_ACP_ARGS,
         acp_protocol: AcpProtocolFlavor::Current,
         supports_native_resume: false,
@@ -1257,6 +1267,7 @@ impl NativeAi {
             setup.custom_binary_path = normalize_optional_string(custom_binary_path);
         }
         update_auth_state(setup, &runtime_id, input)?;
+        apply_custom_acp_binary_auth(setup, &runtime_id);
         let status = setup_status_for(&runtime_id, setup.clone())?;
         self.setup_store.save(&pending_setup)?;
 
@@ -1319,7 +1330,10 @@ impl NativeAi {
             .map_err(|error| format!("Internal AI state error: {error}"))?;
         let setup = state.setup.entry(runtime_id.clone()).or_default();
         setup.auth_method = Some(method_id.clone());
-        setup.auth_ready = auth_method_has_local_config(setup, &method_id);
+        apply_custom_acp_binary_auth(setup, &runtime_id);
+        if runtime_id != CUSTOM_RUNTIME_ID {
+            setup.auth_ready = auth_method_has_local_config(setup, &method_id);
+        }
         setup.message = if setup.auth_ready {
             None
         } else {
@@ -3748,6 +3762,8 @@ fn start_acp_session(
 ) -> Result<CreatedAcpSession, String> {
     let (command_tx, command_rx) = tokio::sync::mpsc::unbounded_channel::<AcpCommand>();
     let (created_tx, created_rx) = mpsc::channel();
+    let stderr_tail = Arc::new(Mutex::new(String::new()));
+    let stderr_for_actor = Arc::clone(&stderr_tail);
     let flavor = acp_protocol_flavor(&spec.runtime_id);
     let handle = AcpSessionHandle {
         command_tx: command_tx.clone(),
@@ -3764,23 +3780,46 @@ fn start_acp_session(
         runtime.block_on(async move {
             match flavor {
                 AcpProtocolFlavor::Current => {
-                    run_acp_actor(spec, start_mode, context, command_rx, created_tx).await;
+                    run_acp_actor(
+                        spec,
+                        start_mode,
+                        context,
+                        command_rx,
+                        stderr_for_actor,
+                        created_tx,
+                    )
+                    .await;
                 }
                 AcpProtocolFlavor::Legacy12 => {
-                    run_acp12_actor(spec, start_mode, context, command_rx, created_tx).await;
+                    run_acp12_actor(
+                        spec,
+                        start_mode,
+                        context,
+                        command_rx,
+                        stderr_for_actor,
+                        created_tx,
+                    )
+                    .await;
                 }
             }
         });
     });
     let session = created_rx
         .recv_timeout(ACP_SESSION_START_TIMEOUT)
-        .map_err(|error| match error {
-            mpsc::RecvTimeoutError::Timeout => format!(
-                "Timed out waiting for the AI runtime to create a session after {} seconds.",
-                ACP_SESSION_START_TIMEOUT.as_secs()
-            ),
-            mpsc::RecvTimeoutError::Disconnected => {
-                "AI runtime session startup disconnected before responding.".to_string()
+        .map_err(|error| {
+            let diagnostics = snapshot_acp_stderr(&stderr_tail);
+            match error {
+                mpsc::RecvTimeoutError::Timeout => append_acp_stderr_diagnostics(
+                    format!(
+                        "Timed out waiting for the AI runtime to create a session after {} seconds.",
+                        ACP_SESSION_START_TIMEOUT.as_secs()
+                    ),
+                    &diagnostics,
+                ),
+                mpsc::RecvTimeoutError::Disconnected => append_acp_stderr_diagnostics(
+                    "AI runtime session startup disconnected before responding.".to_string(),
+                    &diagnostics,
+                ),
             }
         })??;
     Ok(CreatedAcpSession { session, handle })
@@ -4113,6 +4152,7 @@ async fn run_acp_actor(
     start_mode: AcpSessionStartMode,
     context: AcpActorContext,
     mut command_rx: tokio::sync::mpsc::UnboundedReceiver<AcpCommand>,
+    stderr_tail: Arc<Mutex<String>>,
     created_tx: mpsc::Sender<Result<AiSession, String>>,
 ) {
     let result = run_acp_actor_inner(
@@ -4120,11 +4160,15 @@ async fn run_acp_actor(
         start_mode,
         context,
         &mut command_rx,
+        &stderr_tail,
         created_tx.clone(),
     )
     .await;
     if let Err(error) = result {
-        let _ = created_tx.send(Err(error));
+        let _ = created_tx.send(Err(append_acp_stderr_diagnostics(
+            error,
+            &snapshot_acp_stderr(&stderr_tail),
+        )));
     }
 }
 
@@ -4133,6 +4177,7 @@ async fn run_acp12_actor(
     start_mode: AcpSessionStartMode,
     context: AcpActorContext,
     mut command_rx: tokio::sync::mpsc::UnboundedReceiver<AcpCommand>,
+    stderr_tail: Arc<Mutex<String>>,
     created_tx: mpsc::Sender<Result<AiSession, String>>,
 ) {
     let result = run_acp12_actor_inner(
@@ -4140,11 +4185,15 @@ async fn run_acp12_actor(
         start_mode,
         context,
         &mut command_rx,
+        &stderr_tail,
         created_tx.clone(),
     )
     .await;
     if let Err(error) = result {
-        let _ = created_tx.send(Err(error));
+        let _ = created_tx.send(Err(append_acp_stderr_diagnostics(
+            error,
+            &snapshot_acp_stderr(&stderr_tail),
+        )));
     }
 }
 
@@ -4153,6 +4202,7 @@ async fn run_acp12_actor_inner(
     start_mode: AcpSessionStartMode,
     context: AcpActorContext,
     command_rx: &mut tokio::sync::mpsc::UnboundedReceiver<AcpCommand>,
+    stderr_tail: &Arc<Mutex<String>>,
     created_tx: mpsc::Sender<Result<AiSession, String>>,
 ) -> Result<(), String> {
     let mut command = Command::new(&spec.program);
@@ -4177,6 +4227,9 @@ async fn run_acp12_actor_inner(
         .stdout
         .take()
         .ok_or_else(|| "Failed to acquire ACP stdout".to_string())?;
+    if let Some(stderr) = child.stderr.take() {
+        spawn_acp_stderr_collector(stderr, Arc::clone(stderr_tail));
+    }
     let event_tx = context.shared.event_tx.clone();
     let client = NativeAcpClient {
         event_tx: event_tx.clone(),
@@ -4201,6 +4254,7 @@ async fn run_acp12_actor_inner(
     let event_tx_for_connection = event_tx.clone();
     let prompt_capabilities = Arc::clone(&context.prompt_capabilities);
     let client_for_shutdown = client.clone();
+    let stderr_tail_for_wait = Arc::clone(stderr_tail);
 
     let result = acp12::Client
         .builder()
@@ -4282,7 +4336,9 @@ async fn run_acp12_actor_inner(
                 } => response?,
                 wait_result = child.wait() => {
                     let message = wait_result
-                        .map(acp_child_exit_message)
+                        .map(|status| {
+                            acp_child_exit_message_with_stderr(status, &stderr_tail_for_wait)
+                        })
                         .unwrap_or_else(|error| {
                             format!("Failed to wait for AI runtime process: {error}")
                         });
@@ -4312,7 +4368,9 @@ async fn run_acp12_actor_inner(
                     }
                     wait_result = child.wait() => {
                         let message = wait_result
-                            .map(acp_child_exit_message)
+                            .map(|status| {
+                                acp_child_exit_message_with_stderr(status, &stderr_tail_for_wait)
+                            })
                             .unwrap_or_else(|error| {
                                 format!("Failed to wait for AI runtime process: {error}")
                             });
@@ -4334,8 +4392,11 @@ async fn run_acp12_actor_inner(
                 json!(AiRuntimeConnectionPayload {
                     runtime_id: disconnect_runtime_id,
                     status: "error".to_string(),
-                    message: Some(format!(
-                        "The AI runtime process disconnected unexpectedly: {error}"
+                    message: Some(append_acp_stderr_diagnostics(
+                        format!(
+                            "The AI runtime process disconnected unexpectedly: {error}"
+                        ),
+                        &snapshot_acp_stderr(stderr_tail),
                     )),
                 }),
             );
@@ -4350,6 +4411,7 @@ async fn run_acp_actor_inner(
     start_mode: AcpSessionStartMode,
     context: AcpActorContext,
     command_rx: &mut tokio::sync::mpsc::UnboundedReceiver<AcpCommand>,
+    stderr_tail: &Arc<Mutex<String>>,
     created_tx: mpsc::Sender<Result<AiSession, String>>,
 ) -> Result<(), String> {
     let mut command = Command::new(&spec.program);
@@ -4374,6 +4436,9 @@ async fn run_acp_actor_inner(
         .stdout
         .take()
         .ok_or_else(|| "Failed to acquire ACP stdout".to_string())?;
+    if let Some(stderr) = child.stderr.take() {
+        spawn_acp_stderr_collector(stderr, Arc::clone(stderr_tail));
+    }
     let event_tx = context.shared.event_tx.clone();
     let client = NativeAcpClient {
         event_tx: event_tx.clone(),
@@ -4398,6 +4463,7 @@ async fn run_acp_actor_inner(
     let event_tx_for_connection = event_tx.clone();
     let prompt_capabilities = Arc::clone(&context.prompt_capabilities);
     let client_for_shutdown = client.clone();
+    let stderr_tail_for_wait = Arc::clone(stderr_tail);
 
     let result = Client
         .builder()
@@ -4489,7 +4555,9 @@ async fn run_acp_actor_inner(
                 } => response?,
                 wait_result = child.wait() => {
                     let message = wait_result
-                        .map(acp_child_exit_message)
+                        .map(|status| {
+                            acp_child_exit_message_with_stderr(status, &stderr_tail_for_wait)
+                        })
                         .unwrap_or_else(|error| {
                             format!("Failed to wait for AI runtime process: {error}")
                         });
@@ -4519,7 +4587,9 @@ async fn run_acp_actor_inner(
                     }
                     wait_result = child.wait() => {
                         let message = wait_result
-                            .map(acp_child_exit_message)
+                            .map(|status| {
+                                acp_child_exit_message_with_stderr(status, &stderr_tail_for_wait)
+                            })
                             .unwrap_or_else(|error| {
                                 format!("Failed to wait for AI runtime process: {error}")
                             });
@@ -4541,8 +4611,11 @@ async fn run_acp_actor_inner(
                 json!(AiRuntimeConnectionPayload {
                     runtime_id: disconnect_runtime_id,
                     status: "error".to_string(),
-                    message: Some(format!(
-                        "The AI runtime process disconnected unexpectedly: {error}"
+                    message: Some(append_acp_stderr_diagnostics(
+                        format!(
+                            "The AI runtime process disconnected unexpectedly: {error}"
+                        ),
+                        &snapshot_acp_stderr(stderr_tail),
                     )),
                 }),
             );
@@ -5077,6 +5150,170 @@ fn acp_child_exit_message(status: std::process::ExitStatus) -> String {
         "The AI runtime process exited.".to_string()
     } else {
         format!("The AI runtime process exited with status {status}.")
+    }
+}
+
+const ACP_STDERR_BUFFER_CHARS: usize = 16_000;
+const ACP_STDERR_DIAGNOSTIC_CHARS: usize = 1_500;
+const ACP_STDERR_DIAGNOSTIC_MARKER: &str = "\n\nRuntime stderr:\n";
+
+fn snapshot_acp_stderr(stderr_tail: &Arc<Mutex<String>>) -> String {
+    stderr_tail
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default()
+}
+
+fn redact_acp_diagnostic_text(input: &str) -> String {
+    let mut redacted = String::with_capacity(input.len());
+    for line in input.lines() {
+        redacted.push_str(&redact_acp_diagnostic_line(line));
+        redacted.push('\n');
+    }
+    if !input.ends_with('\n') {
+        redacted.pop();
+    }
+    redact_acp_inline_secrets(&redacted)
+}
+
+fn redact_acp_diagnostic_line(line: &str) -> String {
+    let lower = line.to_ascii_lowercase();
+    let sensitive = [
+        "api_key",
+        "apikey",
+        "authorization",
+        "bearer ",
+        "password",
+        "secret",
+        "token=",
+        "token:",
+        "anthropic_auth",
+        "x-api-key",
+    ];
+    if sensitive.iter().any(|marker| lower.contains(marker)) {
+        if let Some((prefix, _)) = line.split_once('=') {
+            return format!("{prefix}=[redacted]");
+        }
+        if let Some((prefix, _)) = line.split_once(':') {
+            return format!("{prefix}: [redacted]");
+        }
+        return "[redacted diagnostic line]".to_string();
+    }
+    line.to_string()
+}
+
+fn redact_acp_inline_secrets(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut out = String::with_capacity(input.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index..].starts_with(b"sk-") && index + 3 < bytes.len() {
+            out.push_str("sk-[redacted]");
+            index += 3;
+            while index < bytes.len() {
+                let ch = bytes[index] as char;
+                if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+                    index += 1;
+                } else {
+                    break;
+                }
+            }
+            continue;
+        }
+        out.push(bytes[index] as char);
+        index += 1;
+    }
+    out
+}
+
+fn trim_acp_stderr_tail(buffer: &str) -> String {
+    let redacted = redact_acp_diagnostic_text(buffer);
+    let trimmed = redacted.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let char_count = trimmed.chars().count();
+    if char_count <= ACP_STDERR_DIAGNOSTIC_CHARS {
+        return trimmed.to_string();
+    }
+    let skip = char_count - ACP_STDERR_DIAGNOSTIC_CHARS;
+    format!("…{}", trimmed.chars().skip(skip).collect::<String>())
+}
+
+fn append_acp_stderr_diagnostics(base: String, stderr: &str) -> String {
+    if base.contains("Runtime stderr:") {
+        return base;
+    }
+    let tail = trim_acp_stderr_tail(stderr);
+    if tail.is_empty() {
+        return base;
+    }
+    format!("{base}{ACP_STDERR_DIAGNOSTIC_MARKER}{tail}")
+}
+
+fn acp_child_exit_message_with_stderr(
+    status: std::process::ExitStatus,
+    stderr_tail: &Arc<Mutex<String>>,
+) -> String {
+    append_acp_stderr_diagnostics(acp_child_exit_message(status), &snapshot_acp_stderr(stderr_tail))
+}
+
+fn spawn_acp_stderr_collector(
+    mut stderr: tokio::process::ChildStderr,
+    buffer: Arc<Mutex<String>>,
+) {
+    tokio::spawn(async move {
+        use tokio::io::AsyncReadExt;
+        let mut chunk = [0_u8; 1024];
+        loop {
+            match stderr.read(&mut chunk).await {
+                Ok(0) => break,
+                Ok(n) => {
+                    if let Ok(mut guard) = buffer.lock() {
+                        guard.push_str(&String::from_utf8_lossy(&chunk[..n]));
+                        if guard.len() > ACP_STDERR_BUFFER_CHARS {
+                            let mut keep_from = guard.len() - ACP_STDERR_BUFFER_CHARS;
+                            while keep_from < guard.len() && !guard.is_char_boundary(keep_from) {
+                                keep_from += 1;
+                            }
+                            *guard = guard.split_off(keep_from);
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+}
+
+#[cfg(test)]
+mod acp_stderr_diagnostics_tests {
+    use super::{
+        append_acp_stderr_diagnostics, redact_acp_diagnostic_text, trim_acp_stderr_tail,
+    };
+
+    #[test]
+    fn redacts_api_key_lines_and_sk_tokens() {
+        let redacted = redact_acp_diagnostic_text(
+            "OPENAI_API_KEY=sk-live-secret-value\nready\nbearer sk-abc123XYZ",
+        );
+        assert!(redacted.contains("[redacted]"));
+        assert!(!redacted.contains("sk-live-secret-value"));
+        assert!(!redacted.contains("sk-abc123XYZ"));
+        assert!(redacted.contains("ready"));
+    }
+
+    #[test]
+    fn appends_stderr_once_and_trims() {
+        let message = append_acp_stderr_diagnostics(
+            "The AI runtime process exited with status exit status: 1.".to_string(),
+            "not logged in\n",
+        );
+        assert!(message.contains("Runtime stderr:"));
+        assert!(message.contains("not logged in"));
+        let again = append_acp_stderr_diagnostics(message.clone(), "extra");
+        assert_eq!(again, message);
+        assert_eq!(trim_acp_stderr_tail("   \n"), "");
     }
 }
 
@@ -6748,6 +6985,23 @@ fn new_session_with_id(runtime_id: &str, session_id: String) -> Result<AiSession
     })
 }
 
+fn apply_custom_acp_binary_auth(setup: &mut RuntimeSetupState, runtime_id: &str) {
+    if runtime_id != CUSTOM_RUNTIME_ID {
+        return;
+    }
+    setup.auth_method = Some("custom-cli".to_string());
+    let binary_ready = resolve_acp_command(runtime_id, setup).program.is_some();
+    setup.auth_ready = binary_ready;
+    setup.message = if binary_ready {
+        None
+    } else {
+        Some(
+            "Set a Custom ACP executable path (or NEVERWRITE_CUSTOM_ACP_BIN) before starting a chat."
+                .to_string(),
+        )
+    };
+}
+
 fn setup_status_for(
     runtime_id: &str,
     setup: RuntimeSetupState,
@@ -6776,7 +7030,10 @@ fn setup_status_for_with_inherited_auth(
     };
     let inherited_auth_method = inherited_auth_method
         .filter(|method| inherited_auth_method_applies_to_setup(&setup, method));
-    let auth_ready = binary_ready && (setup.auth_ready || inherited_auth_method.is_some());
+    let auth_ready = binary_ready
+        && (setup.auth_ready
+            || inherited_auth_method.is_some()
+            || runtime_id == CUSTOM_RUNTIME_ID);
     let auth_method = setup.auth_method.or(inherited_auth_method);
     let message = if !binary_ready {
         setup.message
@@ -7792,6 +8049,7 @@ fn is_persistable_external_auth_method(runtime_id: &str, method_id: &str) -> boo
         (GROK_RUNTIME_ID, "grok-login")
             | (OPENCODE_RUNTIME_ID, "opencode-login")
             | (CURSOR_RUNTIME_ID, "cursor-login")
+            | (CUSTOM_RUNTIME_ID, "custom-cli")
     )
 }
 
@@ -8093,6 +8351,12 @@ fn auth_methods(runtime_id: &str) -> Vec<AiAuthMethod> {
             description: "Open the Cursor CLI sign-in flow (`agent login`) in an integrated terminal."
                 .to_string(),
         }],
+        CUSTOM_RUNTIME_ID => vec![AiAuthMethod {
+            id: "custom-cli".to_string(),
+            name: "Custom ACP binary".to_string(),
+            description: "Launch any ACP-compatible executable. Login is handled by that CLI."
+                .to_string(),
+        }],
         _ => vec![],
     }
 }
@@ -8105,6 +8369,7 @@ fn auth_method_ids(runtime_id: &str) -> Vec<&'static str> {
         KILO_RUNTIME_ID => vec!["kilo-login", "kilo-api-key"],
         OPENCODE_RUNTIME_ID => vec!["opencode-login"],
         CURSOR_RUNTIME_ID => vec!["cursor-login"],
+        CUSTOM_RUNTIME_ID => vec!["custom-cli"],
         _ => vec![],
     }
 }
@@ -10272,6 +10537,53 @@ mod tests {
         assert_eq!(status.runtime_id, GROK_RUNTIME_ID);
         assert!(!status.binary_ready);
         assert_eq!(status.binary_source, AiRuntimeBinarySource::Missing);
+        assert!(!status.auth_ready);
+        assert!(status.onboarding_required);
+    }
+
+    #[test]
+    fn custom_acp_is_ready_when_custom_binary_exists() {
+        let _guard = ENV_TEST_LOCK.lock().unwrap();
+        let previous = std::env::var_os("NEVERWRITE_CUSTOM_ACP_BIN");
+        std::env::remove_var("NEVERWRITE_CUSTOM_ACP_BIN");
+        let current_exe = std::env::current_exe().unwrap();
+        let mut setup = RuntimeSetupState {
+            custom_binary_path: Some(current_exe.display().to_string()),
+            ..RuntimeSetupState::default()
+        };
+        apply_custom_acp_binary_auth(&mut setup, CUSTOM_RUNTIME_ID);
+        let status = setup_status_for(CUSTOM_RUNTIME_ID, setup.clone()).unwrap();
+        let spec = acp_process_spec(
+            CUSTOM_RUNTIME_ID,
+            &setup,
+            std::env::current_dir().unwrap(),
+        )
+        .expect("custom ACP spec should resolve");
+
+        match previous {
+            Some(value) => std::env::set_var("NEVERWRITE_CUSTOM_ACP_BIN", value),
+            None => std::env::remove_var("NEVERWRITE_CUSTOM_ACP_BIN"),
+        }
+
+        assert!(status.binary_ready);
+        assert!(status.auth_ready);
+        assert!(!status.onboarding_required);
+        assert_eq!(status.auth_method.as_deref(), Some("custom-cli"));
+        assert_eq!(spec.program, current_exe);
+        assert_eq!(spec.args, vec!["acp".to_string()]);
+    }
+
+    #[test]
+    fn custom_acp_without_binary_is_not_ready() {
+        let _guard = ENV_TEST_LOCK.lock().unwrap();
+        let previous = std::env::var_os("NEVERWRITE_CUSTOM_ACP_BIN");
+        std::env::remove_var("NEVERWRITE_CUSTOM_ACP_BIN");
+        let status = setup_status_for(CUSTOM_RUNTIME_ID, RuntimeSetupState::default()).unwrap();
+        match previous {
+            Some(value) => std::env::set_var("NEVERWRITE_CUSTOM_ACP_BIN", value),
+            None => std::env::remove_var("NEVERWRITE_CUSTOM_ACP_BIN"),
+        }
+        assert!(!status.binary_ready);
         assert!(!status.auth_ready);
         assert!(status.onboarding_required);
     }

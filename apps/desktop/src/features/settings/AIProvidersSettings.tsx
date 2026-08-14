@@ -47,6 +47,8 @@ const OPENCODE_RUNTIME_ID = "opencode-acp";
 const OPENCODE_AUTH_METHOD_ID = "opencode-login";
 const CURSOR_RUNTIME_ID = "cursor-acp";
 const CURSOR_AUTH_METHOD_ID = "cursor-login";
+const CUSTOM_RUNTIME_ID = "custom-acp";
+const CUSTOM_AUTH_METHOD_ID = "custom-cli";
 const GROK_RUNTIME_ID = "grok-acp";
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -131,6 +133,8 @@ function getAuthHelpText(id: string): string {
             return "Use providers and credentials configured by the OpenCode CLI.";
         case CURSOR_AUTH_METHOD_ID:
             return "Use credentials from the Cursor CLI (`agent login`) or CURSOR_API_KEY / CURSOR_AUTH_TOKEN.";
+        case CUSTOM_AUTH_METHOD_ID:
+            return "填写任意 ACP 可执行文件路径。登录由该 CLI 自行处理；启动时会附加 `acp` 参数。";
         case "openai-api-key":
             return `Store an OpenAI API key locally for ${APP_BRAND_NAME} only.`;
         case "codex-api-key":
@@ -170,6 +174,7 @@ function getActionLabel(
     if (methodId === "kilo-login") return "Open sign-in terminal";
     if (methodId === OPENCODE_AUTH_METHOD_ID) return "Open sign-in terminal";
     if (methodId === CURSOR_AUTH_METHOD_ID) return "Open sign-in terminal";
+    if (methodId === CUSTOM_AUTH_METHOD_ID) return "保存并连接";
     if (isApiKeyMethod(methodId)) {
         return status.authReady && status.authMethod === methodId
             ? "Replace key"
@@ -181,13 +186,16 @@ function getActionLabel(
 
 function getSecondaryAuthActionLabel(status: AIRuntimeSetupStatus): string {
     return status.runtimeId === OPENCODE_RUNTIME_ID ||
-        status.runtimeId === CURSOR_RUNTIME_ID
+        status.runtimeId === CURSOR_RUNTIME_ID ||
+        status.runtimeId === CUSTOM_RUNTIME_ID
         ? "Disconnect"
         : "Log Out";
 }
 
 function getLogoutErrorFallback(runtimeId: string): string {
-    return runtimeId === OPENCODE_RUNTIME_ID || runtimeId === CURSOR_RUNTIME_ID
+    return runtimeId === OPENCODE_RUNTIME_ID ||
+        runtimeId === CURSOR_RUNTIME_ID ||
+        runtimeId === CUSTOM_RUNTIME_ID
         ? "Failed to disconnect."
         : "Failed to log out.";
 }
@@ -246,7 +254,8 @@ function supportsRuntimeBinaryOverride(runtimeId: string): boolean {
     return (
         runtimeId === OPENCODE_RUNTIME_ID ||
         runtimeId === GROK_RUNTIME_ID ||
-        runtimeId === CURSOR_RUNTIME_ID
+        runtimeId === CURSOR_RUNTIME_ID ||
+        runtimeId === CUSTOM_RUNTIME_ID
     );
 }
 
@@ -260,6 +269,9 @@ function getRuntimeBinaryPlaceholder(runtimeId: string): string {
     if (runtimeId === CURSOR_RUNTIME_ID) {
         return "Custom Cursor agent path, for example ~/.local/bin/agent";
     }
+    if (runtimeId === CUSTOM_RUNTIME_ID) {
+        return "ACP 可执行文件路径，例如 /usr/local/bin/my-agent";
+    }
     return "Custom runtime path";
 }
 
@@ -272,6 +284,9 @@ function getRuntimeBinaryHelpText(runtimeId: string): string {
     }
     if (runtimeId === CURSOR_RUNTIME_ID) {
         return "Leave empty to use Cursor's agent CLI from PATH or ~/.local/bin/agent.";
+    }
+    if (runtimeId === CUSTOM_RUNTIME_ID) {
+        return "必填。也可设置环境变量 NEVERWRITE_CUSTOM_ACP_BIN。启动参数为 `acp`。";
     }
     return "Leave empty to use the bundled runtime or PATH.";
 }
@@ -595,6 +610,9 @@ function ProviderExpandedPanel({
     const canSubmit =
         !saving &&
         selectedMethod != null &&
+        (selectedMethodId !== CUSTOM_AUTH_METHOD_ID ||
+            customBinaryPath.trim() !== "" ||
+            setupStatus.hasCustomBinaryPath === true) &&
         (!apiKeySelected || apiKey.trim() !== "") &&
         (!gatewaySelected ||
             (gatewayUrl.trim() !== "" && gatewayUrlError == null));

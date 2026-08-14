@@ -10,8 +10,8 @@
 | **第 1 轮** | [ux-optimization-plan.md](ux-optimization-plan.md) | 6 | **已完成**（3/4 跳过验证） | 开库、空态、断线、滚到底 |
 | **第 2 轮** | [ux-optimization-plan-r2.md](ux-optimization-plan-r2.md) | 6 | **已完成** | Agent 高频决策与操作中文 |
 | **第 3 轮** | [ux-optimization-plan-r3.md](ux-optimization-plan-r3.md) | 10 | **已完成** | 导航、历史、侧栏次面板、设置入口、终端 |
-| **第 4 轮** | 本页 §4 | ~8（草案） | 候选 | 整页 Settings、搜索、笔记周边长尾 |
-| **工程/上游** | [upstream-sync-checklist.md](upstream-sync-checklist.md) | — | 另线 | 稳定性与能力，非文案轮 |
+| **第 4 轮** | 本页 §4 | ~8（草案） | **已跳过**（暂不排期） | 整页 Settings、搜索、笔记周边长尾 |
+| **工程线** | [eng-track-plan.md](eng-track-plan.md) | 5 | **进行中（第 3 项待验）** | ACP 自愈、诊断、自定义 runtime、本地历史 |
 
 另：第 2 轮期间插队修复 **Cursor 重连堆空「New chat」**（resume 删旧 ACP + initialize GC），属稳定性，不计入某一「文案项」序号。
 
@@ -30,41 +30,41 @@
 
 ---
 
-## 2. 第 2 轮（进行中）
+## 2. 第 2 轮（已完成）
 
 | # | 项 | 状态 |
 |---|----|------|
 | 1 | 权限/审批卡片中文 | 已通过 |
-| 2 | Composer 占位 + 发送/停止/排队 | 待做 |
-| 3 | Agents 侧栏筛选/菜单/删除确认 | 待做 |
-| 4 | Git 面板 Pull/Push/Commit 等 | 待做 |
-| 5 | 文件树右键核心菜单 | 待做 |
-| 6 | 变更审阅 Keep/Reject/Review | 待做 |
+| 2 | Composer 占位 + 发送/停止/排队 | 已通过 |
+| 3 | Agents 侧栏筛选/菜单/删除确认 | 已通过 |
+| 4 | Git 面板 Pull/Push/Commit 等 | 已通过 |
+| 5 | 文件树右键核心菜单 | 已通过 |
+| 6 | 变更审阅 Keep/Reject/Review | 已通过 |
 
 ---
 
-## 3. 第 3 轮（已立项）
+## 3. 第 3 轮（已完成）
 
 | # | 项 | 状态 |
 |---|----|------|
-| 1 | 侧栏主导航 Labels | 待做 |
-| 2 | 对话历史 Restore/Export/搜索/空态 | 待做 |
-| 3 | Find in chat | 待做 |
-| 4 | 书签面板 | 待做 |
-| 5 | 标签面板 | 待做 |
-| 6 | 概念图面板 | 待做 |
-| 7 | 设置分类导航 + AI 提供商首屏 | 待做 |
-| 8 | 终端查找/右键/空态 | 待做 |
-| 9 | Vault 切换器 + Settings 入口 | 待做 |
-| 10 | 命令面板占位 + 快捷键标签层 | 待做 |
+| 1 | 侧栏主导航 Labels | 已通过 |
+| 2 | 对话历史 Restore/Export/搜索/空态 | 已通过 |
+| 3 | Find in chat | 已通过 |
+| 4 | 书签面板 | 已通过 |
+| 5 | 标签面板 | 已通过 |
+| 6 | 概念图面板 | 已通过 |
+| 7 | 设置分类导航 + AI 提供商首屏 | 已通过 |
+| 8 | 终端查找/右键/空态 | 已通过 |
+| 9 | Vault 切换器 + Settings 入口 | 已通过 |
+| 10 | 命令面板占位 + 快捷键标签层 | 已通过 |
 
 详见 [ux-optimization-plan-r3.md](ux-optimization-plan-r3.md)。
 
 ---
 
-## 4. 第 4 轮（草案 · 文案/体验长尾）
+## 4. 第 4 轮（草案 · **已跳过**）
 
-> 第 3 轮后再拆正式串行表；此处先锁定「还要优化」清单，避免遗漏。
+> 长尾中文暂不排期；需要时再拆 `ux-optimization-plan-r4.md`。
 
 | 建议序 | 项 | 说明 | 体感 | 风险 |
 |--------|----|------|------|------|
@@ -83,16 +83,17 @@
 
 ---
 
-## 5. 工程 / 上游（不当作「文案轮」，但产品仍需要）
+## 5. 工程线（当前）
 
-对照 [upstream-sync-checklist.md](upstream-sync-checklist.md)：
+执行表：[eng-track-plan.md](eng-track-plan.md)。对照 [upstream-sync-checklist.md](upstream-sync-checklist.md)：
 
 | 优先级 | 项 | 价值 | 备注 |
 |--------|----|------|------|
-| P0 | ACP 空闲断线自动恢复 + 启动诊断 | Cursor/OpenCode 挂死可自愈 | 大于「重试」按钮；改 chatStore/sidecar |
-| P0 | 自定义 ACP runtime（设置里加可执行文件） | Cursor 收成预设 + 通用自定义 | 高风险，单独分支 |
-| P1 | 设备本地聊天历史（新库默认） | 团队 Git 不脏 vault | 与 ignore `.neverwrite` 互补 |
-| P1 | Claude ACP vendor 升级 | 权限/配置更稳 | 跟模型切换路径相关 |
+| P0 | ACP 空闲断线自动恢复一次 | Cursor/OpenCode 挂死可自愈 | eng #1 **已通过** |
+| P0 | 启动 / stderr 诊断（脱敏中文） | 超时/exit 能看懂原因 | eng #2 **已跳过** |
+| P0 | 自定义 ACP runtime（设置里加可执行文件） | Cursor 收成预设 + 通用自定义 | **eng #3 待验** |
+| P1 | 设备本地聊天历史（新库默认） | 团队 Git 不脏 vault | eng #4 |
+| P1 | Claude ACP vendor 升级 | 权限/配置更稳 | eng #5 |
 | P2 | 可自定义全局快捷键（能力，不只是标签中文） | 体验加分 | 第 3 轮只做 label |
 | P2 | 聊天宽度 / 半透明 composer / 流式 fence | UI 打磨 | 可能与分栏打架 |
 | 暂缓 | Codex embedded → 0.147 | 打包/V8 成本高 | 等 ACP 稳后再评 |
@@ -115,18 +116,16 @@
 ## 7. 建议执行节奏
 
 ```
-第 1 轮 ✅ → 第 2 轮（当前）→ 第 3 轮 → 第 4 轮（长尾中文）
-                ↘ 插队稳定性（空 New chat 等）
-另线：upstream P0 ACP recovery / 自定义 runtime / 设备历史
+第 1–3 轮 ✅ → 第 4 轮（已跳过）
+工程线：eng-track #1（自动重试）→ #2 诊断 → #3 自定义 runtime → …
 ```
 
-1. **串行文案轮**：一次一项，你验「通过」再下一项。  
-2. **工程线**：可与文案轮并行开分支，但不要和同一批 UI 文件打架。  
-3. 第 4 轮在第 3 轮收尾时再写成独立 `ux-optimization-plan-r4.md`。
+1. **工程线串行**：一次一项，你验「通过」再下一项。  
+2. 第 4 轮长尾中文需要时再立项。
 
 ---
 
 ## 当前停在哪里
 
-- **第 1–3 轮**：已完成。  
-- **第 4 轮 + 工程**：见本页 §4 / §5，尚未拆执行表。
+- **第 1–3 轮**：已完成；**第 4 轮已跳过**。  
+- **工程线**：见 [eng-track-plan.md](eng-track-plan.md) — **第 3 项（自定义 ACP runtime）待你验证**。
