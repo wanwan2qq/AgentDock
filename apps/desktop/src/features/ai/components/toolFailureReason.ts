@@ -1,4 +1,21 @@
 const TOOL_FAILURE_REASON_PREVIEW_CHARS = 140;
+const TOOL_USE_ERROR_RE =
+    /<tool_use_error>\s*([\s\S]*?)\s*<\/tool_use_error>/i;
+const READ_BEFORE_WRITE_RE = /file has not been read yet/i;
+
+export const READ_BEFORE_WRITE_STATE_LABEL = "Needs read first";
+
+export function unwrapToolUseError(content: string): string {
+    const match = content.match(TOOL_USE_ERROR_RE);
+    return (match?.[1] ?? content).trim();
+}
+
+export function isReadBeforeWriteHarnessError(
+    content: string | null | undefined,
+): boolean {
+    if (!content) return false;
+    return READ_BEFORE_WRITE_RE.test(unwrapToolUseError(content));
+}
 
 /**
  * Prefer ACP/tool `summary` already mapped onto message.content.
@@ -17,7 +34,7 @@ export function resolveToolFailureReason(
     const label = options?.label?.trim() ?? "";
     if (title && trimmed === title) return null;
     if (label && trimmed === label) return null;
-    return trimmed;
+    return unwrapToolUseError(trimmed) || trimmed;
 }
 
 export function previewToolFailureReason(reason: string): string {

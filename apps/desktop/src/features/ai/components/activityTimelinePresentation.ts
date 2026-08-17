@@ -1,6 +1,7 @@
 import { computeDiffStats, type DiffStats } from "../diff/reviewDiff";
 import type { ActivityDisplayMode } from "../activityDisplayMode";
 import type { AIChatMessage, AIFileDiff } from "../types";
+import { isReadBeforeWriteHarnessError } from "./toolFailureReason";
 
 const COMMAND_TOOL_KINDS = new Set([
     "bash",
@@ -129,6 +130,74 @@ function getToolDiffs(message: AIChatMessage): readonly AIFileDiff[] {
 function isFailedTool(message: AIChatMessage): boolean {
     const status = getToolStatus(message);
     return status === "cancelled" || status === "error" || status === "failed";
+}
+
+function toolTargetsReferToSameFile(left: string, right: string): boolean {
+    const normalize = (value: string) =>
+        value.replaceAll("\\", "/").replace(/\/+$/, "");
+    const a = normalize(left);
+    const b = normalize(right);
+    if (a === b) return true;
+    const aLower = a.toLowerCase();
+    const bLower = b.toLowerCase();
+    if (aLower === bLower) return true;
+    return aLower.endsWith(`/${bLower}`) || bLower.endsWith(`/${aLower}`);
+}
+
+function isReadBeforeWriteFailure(message: AIChatMessage): boolean {
+    return (
+        message.kind === "tool" &&
+        isFailedTool(message) &&
+        isMutatingFileTool(message) &&
+        isReadBeforeWriteHarnessError(message.content)
+    );
+}
+
+function getToolFilePaths(message: AIChatMessage): string[] {
+    const paths: string[] = [];
+    const target = getToolTarget(message);
+    if (target) paths.push(target);
+    for (const diff of getToolDiffs(message)) {
+        if (diff.path) paths.push(diff.path);
+        if (diff.previous_path) paths.push(diff.previous_path);
+    }
+    return paths;
+}
+
+function recoverReadBeforeWriteEntries(
+    entries: readonly ActivityTimelineToolEntry[],
+): ActivityTimelineToolEntry[] {
+    return entries.map((entry, index) => {
+        if (!isReadBeforeWriteFailure(entry.message)) {
+            return entry;
+        }
+
+        const failedPaths = getToolFilePaths(entry.message);
+        if (failedPaths.length === 0) {
+            return entry;
+        }
+
+        const recovered = entries.slice(index + 1).some((candidate) => {
+            if (candidate.message.kind !== "tool") return false;
+            if (isFailedTool(candidate.message)) return false;
+            if (!isMutatingFileTool(candidate.message)) return false;
+            const laterPaths = getToolFilePaths(candidate.message);
+            return failedPaths.some((failedPath) =>
+                laterPaths.some((laterPath) =>
+                    toolTargetsReferToSameFile(failedPath, laterPath),
+                ),
+            );
+        });
+
+        if (!recovered) {
+            return entry;
+        }
+
+        return {
+            ...entry,
+            policy: "groupable",
+        };
+    });
 }
 
 function getStatusEventKind(message: AIChatMessage): string {
@@ -406,7 +475,7 @@ export function buildActivityTimelineSegmentSummary(
             changeCount += 1;
             addPath(changedFiles, target);
         }
-        if (isFailedTool(message)) {
+        if (isFailedTool(message) && policy === "standalone-attention") {
             failureCount += 1;
         }
         if (isInProgressTool(message)) {
@@ -527,11 +596,12 @@ export function buildActivityTimelineRows(
             return;
         }
 
+        const entries = recoverReadBeforeWriteEntries(segmentEntries);
         rows.push({
-            entries: segmentEntries,
+            entries,
             id: `activity-segment:${firstEntry.message.id}`,
             kind: "activity-segment",
-            summary: buildActivityTimelineSegmentSummary(segmentEntries),
+            summary: buildActivityTimelineSegmentSummary(entries),
         });
         segmentEntries = [];
     };

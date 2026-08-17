@@ -345,6 +345,53 @@ describe("ToolActivitySegment", () => {
         ).toHaveLength(2);
     });
 
+    it("collapses a recovered read-before-write error with routine work", () => {
+        const renderEntry = vi.fn((message: AIChatMessage) => (
+            <div data-child-activity={message.id}>{message.title}</div>
+        ));
+        const segment = createSegment([
+            createTool("tool:edit-blocked", {
+                content:
+                    "<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>",
+                meta: {
+                    status: "failed",
+                    target: "src/edited.ts",
+                    tool: "edit",
+                },
+                title: "Updated edited.ts",
+            }),
+            createTool("tool:edit", {
+                meta: {
+                    status: "completed",
+                    target: "src/edited.ts",
+                    tool: "edit",
+                },
+            }),
+            createTool("tool:failed", {
+                meta: {
+                    status: "failed",
+                    tool: "command",
+                },
+            }),
+        ]);
+
+        renderComponent(
+            <ToolActivitySegment
+                renderEntry={renderEntry}
+                segment={segment}
+                sessionId="session-1"
+            />,
+        );
+
+        expect(
+            document.querySelector('[data-tool-activity-id="tool:edit-blocked"]'),
+        ).toBeNull();
+        expect(
+            document.querySelector('[data-tool-activity-id="tool:failed"]'),
+        ).not.toBeNull();
+        expect(segment.summary.failureCount).toBe(1);
+    });
+
     it("keeps routine MCP status and provider tools collapsed", () => {
         const renderEntry = vi.fn((message: AIChatMessage) => (
             <div data-child-activity={message.id}>{message.title}</div>

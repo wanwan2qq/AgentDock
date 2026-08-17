@@ -438,6 +438,81 @@ describe("activity timeline summaries", () => {
     });
 });
 
+describe("read-before-write harness recovery", () => {
+    const harnessError =
+        "<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>";
+
+    it("hides a recovered read-before-write error from the failure count", () => {
+        const segment = getOnlySegment(
+            buildActivityTimelineRows([
+                createTool("tool:edit-blocked", {
+                    content: harnessError,
+                    meta: {
+                        status: "failed",
+                        target: "/vault/FAQ-规则-005.md",
+                        tool: "edit",
+                    },
+                    title: "Updated FAQ-规则-005.md",
+                }),
+                createTool("tool:edit-ok", {
+                    diffs: [
+                        {
+                            kind: "update",
+                            new_text: "after",
+                            old_text: "before",
+                            path: "/vault/FAQ-规则-005.md",
+                        },
+                    ],
+                    meta: {
+                        status: "completed",
+                        target: "FAQ-规则-005.md",
+                        tool: "edit",
+                    },
+                    title: "Updated FAQ-规则-005.md",
+                }),
+            ]),
+        );
+
+        expect(segment.summary.failureCount).toBe(0);
+        expect(segment.entries.map((entry) => entry.policy)).toEqual([
+            "groupable",
+            "standalone-change",
+        ]);
+        expect(getActivityTimelineSegmentHeadline(segment.summary)).not.toMatch(
+            /failure/i,
+        );
+    });
+
+    it("keeps an unrecovered read-before-write error visible as a failure", () => {
+        const segment = getOnlySegment(
+            buildActivityTimelineRows([
+                createTool("tool:edit-blocked", {
+                    content: harnessError,
+                    meta: {
+                        status: "failed",
+                        target: "/vault/FAQ.md",
+                        tool: "write",
+                    },
+                    title: "Updated FAQ.md",
+                }),
+                createTool("tool:read-other", {
+                    meta: {
+                        status: "completed",
+                        target: "/vault/other.md",
+                        tool: "read",
+                    },
+                }),
+            ]),
+        );
+
+        expect(segment.summary.failureCount).toBe(1);
+        expect(segment.entries[0]?.policy).toBe("standalone-attention");
+        expect(getActivityTimelineSegmentHeadline(segment.summary)).toMatch(
+            /1 failure/,
+        );
+    });
+});
+
 describe("getActivityTimelineToolPolicy", () => {
     it("treats successful commands as routine activity", () => {
         expect(

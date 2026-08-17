@@ -14,8 +14,11 @@ import { useChatStore } from "../store/chatStore";
 import type { AIChatMessage, AIChatSession } from "../types";
 import { useStoredRowExpanded } from "./chatRowUiPresentation";
 import {
+    isReadBeforeWriteHarnessError,
     previewToolFailureReason,
+    READ_BEFORE_WRITE_STATE_LABEL,
     resolveToolFailureReason,
+    unwrapToolUseError,
 } from "./toolFailureReason";
 
 export interface ToolTargetContextMenuPayload {
@@ -313,6 +316,9 @@ export function ToolActivityItem({
     const shortTarget = target?.split(/[\\/]/).filter(Boolean).at(-1) ?? null;
     const status = String(message.meta?.status ?? "").toLowerCase();
     const isFailed = status === "cancelled" || status === "error" || status === "failed";
+    const isReadBeforeWriteError =
+        isFailed && isReadBeforeWriteHarnessError(message.content);
+    const isErrorFailure = isFailed && !isReadBeforeWriteError;
     const isInProgress =
         message.inProgress === true ||
         status === "in_progress" ||
@@ -323,11 +329,14 @@ export function ToolActivityItem({
         shortTarget ??
         (toolKind === "edit" && isInProgress ? "Writing" : message.title?.trim()) ??
         actionLabel;
+    const detailSource = isReadBeforeWriteError
+        ? unwrapToolUseError(message.content)
+        : message.content;
     const detail =
-        message.content.trim() &&
-        message.content !== label &&
-        message.content !== message.title
-            ? message.content
+        detailSource.trim() &&
+        detailSource !== label &&
+        detailSource !== message.title
+            ? detailSource
             : null;
     const failureReason = isFailed
         ? resolveToolFailureReason(message.content, {
@@ -354,7 +363,9 @@ export function ToolActivityItem({
     const stateLabel = isFailed
         ? status === "cancelled"
             ? "Cancelled"
-            : "Failed"
+            : isReadBeforeWriteError
+              ? READ_BEFORE_WRITE_STATE_LABEL
+              : "Failed"
         : isInProgress
           ? "Running"
           : isCompleted && !target
@@ -382,11 +393,14 @@ export function ToolActivityItem({
             data-tool-activity-row={isAttention ? "attention" : "routine"}
             data-tool-activity-source={activitySource}
             data-tool-activity-status={status || undefined}
+            data-tool-activity-harness={
+                isReadBeforeWriteError ? "read-before-write" : undefined
+            }
             onClick={toggleDetail}
             onKeyDown={onKeyDown}
             role={detail ? "button" : undefined}
             style={{
-                backgroundColor: isFailed
+                backgroundColor: isErrorFailure
                     ? "color-mix(in srgb, #dc2626 7%, transparent)"
                     : undefined,
                 color: "var(--text-secondary)",
@@ -400,7 +414,7 @@ export function ToolActivityItem({
                     <span
                         className="flex w-3.5 shrink-0 items-center justify-center"
                         data-tool-activity-operation-icon="true"
-                        style={{ color: isFailed ? "#f87171" : undefined }}
+                        style={{ color: isErrorFailure ? "#f87171" : undefined }}
                     >
                         {target ? (
                             <FileTypeIcon
@@ -470,10 +484,10 @@ export function ToolActivityItem({
                     <span
                         className="shrink-0 text-[10px]"
                         style={{
-                            color: isFailed
+                            color: isErrorFailure
                                 ? "#f87171"
                                 : "var(--text-secondary)",
-                            opacity: isFailed ? 1 : 0.7,
+                            opacity: isErrorFailure ? 1 : 0.7,
                         }}
                     >
                         {stateLabel}
@@ -486,7 +500,12 @@ export function ToolActivityItem({
                 <div
                     className="mt-0.5 truncate pl-8 text-[10px] leading-4"
                     data-tool-activity-failure-reason="true"
-                    style={{ color: "#f87171", opacity: 0.92 }}
+                    style={{
+                        color: isErrorFailure
+                            ? "#f87171"
+                            : "var(--text-secondary)",
+                        opacity: isErrorFailure ? 0.92 : 0.78,
+                    }}
                     title={failureReason ?? undefined}
                 >
                     {failureReasonPreview}

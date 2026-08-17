@@ -232,6 +232,36 @@ describe("ToolActivityItem", () => {
         expect(row).toHaveAttribute("aria-expanded", "true");
     });
 
+    it("treats read-before-write harness errors as muted process noise", () => {
+        const view = renderComponent(
+            <ToolActivityItem
+                message={createTool("tool:edit-blocked", {
+                    content:
+                        "<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>",
+                    meta: {
+                        status: "failed",
+                        target: "/vault/FAQ-规则-005.md",
+                        tool: "edit",
+                    },
+                    title: "Updated FAQ-规则-005.md",
+                })}
+                sessionId="session-1"
+            />,
+        );
+
+        expect(screen.getByText("Needs read first")).toBeInTheDocument();
+        expect(screen.queryByText("Failed")).not.toBeInTheDocument();
+        expect(
+            view.container.querySelector("[data-tool-activity-harness]"),
+        ).toHaveAttribute("data-tool-activity-harness", "read-before-write");
+        expect(
+            screen.getByText(
+                "File has not been read yet. Read it first before writing to it.",
+            ),
+        ).toBeInTheDocument();
+        expect(screen.queryByText(/tool_use_error/i)).not.toBeInTheDocument();
+    });
+
     it("preserves the open-session breadcrumb for subagent activity", () => {
         renderComponent(
             <ToolActivityItem
