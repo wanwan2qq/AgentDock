@@ -229,6 +229,9 @@ describe("AIChatMessageItem reasoning", () => {
         });
 
         expect(screen.getByText("Reasoning")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Reasoning" })).toHaveStyle({
+            color: "var(--text-secondary)",
+        });
         expect(
             document.querySelector("[data-reasoning-activity]"),
         ).toBeInTheDocument();

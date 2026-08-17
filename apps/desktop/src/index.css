@@ -879,7 +879,11 @@ body.dragging-tab * {
     place-items: center;
     width: 16px;
     height: 16px;
-    color: var(--text-primary);
+    color: var(--text-secondary);
+}
+
+.activity-rail-indicator[data-activity-rail-working-indicator="true"] {
+    color: var(--accent);
 }
 
 .activity-rail-chevron {
@@ -1175,9 +1179,36 @@ body.dragging-tab * {
 }
 
 /* Activity rails own their container query so dense chat panes can hide their
-   secondary label without coupling that decision to the application width. */
+   secondary label without coupling that decision to the application width.
+   The process band (muted fill + leading rail) keeps Thinking/Worked visually
+   below the assistant body instead of competing with it. */
 .activity-rail {
     container-type: inline-size;
+    background: color-mix(in srgb, var(--bg-tertiary) 78%, transparent);
+    border-left: 2px solid
+        color-mix(in srgb, var(--text-secondary) 32%, transparent);
+    border-radius: 6px;
+    padding: 2px 6px 4px 8px;
+}
+
+.activity-rail > button:hover,
+.activity-rail > button:focus-visible {
+    background: color-mix(in srgb, var(--text-secondary) 7%, transparent);
+}
+
+.activity-rail [data-reasoning-activity]:hover,
+.activity-rail [data-tool-activity-row]:hover {
+    background-color: color-mix(
+        in srgb,
+        var(--text-secondary) 7%,
+        transparent
+    ) !important;
+}
+
+[data-chat-timeline]
+    > [data-chat-row]:has([data-activity-rail])
+    + [data-chat-row] {
+    margin-top: 14px;
 }
 
 .activity-tree-branch {

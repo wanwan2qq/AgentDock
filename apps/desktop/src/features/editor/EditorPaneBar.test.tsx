@@ -496,9 +496,83 @@ describe("EditorPaneBar", () => {
         expect(pinnedTab).toHaveAttribute("data-pane-tab-pinned", "true");
         expect(pinnedTab).toHaveAttribute("title", "Gamma");
         expect(pinnedTab?.textContent).not.toContain("Gamma");
+        expect(pinnedTab).toHaveStyle({
+            position: "sticky",
+            left: "0px",
+        });
         expect(
             useEditorStore.getState().panes[0]?.pinnedTabIds,
         ).toEqual(["tab-c"]);
+    });
+
+    it("docks successive pinned tabs along the leading edge", async () => {
+        const user = userEvent.setup();
+        useEditorStore.getState().hydrateWorkspace(
+            [
+                {
+                    id: "primary",
+                    tabs: [
+                        {
+                            id: "tab-a",
+                            kind: "note",
+                            noteId: "notes/a",
+                            title: "Alpha",
+                            content: "Alpha",
+                        },
+                        {
+                            id: "tab-b",
+                            kind: "note",
+                            noteId: "notes/b",
+                            title: "Beta",
+                            content: "Beta",
+                        },
+                        {
+                            id: "tab-c",
+                            kind: "note",
+                            noteId: "notes/c",
+                            title: "Gamma",
+                            content: "Gamma",
+                        },
+                    ],
+                    activeTabId: "tab-c",
+                },
+            ],
+            "primary",
+        );
+
+        renderComponent(<EditorPaneBar paneId="primary" isFocused />);
+
+        fireEvent.contextMenu(
+            document.querySelector(
+                '[data-pane-tab-id="tab-c"]',
+            ) as HTMLElement,
+        );
+        await user.click(await screen.findByRole("button", { name: "Pin Tab" }));
+
+        fireEvent.contextMenu(
+            document.querySelector(
+                '[data-pane-tab-id="tab-b"]',
+            ) as HTMLElement,
+        );
+        await user.click(await screen.findByRole("button", { name: "Pin Tab" }));
+
+        expect(
+            document.querySelector('[data-pane-tab-id="tab-c"]'),
+        ).toHaveStyle({
+            position: "sticky",
+            left: "0px",
+        });
+        expect(
+            document.querySelector('[data-pane-tab-id="tab-b"]'),
+        ).toHaveStyle({
+            position: "sticky",
+            left: "34px",
+        });
+        expect(
+            document.querySelector('[data-pane-tab-id="tab-a"]'),
+        ).not.toHaveStyle({
+            position: "sticky",
+        });
     });
 
     it("closes a tab with an active agent", async () => {

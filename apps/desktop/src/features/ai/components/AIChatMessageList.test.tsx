@@ -988,6 +988,9 @@ describe("AIChatMessageList streaming run indicator", () => {
             view.container.querySelector('[data-activity-rail="true"]'),
         ).toHaveAttribute("data-activity-count", "2");
         expect(
+            view.container.querySelector("[data-chat-timeline]"),
+        ).not.toBeNull();
+        expect(
             view.container.querySelectorAll("[data-tool-activity-id]"),
         ).toHaveLength(0);
 

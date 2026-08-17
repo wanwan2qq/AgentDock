@@ -9,6 +9,7 @@ export function getTabStripScrollTarget({
     nodeLeft,
     nodeWidth,
     padding = TAB_REVEAL_PADDING,
+    leadingInset = 0,
 }: {
     stripLeft: number;
     stripWidth: number;
@@ -16,13 +17,26 @@ export function getTabStripScrollTarget({
     nodeLeft: number;
     nodeWidth: number;
     padding?: number;
+    leadingInset?: number;
 }) {
     const nodeRight = nodeLeft + nodeWidth;
-    const visibleLeft = stripLeft + padding;
+    const stickyLeadingInset = Math.max(0, leadingInset);
+
+    // Pinned tabs that can freeze inside the viewport stay visible via sticky
+    // positioning, so they must not rewind the strip when another tab is active.
+    if (
+        stickyLeadingInset > 0 &&
+        nodeLeft + nodeWidth <= stickyLeadingInset + 0.5 &&
+        nodeLeft + nodeWidth <= stripWidth
+    ) {
+        return null;
+    }
+
+    const visibleLeft = stripLeft + stickyLeadingInset + padding;
     const visibleRight = stripLeft + stripWidth - padding;
 
     if (nodeLeft < visibleLeft) {
-        return Math.max(0, nodeLeft - padding);
+        return Math.max(0, nodeLeft - stickyLeadingInset - padding);
     }
 
     if (nodeRight > visibleRight) {
@@ -83,10 +97,12 @@ function revealActiveTabInStrip({
     strip,
     activeTabId,
     tabIdAttribute,
+    leadingInset,
 }: {
     strip: HTMLElement;
     activeTabId: string;
     tabIdAttribute: string;
+    leadingInset: number;
 }) {
     const activeNode = strip.querySelector<HTMLElement>(
         `[${tabIdAttribute}="${escapeCssValue(activeTabId)}"]`,
@@ -99,6 +115,7 @@ function revealActiveTabInStrip({
         scrollWidth: strip.scrollWidth,
         nodeLeft: activeNode.offsetLeft,
         nodeWidth: activeNode.offsetWidth,
+        leadingInset,
     });
 
     if (target === null || Math.abs(target - strip.scrollLeft) < 1) {
@@ -122,12 +139,14 @@ export function useActiveTabStripReveal({
     draggingTabId,
     tabOrderKey,
     tabIdAttribute,
+    leadingInset = 0,
 }: {
     stripRef: RefObject<HTMLDivElement | null>;
     activeTabId: string | null;
     draggingTabId: string | null;
     tabOrderKey: string;
     tabIdAttribute: string;
+    leadingInset?: number;
 }) {
     useLayoutEffect(() => {
         if (!activeTabId || draggingTabId) return;
@@ -145,6 +164,7 @@ export function useActiveTabStripReveal({
                 strip,
                 activeTabId,
                 tabIdAttribute,
+                leadingInset,
             });
         };
 
@@ -177,6 +197,7 @@ export function useActiveTabStripReveal({
     }, [
         activeTabId,
         draggingTabId,
+        leadingInset,
         stripRef,
         tabIdAttribute,
         tabOrderKey,

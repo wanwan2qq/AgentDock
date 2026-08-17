@@ -37,6 +37,45 @@ describe("getTabStripScrollTarget", () => {
             }),
         ).toBe(480);
     });
+
+    it("does not rewind scroll for pinned tabs that can stay frozen in view", () => {
+        expect(
+            getTabStripScrollTarget({
+                stripLeft: 200,
+                stripWidth: 320,
+                scrollWidth: 900,
+                nodeLeft: 0,
+                nodeWidth: 34,
+                leadingInset: 68,
+            }),
+        ).toBeNull();
+    });
+
+    it("keeps a revealed tab clear of the sticky pinned cluster", () => {
+        expect(
+            getTabStripScrollTarget({
+                stripLeft: 100,
+                stripWidth: 320,
+                scrollWidth: 900,
+                nodeLeft: 120,
+                nodeWidth: 160,
+                leadingInset: 68,
+            }),
+        ).toBe(40);
+    });
+
+    it("still reveals a far-right tab when a pinned cluster is docked on the left", () => {
+        expect(
+            getTabStripScrollTarget({
+                stripLeft: 0,
+                stripWidth: 320,
+                scrollWidth: 900,
+                nodeLeft: 400,
+                nodeWidth: 160,
+                leadingInset: 68,
+            }),
+        ).toBe(252);
+    });
 });
 
 describe("getTabStripInsertIndex", () => {

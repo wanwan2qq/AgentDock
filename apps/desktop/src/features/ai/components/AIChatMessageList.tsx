@@ -960,7 +960,7 @@ export const AIChatMessageList = memo(function AIChatMessageList({
                                 : "Scroll up to load earlier messages"}
                         </div>
                     )}
-                    <div className="min-w-0 space-y-2">
+                    <div className="min-w-0 space-y-2" data-chat-timeline="true">
                         {timelineRows.map((row) => (
                             <div
                                 key={row.key}

@@ -162,12 +162,12 @@ export const ToolActivitySegment = memo(function ToolActivitySegment({
                 aria-controls={contentId}
                 aria-expanded={expanded}
                 aria-label={accessibleLabel}
-                className="flex min-h-10 w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-bg-elevated focus-visible:bg-bg-elevated focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_1px_var(--accent)]"
+                className="flex min-h-10 w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_1px_var(--accent)]"
                 onClick={() => setExpanded((current) => !current)}
                 style={{
                     background: "none",
                     border: "none",
-                    color: "var(--text-primary)",
+                    color: "var(--text-secondary)",
                 }}
                 type="button"
             >
@@ -175,13 +175,14 @@ export const ToolActivitySegment = memo(function ToolActivitySegment({
                     <ActivityIndicator active={isCurrentTurnTail} />
                     <span className="min-w-0 flex-1">
                         <span
-                            className="block truncate text-[11px] font-semibold leading-4"
+                            className="block truncate text-[11px] font-medium leading-4"
+                            data-activity-rail-headline="true"
                             title={headline}
                         >
                             {headline}
                         </span>
                         <span
-                            className="block truncate text-[10px] leading-3.5 text-text-secondary"
+                            className="block truncate text-[10px] leading-3.5 text-text-secondary opacity-75"
                             data-activity-rail-current="true"
                             title={latestLabel}
                         >

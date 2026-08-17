@@ -752,7 +752,6 @@ function ThinkingMessage({
                     border: "none",
                     cursor:
                         !content && !message.inProgress ? "default" : "pointer",
-                    opacity: 0.8,
                     padding: 0,
                 }}
             >

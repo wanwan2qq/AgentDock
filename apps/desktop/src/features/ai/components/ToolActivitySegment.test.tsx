@@ -275,6 +275,29 @@ describe("ToolActivitySegment", () => {
         ).toHaveAttribute("data-activity-count", "50");
     });
 
+    it("renders the process band as secondary chrome against the chat body", () => {
+        const view = renderComponent(
+            <ToolActivitySegment
+                renderEntry={(message) => <div>{message.title}</div>}
+                segment={createSegment([createTool("tool-1")])}
+                sessionId="session-1"
+            />,
+        );
+
+        const rail = view.container.querySelector("[data-activity-rail]");
+        const headline = view.container.querySelector(
+            "[data-activity-rail-headline]",
+        );
+        const toggle = screen.getByRole("button", {
+            name: /show full activity/i,
+        });
+
+        expect(rail).not.toBeNull();
+        expect(headline).toHaveClass("font-medium");
+        expect(headline).not.toHaveClass("font-semibold");
+        expect(toggle).toHaveStyle({ color: "var(--text-secondary)" });
+    });
+
     it("keeps failures and subagent breadcrumbs visible while changes stay collapsed", () => {
         const renderEntry = vi.fn((message: AIChatMessage) => (
             <div data-child-activity={message.id}>{message.title}</div>

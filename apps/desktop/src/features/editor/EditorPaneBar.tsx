@@ -40,7 +40,10 @@ import { useCommandStore } from "../command-palette/store/commandStore";
 import { createWorkspaceTabExternalDragHandlers } from "./tabDragAttachments";
 import { renderEditorTabActivityIndicator } from "./EditorTabActivityIndicator";
 import { renderEditorTabLeadingIcon } from "./editorTabIcons";
-import { useResponsiveEditorTabLayout } from "./editorTabStripLayout";
+import {
+    EDITOR_PINNED_TAB_WIDTH,
+    useResponsiveEditorTabLayout,
+} from "./editorTabStripLayout";
 import { useActiveTabStripReveal } from "./tabStrip";
 import { useWorkspaceTabDrag } from "./useWorkspaceTabDrag";
 import { useDetachedTabWindowDrop } from "./useDetachedTabWindowDrop";
@@ -264,12 +267,15 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
         sizingMode: "fixed",
     });
     const tabOrderKey = visualTabs.map((tab) => tab.id).join("|");
+    const pinnedStripInset =
+        pane.pinnedTabIds.length * EDITOR_PINNED_TAB_WIDTH;
     useActiveTabStripReveal({
         stripRef: tabStripRef,
         activeTabId: pane.activeTabId,
         draggingTabId,
         tabOrderKey,
         tabIdAttribute: "data-pane-tab-id",
+        leadingInset: pinnedStripInset,
     });
     const draggedPreviewTab =
         dragPreviewTabId === null
@@ -553,11 +559,24 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
                                 const isDragging = tab.id === draggingTabId;
                                 const isEditing = editingKey === tab.id;
                                 const isPinned = pinnedTabIdSet.has(tab.id);
+                                const isLastPinned =
+                                    isPinned &&
+                                    index === pane.pinnedTabIds.length - 1;
                                 const tabLabel = getTabLabel(
                                     tab,
                                     fileTreeShowExtensions,
                                     chatSessionsById,
                                 );
+                                const tabBoxShadow = [
+                                    isActive
+                                        ? "inset 0 -2px 0 0 var(--accent)"
+                                        : null,
+                                    isLastPinned && tabLayout.overflow
+                                        ? "4px 0 8px -4px color-mix(in srgb, var(--text-primary) 16%, transparent)"
+                                        : null,
+                                ]
+                                    .filter(Boolean)
+                                    .join(", ");
                                 return (
                                     <Fragment key={tab.id}>
                                         <div
@@ -648,12 +667,14 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
                                             }}
                                             style={{
                                                 width: isPinned
-                                                    ? 34
+                                                    ? EDITOR_PINNED_TAB_WIDTH
                                                     : tabLayout.tabWidth,
                                                 minWidth: isPinned
-                                                    ? 34
+                                                    ? EDITOR_PINNED_TAB_WIDTH
                                                     : tabLayout.tabWidth,
-                                                maxWidth: isPinned ? 34 : 240,
+                                                maxWidth: isPinned
+                                                    ? EDITOR_PINNED_TAB_WIDTH
+                                                    : 240,
                                                 height: 33,
                                                 flexShrink: 0,
                                                 justifyContent: isPinned
@@ -670,14 +691,28 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
                                                     "1px solid color-mix(in srgb, var(--border) 45%, transparent)",
                                                 background: isActive
                                                     ? "var(--bg-primary)"
-                                                    : "transparent",
+                                                    : isPinned
+                                                      ? "var(--bg-secondary)"
+                                                      : "transparent",
                                                 color: isActive
                                                     ? "var(--text-primary)"
                                                     : "var(--text-secondary)",
-                                                boxShadow: isActive
-                                                    ? "inset 0 -2px 0 0 var(--accent)"
-                                                    : "none",
-                                                zIndex: isActive ? 10 : 0,
+                                                boxShadow: tabBoxShadow || "none",
+                                                position: isPinned
+                                                    ? "sticky"
+                                                    : undefined,
+                                                left: isPinned
+                                                    ? index *
+                                                      EDITOR_PINNED_TAB_WIDTH
+                                                    : undefined,
+                                                alignSelf: isPinned
+                                                    ? "stretch"
+                                                    : undefined,
+                                                zIndex: isPinned
+                                                    ? 21
+                                                    : isActive
+                                                      ? 10
+                                                      : 0,
                                                 opacity: isDragging ? 0.35 : 1,
                                                 cursor: isDragging
                                                     ? "grabbing"
@@ -809,7 +844,7 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
                                     boxShadow:
                                         "0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent)",
                                     pointerEvents: "none",
-                                    zIndex: 20,
+                                    zIndex: 30,
                                     display: "none",
                                 }}
                             />
