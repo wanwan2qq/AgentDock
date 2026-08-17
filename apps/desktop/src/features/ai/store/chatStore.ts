@@ -853,6 +853,159 @@ function hydrateSessionCatalogFromRuntime(
     });
 }
 
+function getDescriptorCatalogSnapshot(
+    runtime:
+        | Pick<AIRuntimeDescriptor, "models" | "modes" | "configOptions">
+        | undefined,
+): AIRuntimeCatalogSnapshot {
+    if (!runtime) {
+        return { models: [], modes: [], configOptions: [] };
+    }
+
+    return {
+        models: runtime.models,
+        modes: runtime.modes,
+        configOptions: runtime.configOptions,
+    };
+}
+
+function catalogAvailabilityKey(snapshot: AIRuntimeCatalogSnapshot) {
+    return JSON.stringify({
+        models: snapshot.models.map((model) => model.id),
+        modes: snapshot.modes.map((mode) => mode.id),
+        options: snapshot.configOptions.map((option) => [
+            option.id,
+            option.options.map((item) => item.value),
+        ]),
+    });
+}
+
+function retainSelectedModelInCatalog(
+    session: AIChatSession,
+    snapshot: AIRuntimeCatalogSnapshot,
+): AIRuntimeCatalogSnapshot {
+    const modelId = session.modelId.trim();
+    if (!modelId) {
+        return snapshot;
+    }
+
+    const previousLabel =
+        session.configOptions
+            .find((option) => option.category === "model")
+            ?.options.find((item) => item.value === modelId)?.label ??
+        session.models.find((model) => model.id === modelId)?.name ??
+        modelId;
+    const retainedModel = {
+        id: modelId,
+        runtimeId: session.runtimeId,
+        name: previousLabel,
+        description: "",
+    };
+
+    const models =
+        snapshot.models.length > 0 &&
+        !snapshot.models.some((model) => model.id === modelId)
+            ? [retainedModel, ...snapshot.models]
+            : snapshot.models;
+    const configOptions = snapshot.configOptions.map((option) => {
+        if (
+            option.category !== "model" ||
+            option.options.some((item) => item.value === modelId)
+        ) {
+            return option;
+        }
+
+        return {
+            ...option,
+            options: [
+                { value: modelId, label: previousLabel },
+                ...option.options,
+            ],
+        };
+    });
+
+    return {
+        ...snapshot,
+        models,
+        configOptions,
+    };
+}
+
+function overlayCatalogAvailability(
+    session: AIChatSession,
+    snapshot: AIRuntimeCatalogSnapshot,
+): AIChatSession {
+    snapshot = retainSelectedModelInCatalog(
+        session,
+        sanitizeRuntimeCatalogSnapshot(session.runtimeId, snapshot),
+    );
+    if (!hasRuntimeCatalog(snapshot)) {
+        return session;
+    }
+
+    const selectedValues = new Map(
+        session.configOptions.map((option) => [option.id, option.value]),
+    );
+    const models =
+        snapshot.models.length > 0 ? snapshot.models : session.models;
+    const modes = snapshot.modes.length > 0 ? snapshot.modes : session.modes;
+    const configOptions =
+        snapshot.configOptions.length > 0
+            ? snapshot.configOptions.map((option) => ({
+                  ...option,
+                  value:
+                      selectedValues.get(option.id) ??
+                      selectedSessionConfigValue(session, option),
+              }))
+            : session.configOptions;
+    const next = synchronizeSessionConfigSelections({
+        ...session,
+        models,
+        modes,
+        configOptions,
+    });
+
+    if (
+        catalogAvailabilityKey(getRuntimeCatalogSnapshot(session)) ===
+            catalogAvailabilityKey(getRuntimeCatalogSnapshot(next)) &&
+        session.configOptions.length === next.configOptions.length &&
+        session.configOptions.every(
+            (option, index) => option.value === next.configOptions[index]?.value,
+        )
+    ) {
+        return session;
+    }
+
+    return next;
+}
+
+function overlayRuntimeCatalogOnSessions(
+    sessionsById: Record<string, AIChatSession>,
+    runtimeId: string,
+    snapshot: AIRuntimeCatalogSnapshot,
+): Record<string, AIChatSession> {
+    snapshot = sanitizeRuntimeCatalogSnapshot(runtimeId, snapshot);
+    if (!hasRuntimeCatalog(snapshot)) {
+        return sessionsById;
+    }
+
+    let changed = false;
+    const nextSessionsById = { ...sessionsById };
+    for (const [sessionId, session] of Object.entries(sessionsById)) {
+        if (session.runtimeId !== runtimeId || isLiveRuntimeSession(session)) {
+            continue;
+        }
+
+        const overlaid = overlayCatalogAvailability(session, snapshot);
+        if (overlaid !== session) {
+            nextSessionsById[sessionId] = overlaid;
+            changed = true;
+        }
+    }
+
+    return changed ? nextSessionsById : sessionsById;
+}
+
 async function ensureLiveSessionForAgentConfigChange(
     sessionId: string,
 ): Promise<string | null> {
@@ -1410,6 +1563,13 @@ function hydrateRuntimesFromSessions(
     sessions: AIChatSession[],
 ) {
     return sessions.reduce((currentRuntimes, session) => {
+        if (
+            session.isPersistedSession ||
+            session.runtimeState === "persisted_only"
+        ) {
+            return currentRuntimes;
+        }
+
         const snapshot = getRuntimeCatalogSnapshot(session);
         if (!hasRuntimeCatalog(snapshot)) {
             return currentRuntimes;
@@ -2935,12 +3095,19 @@ function migrateSessionLocalState(
 
         migrated = true;
 
+        nextSessionsById[toSession.sessionId] = toSession;
+        const nextRuntimes = hydrateRuntimesFromSessions(state.runtimes, [
+            toSession,
+        ]);
+        const overlaidSessionsById = overlayRuntimeCatalogOnSessions(
+            nextSessionsById,
+            toSession.runtimeId,
+            getRuntimeCatalogSnapshot(toSession),
+        );
+
         return {
-            runtimes: hydrateRuntimesFromSessions(state.runtimes, [toSession]),
-            sessionsById: {
-                ...nextSessionsById,
-                [toSession.sessionId]: toSession,
-            },
+            runtimes: nextRuntimes,
+            sessionsById: overlaidSessionsById,
             sessionOrder: touchSessionOrder(
                 state.sessionOrder.filter((id) => id !== fromSessionId),
                 toSession.sessionId,
@@ -5471,10 +5638,6 @@ function applyPersistedHistoryMetadata(
         nextSession = replaceSessionTranscript(session, liveTail);
     }
 
-    if (hasRuntimeCatalog(persistedCatalog)) {
-        saveRuntimeCatalogCache(session.runtimeId, persistedCatalog);
-    }
-
     return hydrateSessionCatalogFromSnapshot(
         {
             ...nextSession,
@@ -5579,67 +5742,65 @@ function createPersistedSession(
     const runtimeId = history.runtime_id ?? runtime.runtime.id;
     const persistedMessageCount = getPersistedHistoryMessageCount(history);
     const persistedCatalog = getPersistedHistoryCatalogSnapshot(history);
-    const catalogSource = hasRuntimeCatalog(persistedCatalog)
-        ? persistedCatalog
-        : {
-              models: runtime.models,
-              modes: runtime.modes,
-              configOptions: runtime.configOptions,
-          };
+    const runtimeCatalog = getDescriptorCatalogSnapshot(runtime);
+    const catalogSource = hasRuntimeCatalog(runtimeCatalog)
+        ? runtimeCatalog
+        : hasRuntimeCatalog(persistedCatalog)
+          ? persistedCatalog
+          : runtimeCatalog;
 
-    if (hasRuntimeCatalog(persistedCatalog)) {
-        saveRuntimeCatalogCache(runtimeId, persistedCatalog);
-    }
-
-    const baseSession = hydrateSessionCatalogFromRuntime(
-        {
-            sessionId: `persisted:${history.session_id}`,
-            historySessionId: history.session_id,
-            parentSessionId: history.parent_session_id ?? null,
-            closedAt: history.closed_at ?? null,
-            runtimeSessionId: null,
-            vaultPath,
-            runtimeId,
-            additionalRoots: history.additional_roots ?? [],
-            modelId: history.model_id,
-            modeId: history.mode_id,
-            status: "idle",
-            activeWorkCycleId: null,
-            visibleWorkCycleId: null,
-            isResumingSession: false,
-            effortsByModel: {},
-            models: catalogSource.models,
-            modes: catalogSource.modes,
-            configOptions: catalogSource.configOptions.map((option) =>
-                option.category === "model"
-                    ? { ...option, value: history.model_id }
-                    : option.category === "mode"
-                      ? { ...option, value: history.mode_id }
-                      : option,
-            ),
-            messages: [],
-            attachments: [],
-            isPersistedSession: true,
-            resumeContextPending: persistedMessageCount > 0,
-            runtimeState: "persisted_only",
-            persistedCreatedAt: history.created_at,
-            persistedUpdatedAt: history.updated_at,
-            persistedTitle: sanitizePersistedDisplayText(history.title),
-            customTitle: sanitizePersistedDisplayText(history.custom_title),
-            persistedPreview: sanitizePersistedDisplayText(history.preview),
-            persistedMessageCount,
-            loadedPersistedMessageStart:
-                persistedMessageCount === 0
-                    ? 0
-                    : history.messages.length > 0
-                      ? Math.max(
-                            0,
-                            persistedMessageCount - history.messages.length,
-                        )
-                      : null,
-            isLoadingPersistedMessages: false,
-        },
-        runtime,
+    const baseSession = overlayCatalogAvailability(
+        hydrateSessionCatalogFromRuntime(
+            {
+                sessionId: `persisted:${history.session_id}`,
+                historySessionId: history.session_id,
+                parentSessionId: history.parent_session_id ?? null,
+                closedAt: history.closed_at ?? null,
+                runtimeSessionId: null,
+                vaultPath,
+                runtimeId,
+                additionalRoots: history.additional_roots ?? [],
+                modelId: history.model_id,
+                modeId: history.mode_id,
+                status: "idle",
+                activeWorkCycleId: null,
+                visibleWorkCycleId: null,
+                isResumingSession: false,
+                effortsByModel: {},
+                models: catalogSource.models,
+                modes: catalogSource.modes,
+                configOptions: catalogSource.configOptions.map((option) =>
+                    option.category === "model"
+                        ? { ...option, value: history.model_id }
+                        : option.category === "mode"
+                          ? { ...option, value: history.mode_id }
+                          : option,
+                ),
+                messages: [],
+                attachments: [],
+                isPersistedSession: true,
+                resumeContextPending: persistedMessageCount > 0,
+                runtimeState: "persisted_only",
+                persistedCreatedAt: history.created_at,
+                persistedUpdatedAt: history.updated_at,
+                persistedTitle: sanitizePersistedDisplayText(history.title),
+                customTitle: sanitizePersistedDisplayText(history.custom_title),
+                persistedPreview: sanitizePersistedDisplayText(history.preview),
+                persistedMessageCount,
+                loadedPersistedMessageStart:
+                    persistedMessageCount === 0
+                        ? 0
+                        : history.messages.length > 0
+                          ? Math.max(
+                                0,
+                                persistedMessageCount - history.messages.length,
+                            )
+                          : null,
+                isLoadingPersistedMessages: false,
+            },
+            runtime,
+        ),
+        runtimeCatalog,
     );
 
     if (history.messages.length === 0) {
@@ -8488,13 +8649,20 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     session,
                     sessionVaultPath,
                 );
-                const scopedSession = hydrateSessionCatalogFromRuntime(
-                    stampedSession,
-                    state.runtimes.find(
-                        (runtime) =>
-                            runtime.runtime.id === stampedSession.runtimeId,
-                    ),
+                const matchingRuntime = state.runtimes.find(
+                    (runtime) =>
+                        runtime.runtime.id === stampedSession.runtimeId,
                 );
+                let scopedSession = hydrateSessionCatalogFromRuntime(
+                    stampedSession,
+                    matchingRuntime,
+                );
+                if (!isLiveRuntimeSession(stampedSession)) {
+                    scopedSession = overlayCatalogAvailability(
+                        scopedSession,
+                        getDescriptorCatalogSnapshot(matchingRuntime),
+                    );
+                }
                 const isKnown = state.sessionOrder.includes(
                     scopedSession.sessionId,
                 );
@@ -8593,12 +8761,22 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     !isClosedSubagentSession(nextSession);
                 sessionToPersist = nextSession;
 
+                const nextSessionsById = {
+                    ...state.sessionsById,
+                    [scopedSession.sessionId]: nextSession,
+                };
+
                 return {
                     runtimes: nextRuntimes,
-                    sessionsById: {
-                        ...state.sessionsById,
-                        [scopedSession.sessionId]: nextSession,
-                    },
+                    sessionsById:
+                        !nextSession.isPersistedSession &&
+                        isLiveRuntimeSession(nextSession)
+                            ? overlayRuntimeCatalogOnSessions(
+                                  nextSessionsById,
+                                  nextSession.runtimeId,
+                                  getRuntimeCatalogSnapshot(nextSession),
+                              )
+                            : nextSessionsById,
                     pendingAvailableCommandsBySessionId:
                         pendingAvailableCommands
                             ? removeSessionMapEntry(
@@ -10190,14 +10368,31 @@ export const useChatStore = create<ChatStore>((set, get) => {
                     createdReplacementSessionId = resumedSession.sessionId;
                 }
 
-                if (hasRuntimeCatalog(latestCatalog)) {
-                    resumedSession = hydrateSessionCatalogFromSnapshot(
+                const liveCatalog = getRuntimeCatalogSnapshot(resumedSession);
+                const runtimeCatalog = getDescriptorCatalogSnapshot(
+                    get().runtimes.find(
+                        (runtime) =>
+                            runtime.runtime.id === latestSession.runtimeId,
+                    ),
+                );
+                if (hasRuntimeCatalog(liveCatalog)) {
+                    saveRuntimeCatalogCache(
+                        latestSession.runtimeId,
+                        liveCatalog,
+                    );
+                } else if (hasRuntimeCatalog(runtimeCatalog)) {
+                    resumedSession = overlayCatalogAvailability(
                         resumedSession,
-                        latestCatalog,
+                        runtimeCatalog,
                     );
                     saveRuntimeCatalogCache(
                         latestSession.runtimeId,
                         getRuntimeCatalogSnapshot(resumedSession),
+                    );
+                } else if (hasRuntimeCatalog(latestCatalog)) {
+                    resumedSession = hydrateSessionCatalogFromSnapshot(
+                        resumedSession,
+                        latestCatalog,
                     );
                 }
 

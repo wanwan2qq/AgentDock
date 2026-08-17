@@ -13808,6 +13808,307 @@ describe("chatStore", () => {
         ).toBe(false);
     });
 
+    it("lets historical Claude chats use the current provider model catalog", async () => {
+        const oldModelOption = {
+            id: "model",
+            runtimeId: "claude-acp",
+            category: "model" as const,
+            label: "Model",
+            type: "select" as const,
+            value: "claude-sonnet",
+            options: [{ value: "claude-sonnet", label: "Claude Sonnet" }],
+        };
+        const newModelOption = {
+            id: "model",
+            runtimeId: "claude-acp",
+            category: "model" as const,
+            label: "Model",
+            type: "select" as const,
+            value: "minimax-m2.5",
+            options: [
+                { value: "minimax-m2.5", label: "MiniMax M2.5" },
+                { value: "kimi-k2.5", label: "Kimi K2.5" },
+            ],
+        };
+
+        useChatStore.setState((state) => ({
+            ...state,
+            runtimes: [
+                {
+                    runtime: {
+                        id: "claude-acp",
+                        name: "Claude ACP",
+                        description: "Claude runtime",
+                        capabilities: ["create_session", "resume_session"],
+                    },
+                    models: [
+                        {
+                            id: "minimax-m2.5",
+                            runtimeId: "claude-acp",
+                            name: "MiniMax M2.5",
+                            description: "",
+                        },
+                    ],
+                    modes: [],
+                    configOptions: [newModelOption],
+                },
+            ],
+            sessionsById: {
+                "persisted:history-claude-old": {
+                    ...createSessionWithTrackedFiles(
+                        "persisted:history-claude-old",
+                        [],
+                    ),
+                    historySessionId: "history-claude-old",
+                    runtimeId: "claude-acp",
+                    runtimeState: "persisted_only",
+                    isPersistedSession: true,
+                    modelId: "claude-sonnet",
+                    models: [
+                        {
+                            id: "claude-sonnet",
+                            runtimeId: "claude-acp",
+                            name: "Claude Sonnet",
+                            description: "",
+                        },
+                    ],
+                    modes: [],
+                    configOptions: [oldModelOption],
+                },
+            },
+            sessionOrder: ["persisted:history-claude-old"],
+            activeSessionId: "persisted:history-claude-old",
+            selectedRuntimeId: "claude-acp",
+        }));
+
+        useChatStore.getState().upsertSession(
+            {
+                ...createSessionWithTrackedFiles("claude-session-new", []),
+                runtimeId: "claude-acp",
+                runtimeState: "live",
+                isPersistedSession: false,
+                modelId: "minimax-m2.5",
+                models: [
+                    {
+                        id: "minimax-m2.5",
+                        runtimeId: "claude-acp",
+                        name: "MiniMax M2.5",
+                        description: "",
+                    },
+                    {
+                        id: "kimi-k2.5",
+                        runtimeId: "claude-acp",
+                        name: "Kimi K2.5",
+                        description: "",
+                    },
+                ],
+                modes: [],
+                configOptions: [newModelOption],
+            },
+            true,
+        );
+
+        const historical =
+            useChatStore.getState().sessionsById["persisted:history-claude-old"];
+        expect(historical?.modelId).toBe("claude-sonnet");
+        expect(
+            historical?.configOptions
+                .find((option) => option.category === "model")
+                ?.options.map((option) => option.value),
+        ).toEqual(["claude-sonnet", "minimax-m2.5", "kimi-k2.5"]);
+        expect(historical?.models.map((model) => model.id)).toEqual([
+            "claude-sonnet",
+            "minimax-m2.5",
+            "kimi-k2.5",
+        ]);
+    });
+
+    it("keeps resumed Claude model options on the live provider catalog", async () => {
+        useVaultStore.setState({
+            vaultPath: "/vault",
+            notes: [],
+        });
+
+        const persistedSessionId = "persisted:history-claude-switch";
+        const historySessionId = "history-claude-switch";
+
+        useChatStore.setState((state) => ({
+            ...state,
+            runtimes: [
+                {
+                    runtime: {
+                        id: "claude-acp",
+                        name: "Claude ACP",
+                        description: "Claude runtime",
+                        capabilities: [
+                            "create_session",
+                            "list_sessions",
+                            "resume_session",
+                        ],
+                    },
+                    models: [],
+                    modes: [],
+                    configOptions: [],
+                },
+            ],
+            sessionsById: {
+                [persistedSessionId]: {
+                    ...createSessionWithTrackedFiles(persistedSessionId, []),
+                    historySessionId,
+                    runtimeId: "claude-acp",
+                    runtimeState: "persisted_only",
+                    isPersistedSession: true,
+                    modelId: "claude-sonnet",
+                    persistedMessageCount: 1,
+                    loadedPersistedMessageStart: 0,
+                    models: [
+                        {
+                            id: "claude-sonnet",
+                            runtimeId: "claude-acp",
+                            name: "Claude Sonnet",
+                            description: "",
+                        },
+                    ],
+                    modes: [
+                        {
+                            id: "default",
+                            runtimeId: "claude-acp",
+                            name: "Default",
+                            description: "",
+                            disabled: false,
+                        },
+                    ],
+                    configOptions: [
+                        {
+                            id: "model",
+                            runtimeId: "claude-acp",
+                            category: "model",
+                            label: "Model",
+                            type: "select",
+                            value: "claude-sonnet",
+                            options: [
+                                {
+                                    value: "claude-sonnet",
+                                    label: "Claude Sonnet",
+                                },
+                            ],
+                        },
+                    ],
+                    messages: [
+                        {
+                            id: "m1",
+                            role: "user",
+                            kind: "text",
+                            content: "hello",
+                            timestamp: 20,
+                        },
+                    ],
+                },
+            },
+            sessionOrder: [persistedSessionId],
+            activeSessionId: persistedSessionId,
+            selectedRuntimeId: "claude-acp",
+        }));
+
+        invokeMock.mockImplementation(async (command, args) => {
+            if (command === "ai_load_session_history_page") {
+                return {
+                    session_id: historySessionId,
+                    total_messages: 1,
+                    start_index: 0,
+                    end_index: 1,
+                    messages: [
+                        {
+                            id: "m1",
+                            role: "user",
+                            kind: "text",
+                            content: "hello",
+                            timestamp: 20,
+                        },
+                    ],
+                };
+            }
+
+            if (command === "ai_resume_runtime_session") {
+                expect(args).toMatchObject({
+                    input: {
+                        runtime_id: "claude-acp",
+                        session_id: historySessionId,
+                    },
+                });
+                return {
+                    session_id: "claude-session-switched",
+                    runtime_id: "claude-acp",
+                    model_id: "minimax-m2.5",
+                    mode_id: "default",
+                    status: "idle",
+                    models: [
+                        {
+                            id: "minimax-m2.5",
+                            runtime_id: "claude-acp",
+                            name: "MiniMax M2.5",
+                            description: "",
+                        },
+                        {
+                            id: "kimi-k2.5",
+                            runtime_id: "claude-acp",
+                            name: "Kimi K2.5",
+                            description: "",
+                        },
+                    ],
+                    modes: [
+                        {
+                            id: "default",
+                            runtime_id: "claude-acp",
+                            name: "Default",
+                            description: "",
+                            disabled: false,
+                        },
+                    ],
+                    config_options: [
+                        {
+                            id: "model",
+                            runtime_id: "claude-acp",
+                            category: "model",
+                            label: "Model",
+                            type: "select",
+                            value: "minimax-m2.5",
+                            options: [
+                                {
+                                    value: "minimax-m2.5",
+                                    label: "MiniMax M2.5",
+                                },
+                                { value: "kimi-k2.5", label: "Kimi K2.5" },
+                            ],
+                        },
+                    ],
+                };
+            }
+
+            if (command === "ai_create_session") {
+                throw new Error("should not create a fallback session");
+            }
+
+            return defaultInvokeImplementation(command, args);
+        });
+
+        await useChatStore.getState().resumeSession(persistedSessionId);
+
+        const resumed =
+            useChatStore.getState().sessionsById["claude-session-switched"];
+        expect(resumed?.runtimeId).toBe("claude-acp");
+        expect(resumed?.isPersistedSession).toBe(false);
+        expect(
+            resumed?.configOptions
+                .find((option) => option.category === "model")
+                ?.options.map((option) => option.value),
+        ).toEqual(["minimax-m2.5", "kimi-k2.5"]);
+        expect(resumed?.models.map((model) => model.id)).toEqual([
+            "minimax-m2.5",
+            "kimi-k2.5",
+        ]);
+    });
+
     it("preserves a saved child parent when native resume returns a new live session", async () => {
         useVaultStore.setState({
             vaultPath: "/vault",
