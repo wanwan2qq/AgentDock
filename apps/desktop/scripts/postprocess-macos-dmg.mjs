@@ -3,6 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+import {
+    UNSIGNED_MACOS_INSTALL_GUIDE_NAME,
+    UNSIGNED_MACOS_INSTALL_ZIP_GUIDE_NAME,
+    addUnsignedMacosInstallGuideToZip,
+    copyUnsignedMacosInstallGuide,
+} from "./unsignedMacosInstallGuide.mjs";
+
 function parseArgs(argv) {
     const args = {
         distDir: null,
@@ -72,6 +79,21 @@ function listFilesRecursively(rootDir) {
 
 function findSingleFile(rootDir, matcher, description) {
     const matches = listFilesRecursively(rootDir).filter(matcher);
+    if (matches.length !== 1) {
+        throw new Error(
+            `Expected exactly one ${description} in ${rootDir}, found ${matches.length}.`,
+        );
+    }
+    return matches[0];
+}
+
+function findTopLevelFile(rootDir, matcher, description) {
+    const matches = fs
+        .readdirSync(rootDir)
+        .map((name) => path.join(rootDir, name))
+        .filter(
+            (filePath) => fs.statSync(filePath).isFile() && matcher(filePath),
+        );
     if (matches.length !== 1) {
         throw new Error(
             `Expected exactly one ${description} in ${rootDir}, found ${matches.length}.`,
@@ -207,6 +229,16 @@ function validateDmg(dmgPath, requireNotarization) {
                 `Mounted DMG is missing ${PACKAGED_APP_NAME}: ${appPath}`,
             );
         }
+        if (
+            !requireNotarization &&
+            !fs.existsSync(
+                path.join(mountPoint, UNSIGNED_MACOS_INSTALL_GUIDE_NAME),
+            )
+        ) {
+            throw new Error(
+                `Mounted unsigned DMG is missing ${UNSIGNED_MACOS_INSTALL_GUIDE_NAME}.`,
+            );
+        }
         validateMountedApp(mountedAppPath, requireNotarization);
     } finally {
         detachDmg(mountPoint);
@@ -214,7 +246,7 @@ function validateDmg(dmgPath, requireNotarization) {
     }
 }
 
-function rebuildDmg({ appPath, dmgPath }) {
+function rebuildDmg({ appPath, dmgPath, includeUnsignedInstallGuide }) {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "neverwrite-dmg-"));
     const dmgRoot = path.join(tempDir, "root");
     const rebuiltDmgPath = path.join(tempDir, path.basename(dmgPath));
@@ -230,6 +262,9 @@ function rebuildDmg({ appPath, dmgPath }) {
             path.join(dmgRoot, PACKAGED_APP_NAME),
         ]);
         fs.symlinkSync("/Applications", path.join(dmgRoot, "Applications"));
+        if (includeUnsignedInstallGuide) {
+            copyUnsignedMacosInstallGuide(dmgRoot);
+        }
         run("hdiutil", [
             "create",
             "-volname",
@@ -260,8 +295,24 @@ function main() {
         "DMG installer",
     );
 
-    rebuildDmg({ appPath, dmgPath });
+    rebuildDmg({
+        appPath,
+        dmgPath,
+        includeUnsignedInstallGuide: !args.requireNotarization,
+    });
     validateDmg(dmgPath, args.requireNotarization);
+
+    if (!args.requireNotarization) {
+        const zipPath = findTopLevelFile(
+            args.distDir,
+            (filePath) => filePath.endsWith(".zip"),
+            "ZIP installer",
+        );
+        addUnsignedMacosInstallGuideToZip(zipPath);
+        console.log(
+            `Added ${UNSIGNED_MACOS_INSTALL_ZIP_GUIDE_NAME} to unsigned ZIP: ${zipPath}`,
+        );
+    }
 
     console.log(`Rebuilt and validated macOS DMG: ${dmgPath}`);
 }
