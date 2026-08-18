@@ -8,7 +8,10 @@ import {
     useState,
     type PointerEvent as ReactPointerEvent,
 } from "react";
-import type { WorkspaceLayoutNode } from "../../app/store/workspaceLayoutTree";
+import {
+    findPaneLayoutNode,
+    type WorkspaceLayoutNode,
+} from "../../app/store/workspaceLayoutTree";
 import { EditorPaneBar } from "./EditorPaneBar";
 import { EditorPaneContent } from "./EditorPaneContent";
 
@@ -35,6 +38,7 @@ interface NodeConstraints {
 interface WorkspaceSplitContainerProps {
     node: WorkspaceLayoutNode;
     focusedPaneId: string | null;
+    maximizedPaneId?: string | null;
     externalFileDropPaneId: string | null;
     onPanePointerDown: () => void;
     onPaneFocus: (paneId: string) => void;
@@ -154,11 +158,15 @@ const WorkspacePane = memo(function WorkspacePane({
 export function WorkspaceSplitContainer({
     node,
     focusedPaneId,
+    maximizedPaneId = null,
     externalFileDropPaneId,
     onPanePointerDown,
     onPaneFocus,
     onResizeSplit,
 }: WorkspaceSplitContainerProps) {
+    const maximizedPaneNode = maximizedPaneId
+        ? findPaneLayoutNode(node, maximizedPaneId)
+        : null;
     const containerRef = useRef<HTMLDivElement | null>(null);
     const resizeSessionRef = useRef<ResizeSession | null>(null);
     const [isResizing, setIsResizing] = useState(false);
@@ -279,6 +287,20 @@ export function WorkspaceSplitContainer({
         },
         [childConstraints, node],
     );
+
+    if (maximizedPaneNode) {
+        return (
+            <WorkspacePane
+                paneId={maximizedPaneNode.paneId}
+                isFocused={focusedPaneId === maximizedPaneNode.paneId}
+                isExternalFileDropActive={
+                    externalFileDropPaneId === maximizedPaneNode.paneId
+                }
+                onPanePointerDown={onPanePointerDown}
+                onPaneFocus={onPaneFocus}
+            />
+        );
+    }
 
     if (node.type === "pane") {
         return (

@@ -106,12 +106,24 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ left, center, right }: AppLayoutProps) {
-    const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
+    const storedSidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
+    const workspaceFocusPaneId = useLayoutStore((s) => s.workspaceFocusPaneId);
+    const workspaceFocusActive = Boolean(workspaceFocusPaneId);
+    const sidebarCollapsed = storedSidebarCollapsed || workspaceFocusActive;
     const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
     const showSidebarAtWidth = useLayoutStore((s) => s.showSidebarAtWidth);
     const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
-    const rightPanelCollapsed = useLayoutStore((s) => s.rightPanelCollapsed);
-    const rightPanelExpanded = useLayoutStore((s) => s.rightPanelExpanded);
+    const storedRightPanelCollapsed = useLayoutStore(
+        (s) => s.rightPanelCollapsed,
+    );
+    const storedRightPanelExpanded = useLayoutStore(
+        (s) => s.rightPanelExpanded,
+    );
+    const rightPanelCollapsed =
+        storedRightPanelCollapsed || workspaceFocusActive;
+    const rightPanelExpanded = workspaceFocusActive
+        ? false
+        : storedRightPanelExpanded;
     const rightPanelWidth = useLayoutStore((s) => s.rightPanelWidth);
     const collapseRightPanelToWidth = useLayoutStore(
         (s) => s.collapseRightPanelToWidth,
@@ -552,7 +564,10 @@ export function AppLayout({ left, center, right }: AppLayoutProps) {
               `opacity ${SIDEBAR_DOCK_TRANSITION_MS}ms ${SIDEBAR_DOCK_TRANSITION_EASING}`,
               `transform ${SIDEBAR_DOCK_TRANSITION_MS}ms ${SIDEBAR_DOCK_TRANSITION_EASING}`,
           ].join(", ");
-    const sidebarPeekEnabled = sidebarCollapsed && !dockedSidebarShouldRender;
+    const sidebarPeekEnabled =
+        sidebarCollapsed &&
+        !dockedSidebarShouldRender &&
+        !workspaceFocusActive;
     const effectiveLeft = dockedSidebarShouldRender ? dockedSidebarWidth : 0;
 
     // macOS only: hide the native traffic-light buttons whenever the sidebar
@@ -1215,7 +1230,7 @@ export function AppLayout({ left, center, right }: AppLayoutProps) {
 
             {/* Mirror Arc peek for the right panel: hotspot on the right
                 edge reveals the panel as a floating overlay while collapsed. */}
-            {right && rightPanelCollapsed && (
+            {right && rightPanelCollapsed && !workspaceFocusActive && (
                 <div
                     data-testid="right-peek-hotspot"
                     style={{
@@ -1234,7 +1249,10 @@ export function AppLayout({ left, center, right }: AppLayoutProps) {
                     }}
                 />
             )}
-            {right && rightPanelCollapsed && rightOverlayVisible && (
+            {right &&
+                rightPanelCollapsed &&
+                rightOverlayVisible &&
+                !workspaceFocusActive && (
                 <div
                     ref={rightOverlayRef}
                     data-testid="right-peek-overlay"

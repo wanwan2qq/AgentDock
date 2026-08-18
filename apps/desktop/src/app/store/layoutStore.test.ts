@@ -5,7 +5,10 @@ describe("layoutStore", () => {
     beforeEach(() => {
         useLayoutStore.setState({
             editorPaneSizes: [1],
+            workspaceFocusPaneId: null,
+            sidebarCollapsed: false,
         });
+        localStorage.removeItem("neverwrite.sidebar.collapsed");
     });
 
     it("normalizes and persists editor pane proportions", () => {
@@ -42,5 +45,28 @@ describe("layoutStore", () => {
         expect(localStorage.getItem("neverwrite.sidebar.width")).toBe(
             String(MIN_SIDEBAR_WIDTH),
         );
+    });
+
+    it("toggles workspace focus without persisting it", () => {
+        useLayoutStore.getState().enterWorkspaceFocus("primary");
+        expect(useLayoutStore.getState().workspaceFocusPaneId).toBe("primary");
+        expect(
+            localStorage.getItem("neverwrite.sidebar.collapsed"),
+        ).not.toBe("true");
+
+        useLayoutStore.getState().toggleWorkspaceFocus("primary");
+        expect(useLayoutStore.getState().workspaceFocusPaneId).toBeNull();
+    });
+
+    it("exits workspace focus when the sidebar is toggled", () => {
+        useLayoutStore.setState({
+            sidebarCollapsed: false,
+            workspaceFocusPaneId: "primary",
+        });
+
+        useLayoutStore.getState().toggleSidebar();
+
+        expect(useLayoutStore.getState().workspaceFocusPaneId).toBeNull();
+        expect(useLayoutStore.getState().sidebarCollapsed).toBe(false);
     });
 });

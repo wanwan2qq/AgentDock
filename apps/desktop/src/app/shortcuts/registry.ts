@@ -28,6 +28,7 @@ export type ShortcutActionId =
     | "go_forward"
     | "toggle_left_sidebar"
     | "toggle_right_panel"
+    | "toggle_workspace_focus"
     | "zoom_in"
     | "zoom_out"
     | "reset_zoom"
@@ -244,6 +245,15 @@ const shortcutDefinitions = [
         bindings: {
             macos: [{ key: "j", modifiers: ["meta"] }],
             windows: [{ key: "j", modifiers: ["ctrl"] }],
+        },
+    },
+    {
+        id: "toggle_workspace_focus",
+        label: "全屏标签",
+        category: "View",
+        bindings: {
+            macos: [{ key: "Enter", modifiers: ["ctrl", "shift"] }],
+            windows: [{ key: "Enter", modifiers: ["ctrl", "shift"] }],
         },
     },
     {
@@ -481,6 +491,7 @@ export const SHORTCUT_SETTINGS_ORDER: ShortcutActionId[] = [
     "close_tab",
     "toggle_left_sidebar",
     "toggle_right_panel",
+    "toggle_workspace_focus",
     "zoom_in",
     "zoom_out",
     "reset_zoom",

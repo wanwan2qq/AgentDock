@@ -27,6 +27,8 @@ import { useChatStore } from "../ai/store/chatStore";
 import { useInlineRename } from "../ai/components/useInlineRename";
 import { isSearchTab, SEARCH_TAB_TITLE } from "../search/searchTab";
 import { useSettingsStore } from "../../app/store/settingsStore";
+import { useLayoutStore } from "../../app/store/layoutStore";
+import { toggleWorkspaceFocusMode } from "../../app/workspaceFocus";
 import { useVaultStore } from "../../app/store/vaultStore";
 import {
     ContextMenu,
@@ -140,6 +142,10 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
     const fileTreeShowExtensions = useSettingsStore(
         (state) => state.fileTreeShowExtensions,
     );
+    const workspaceFocusPaneId = useLayoutStore(
+        (state) => state.workspaceFocusPaneId,
+    );
+    const workspaceFocusActive = workspaceFocusPaneId === paneId;
     const tabOpenBehavior = useSettingsStore((state) => state.tabOpenBehavior);
     const vaultPath = useVaultStore((state) => state.vaultPath);
     const [tabContextMenu, setTabContextMenu] = useState<ContextMenuState<{
@@ -866,6 +872,53 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
                 </div>
 
                 <div className="flex shrink-0 items-center px-1.5">
+                    <button
+                        type="button"
+                        data-workspace-focus-toggle="true"
+                        onClick={() => {
+                            useEditorStore.getState().focusPane(paneId);
+                            toggleWorkspaceFocusMode();
+                        }}
+                        className="ub-chrome-btn inline-flex shrink-0 items-center justify-center"
+                        aria-label={
+                            workspaceFocusActive ? "退出全屏" : "全屏"
+                        }
+                        title={workspaceFocusActive ? "退出全屏" : "全屏"}
+                        aria-pressed={workspaceFocusActive}
+                        style={getPaneHeaderActionButtonStyle(
+                            workspaceFocusActive,
+                        )}
+                    >
+                        {workspaceFocusActive ? (
+                            <svg
+                                width="11"
+                                height="11"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                            >
+                                <path d="M6 3.5H3.5V6M10 3.5h2.5V6M6 12.5H3.5V10M10 12.5h2.5V10" />
+                            </svg>
+                        ) : (
+                            <svg
+                                width="11"
+                                height="11"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                            >
+                                <path d="M3.5 6V3.5H6M10 3.5h2.5V6M3.5 10v2.5H6M10 12.5h2.5V10" />
+                            </svg>
+                        )}
+                    </button>
+                    <span
+                        aria-hidden="true"
+                        style={paneHeaderActionDividerStyle}
+                    />
                     {vaultPath && (
                         <Fragment>
                             <button
@@ -968,6 +1021,13 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
                                     togglePaneTabPinned(paneId, targetTab.id),
                             },
                             {
+                                label: workspaceFocusActive
+                                    ? "退出全屏"
+                                    : "全屏",
+                                action: () =>
+                                    toggleWorkspaceFocusMode(targetTab.id),
+                            },
+                            {
                                 label: "Close",
                                 action: () =>
                                     void requestCloseTab(targetTab.id),
@@ -1040,6 +1100,7 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
                             label: "Move to New Right Split",
                             disabled: !canCreateSplit,
                             action: () => {
+                                useLayoutStore.getState().exitWorkspaceFocus();
                                 moveTabToNewSplit(targetTab.id, "row");
                             },
                         });
@@ -1047,6 +1108,7 @@ export function EditorPaneBar({ paneId, isFocused }: EditorPaneBarProps) {
                             label: "Move to New Down Split",
                             disabled: !canCreateSplit,
                             action: () => {
+                                useLayoutStore.getState().exitWorkspaceFocus();
                                 moveTabToNewSplit(targetTab.id, "column");
                             },
                         });

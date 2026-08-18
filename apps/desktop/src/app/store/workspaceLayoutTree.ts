@@ -384,6 +384,24 @@ export function findPanePath(
     return null;
 }
 
+export function findPaneLayoutNode(
+    tree: WorkspaceLayoutNode,
+    paneId: string,
+): WorkspacePaneNode | null {
+    if (tree.type === "pane") {
+        return tree.paneId === paneId ? tree : null;
+    }
+
+    for (const child of tree.children) {
+        const found = findPaneLayoutNode(child, paneId);
+        if (found) {
+            return found;
+        }
+    }
+
+    return null;
+}
+
 export function normalizeLayoutTree(tree: WorkspaceLayoutNode) {
     const normalized = normalizeLayoutNode(tree);
     assertLayoutInvariants(normalized);

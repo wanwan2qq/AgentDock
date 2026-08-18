@@ -81,6 +81,7 @@ import {
 } from "./app/store/editorSession";
 import { useVaultStore, type VaultNoteChange } from "./app/store/vaultStore";
 import { useLayoutStore } from "./app/store/layoutStore";
+import { toggleWorkspaceFocusMode } from "./app/workspaceFocus";
 import { useSettingsStore } from "./app/store/settingsStore";
 import { formatShortcutAction } from "./app/shortcuts/format";
 import {
@@ -569,6 +570,9 @@ function useRegisterCommands(
         );
         const toggleRightPanelShortcut =
             getShortcutDefinition("toggle_right_panel");
+        const toggleWorkspaceFocusShortcut = getShortcutDefinition(
+            "toggle_workspace_focus",
+        );
         const zoomInShortcut = getShortcutDefinition("zoom_in");
         const zoomOutShortcut = getShortcutDefinition("zoom_out");
         const resetZoomShortcut = getShortcutDefinition("reset_zoom");
@@ -807,6 +811,7 @@ function useRegisterCommands(
             category: "Workspace",
             when: canSplitPane,
             execute: () => {
+                useLayoutStore.getState().exitWorkspaceFocus();
                 useEditorStore.getState().splitEditorPane("row");
             },
         });
@@ -817,6 +822,7 @@ function useRegisterCommands(
             category: "Workspace",
             when: canSplitPane,
             execute: () => {
+                useLayoutStore.getState().exitWorkspaceFocus();
                 useEditorStore.getState().splitEditorPane("column");
             },
         });
@@ -904,6 +910,17 @@ function useRegisterCommands(
             ),
             category: toggleRightPanelShortcut.category,
             execute: () => useLayoutStore.getState().toggleRightPanel(),
+        });
+
+        register({
+            id: "layout:toggle-workspace-focus",
+            label: toggleWorkspaceFocusShortcut.label,
+            shortcut: formatShortcutAction(
+                toggleWorkspaceFocusShortcut.id,
+                platform,
+            ),
+            category: toggleWorkspaceFocusShortcut.category,
+            execute: () => toggleWorkspaceFocusMode(),
         });
 
         register({
@@ -1005,6 +1022,14 @@ function useGlobalShortcuts(openSettings: () => void) {
             if (matchesShortcutAction(e, "toggle_right_panel", platform)) {
                 e.preventDefault();
                 useCommandStore.getState().execute("layout:toggle-right-panel");
+                return;
+            }
+
+            if (matchesShortcutAction(e, "toggle_workspace_focus", platform)) {
+                e.preventDefault();
+                useCommandStore
+                    .getState()
+                    .execute("layout:toggle-workspace-focus");
                 return;
             }
 

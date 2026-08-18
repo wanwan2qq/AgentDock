@@ -10,6 +10,7 @@ import {
 } from "../../test/test-utils";
 import { publishWindowTabDropZone } from "../../app/detachedWindows";
 import { useEditorStore, type ChatTab } from "../../app/store/editorStore";
+import { useLayoutStore } from "../../app/store/layoutStore";
 import { CLEAR_FILE_TREE_SELECTION_EVENT } from "../../app/utils/navigation";
 import {
     createInitialLayout,
@@ -254,6 +255,7 @@ describe("MultiPaneWorkspace", () => {
             ...state,
             vaultPath: "/vaults/main",
         }));
+        useLayoutStore.setState({ workspaceFocusPaneId: null });
         Object.defineProperty(window, "screenX", {
             value: 900,
             configurable: true,
@@ -288,6 +290,27 @@ describe("MultiPaneWorkspace", () => {
         fireEvent.pointerDown(targetPane!, { pointerId: 1, button: 0 });
 
         expect(useEditorStore.getState().focusedPaneId).toBe("secondary");
+    });
+
+    it("hides other panes while workspace focus is active", () => {
+        useLayoutStore.getState().enterWorkspaceFocus("primary");
+        renderComponent(<MultiPaneWorkspace />);
+
+        expect(
+            document.querySelector('[data-editor-pane-id="primary"]'),
+        ).not.toBeNull();
+        expect(
+            document.querySelector('[data-editor-pane-id="secondary"]'),
+        ).toBeNull();
+    });
+
+    it("exits workspace focus on Escape when no agent turn is running", () => {
+        useLayoutStore.getState().enterWorkspaceFocus("primary");
+        renderComponent(<MultiPaneWorkspace />);
+
+        fireEvent.keyDown(window, { key: "Escape" });
+
+        expect(useLayoutStore.getState().workspaceFocusPaneId).toBeNull();
     });
 
     it("requests file tree selection cleanup when a pane is clicked", () => {

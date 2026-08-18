@@ -21,7 +21,9 @@ import {
     selectLeafPaneIds,
     useEditorStore,
 } from "../../app/store/editorStore";
+import { useLayoutStore } from "../../app/store/layoutStore";
 import { useVaultStore } from "../../app/store/vaultStore";
+import { useCommandStore } from "../command-palette/store/commandStore";
 import {
     FILE_TREE_NOTE_DRAG_EVENT,
     emitExternalFileTreeDrag,
@@ -267,6 +269,9 @@ export function MultiPaneWorkspace() {
     );
     const focusPane = useEditorStore((state) => state.focusPane);
     const resizePaneSplit = useEditorStore((state) => state.resizePaneSplit);
+    const workspaceFocusPaneId = useLayoutStore(
+        (state) => state.workspaceFocusPaneId,
+    );
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [externalFileDropPaneId, setExternalFileDropPaneId] = useState<
         string | null
@@ -276,6 +281,25 @@ export function MultiPaneWorkspace() {
         status: null,
     });
     const visiblePaneCount = Math.max(1, leafPaneIds.length);
+    const workspaceFocusPaneIdRef = useRef(workspaceFocusPaneId);
+    workspaceFocusPaneIdRef.current = workspaceFocusPaneId;
+
+    useEffect(() => {
+        if (!workspaceFocusPaneId) {
+            return;
+        }
+        if (!leafPaneIds.includes(workspaceFocusPaneId)) {
+            useLayoutStore.getState().exitWorkspaceFocus();
+            return;
+        }
+        if (
+            focusedPaneId &&
+            focusedPaneId !== workspaceFocusPaneId &&
+            leafPaneIds.includes(focusedPaneId)
+        ) {
+            useLayoutStore.getState().enterWorkspaceFocus(focusedPaneId);
+        }
+    }, [focusedPaneId, leafPaneIds, workspaceFocusPaneId]);
 
     useEffect(() => {
         activeAgentStopRef.current = {
@@ -300,13 +324,21 @@ export function MultiPaneWorkspace() {
             }
 
             const { sessionId, status } = activeAgentStopRef.current;
-            if (!sessionId || !isCancellableChatTurnStatus(status)) {
+            if (sessionId && isCancellableChatTurnStatus(status)) {
+                event.preventDefault();
+                event.stopPropagation();
+                void useChatStore.getState().stopStreaming(sessionId);
                 return;
             }
 
-            event.preventDefault();
-            event.stopPropagation();
-            void useChatStore.getState().stopStreaming(sessionId);
+            if (
+                workspaceFocusPaneIdRef.current &&
+                !useCommandStore.getState().activeModal
+            ) {
+                event.preventDefault();
+                event.stopPropagation();
+                useLayoutStore.getState().exitWorkspaceFocus();
+            }
         };
 
         window.addEventListener("keydown", handleKeyDown);
@@ -644,6 +676,7 @@ export function MultiPaneWorkspace() {
             <WorkspaceSplitContainer
                 node={layoutTree}
                 focusedPaneId={focusedPaneId}
+                maximizedPaneId={workspaceFocusPaneId}
                 externalFileDropPaneId={externalFileDropPaneId}
                 onPanePointerDown={handlePanePointerDown}
                 onPaneFocus={handlePaneFocus}

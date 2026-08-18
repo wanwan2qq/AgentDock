@@ -38,6 +38,13 @@ describe("shortcut registry formatting", () => {
         expect(formatShortcutAction("find_in_note", "windows")).toBe("Ctrl+F");
         expect(formatShortcutAction("go_back", "windows")).toBe("Ctrl+[");
         expect(formatShortcutAction("go_forward", "macos")).toBe("⌘]");
+        expect(formatShortcutAction("toggle_right_panel", "macos")).toBe("⌘J");
+        expect(formatShortcutAction("toggle_workspace_focus", "macos")).toBe(
+            "⌃⇧Enter",
+        );
+        expect(formatShortcutAction("toggle_workspace_focus", "windows")).toBe(
+            "Ctrl+Shift+Enter",
+        );
         expect(formatShortcutAction("next_file", "macos")).toBe("⌘⇧Arrow Down");
         expect(formatShortcutAction("previous_file", "windows")).toBe(
             "Ctrl+Shift+Arrow Up",
@@ -167,6 +174,21 @@ describe("shortcut registry matching", () => {
                 "macos",
             ),
         ).toBe(false);
+    });
+
+    it("matches the workspace focus shortcut", () => {
+        const event = new KeyboardEvent("keydown", {
+            key: "Enter",
+            ctrlKey: true,
+            shiftKey: true,
+        });
+
+        expect(
+            matchesShortcutAction(event, "toggle_workspace_focus", "macos"),
+        ).toBe(true);
+        expect(
+            matchesShortcutAction(event, "toggle_workspace_focus", "windows"),
+        ).toBe(true);
     });
 
     it("matches Windows bindings without accepting macOS-only alternatives", () => {

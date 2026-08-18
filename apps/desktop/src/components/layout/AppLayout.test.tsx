@@ -129,6 +129,7 @@ describe("AppLayout", () => {
             rightPanelExpanded: false,
             rightPanelWidth: 280,
             rightPanelView: "outline",
+            workspaceFocusPaneId: null,
         });
     });
 
@@ -494,5 +495,28 @@ describe("AppLayout", () => {
         expect(
             screen.queryByTestId("sidebar-peek-overlay"),
         ).not.toBeInTheDocument();
+    });
+
+    it("hides the docked sidebar while workspace focus is active", () => {
+        useLayoutStore.setState({
+            sidebarCollapsed: false,
+            workspaceFocusPaneId: "primary",
+        });
+
+        render(
+            <AppLayout
+                left={<div>Left</div>}
+                center={<div>Center</div>}
+                right={<div>Right</div>}
+            />,
+        );
+
+        expect(
+            screen.queryByTestId("app-layout-left-panel"),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByTestId("sidebar-peek-hotspot"),
+        ).not.toBeInTheDocument();
+        expect(screen.getByText("Center")).toBeInTheDocument();
     });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { openPath, revealItemInDir } from "@neverwrite/runtime";
 import { useVaultStore } from "../../app/store/vaultStore";
 import { toVaultRelativePath } from "../../app/utils/vaultPaths";
@@ -42,6 +42,43 @@ export function HtmlTabView({ tab }: { tab: FileTab }) {
         }, PREVIEW_LOAD_TIMEOUT_MS);
         return () => clearLoadTimer();
     }, [previewUrl]);
+
+    const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+    const attachIframeKeyHandler = useCallback(() => {
+        const iframe = iframeRef.current;
+        if (!iframe) return;
+        let contentWindow: Window;
+        try {
+            contentWindow = iframe.contentWindow!;
+            // Access check — will throw if cross-origin
+            void contentWindow.document;
+        } catch {
+            return;
+        }
+        contentWindow.addEventListener(
+            "keydown",
+            (e: KeyboardEvent) => {
+                if (e.ctrlKey || e.metaKey || e.altKey) {
+                    const synthetic = new KeyboardEvent("keydown", {
+                        key: e.key,
+                        code: e.code,
+                        ctrlKey: e.ctrlKey,
+                        shiftKey: e.shiftKey,
+                        altKey: e.altKey,
+                        metaKey: e.metaKey,
+                        bubbles: true,
+                        cancelable: true,
+                    });
+                    window.dispatchEvent(synthetic);
+                    if (synthetic.defaultPrevented) {
+                        e.preventDefault();
+                    }
+                }
+            },
+            true,
+        );
+    }, []);
 
     const showFallback = !previewUrl || previewFailed;
 
@@ -100,10 +137,12 @@ export function HtmlTabView({ tab }: { tab: FileTab }) {
                         src={previewUrl}
                         sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
                         referrerPolicy="no-referrer"
+                        ref={iframeRef}
                         onLoad={() => {
                             clearLoadTimer();
                             setPreviewFailed(false);
                             setPreviewFailedReason(null);
+                            attachIframeKeyHandler();
                         }}
                         onError={() => {
                             clearLoadTimer();

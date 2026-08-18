@@ -83,6 +83,12 @@ interface LayoutStore {
     editorPaneSizes: number[];
     ensureEditorPaneSizeCount: (count: number) => void;
     setEditorPaneSizes: (count: number, sizes: number[]) => void;
+    // Session-only: which editor pane currently occupies the workspace.
+    // Null means normal chrome. Not persisted across restarts.
+    workspaceFocusPaneId: string | null;
+    enterWorkspaceFocus: (paneId: string) => void;
+    exitWorkspaceFocus: () => void;
+    toggleWorkspaceFocus: (paneId: string) => void;
     fileTreeScrollTopByVault: Record<string, number>;
     getFileTreeScrollTop: (vaultPath: string | null | undefined) => number;
     setFileTreeScrollTop: (
@@ -194,16 +200,49 @@ function createDefaultState(): LayoutSnapshot {
     };
 }
 
+function clearWorkspaceFocusIfActive(state: LayoutStore): Partial<LayoutStore> {
+    return state.workspaceFocusPaneId ? { workspaceFocusPaneId: null } : {};
+}
+
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
     ...createDefaultState(),
     rightPanelExpanded: false,
+    workspaceFocusPaneId: null,
     fileTreeScrollTopByVault: {},
+    enterWorkspaceFocus: (paneId) => {
+        const nextPaneId = paneId.trim();
+        if (!nextPaneId) {
+            return;
+        }
+        set((state) =>
+            state.workspaceFocusPaneId === nextPaneId
+                ? state
+                : { workspaceFocusPaneId: nextPaneId },
+        );
+    },
+    exitWorkspaceFocus: () =>
+        set((state) =>
+            state.workspaceFocusPaneId ? { workspaceFocusPaneId: null } : state,
+        ),
+    toggleWorkspaceFocus: (paneId) => {
+        const nextPaneId = paneId.trim();
+        if (!nextPaneId) {
+            return;
+        }
+        set((state) => ({
+            workspaceFocusPaneId:
+                state.workspaceFocusPaneId === nextPaneId ? null : nextPaneId,
+        }));
+    },
     setSidebarView: (view) => {
         safeStorageSetItem(SIDEBAR_VIEW_KEY, view);
         set({ sidebarView: view });
     },
     toggleSidebar: () =>
         set((state) => {
+            if (state.workspaceFocusPaneId) {
+                return { workspaceFocusPaneId: null };
+            }
             const collapsed = !state.sidebarCollapsed;
             persistBoolean(SIDEBAR_COLLAPSED_KEY, collapsed);
             return { sidebarCollapsed: collapsed };
@@ -214,7 +253,10 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     },
     expandSidebar: () => {
         persistBoolean(SIDEBAR_COLLAPSED_KEY, false);
-        set({ sidebarCollapsed: false });
+        set({
+            sidebarCollapsed: false,
+            ...clearWorkspaceFocusIfActive(get()),
+        });
     },
     setSidebarWidth: (width) => {
         const nextWidth = clampSidebarWidth(width);
@@ -225,7 +267,11 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
         const nextWidth = clampSidebarWidth(width);
         persistNumber(SIDEBAR_WIDTH_KEY, nextWidth);
         persistBoolean(SIDEBAR_COLLAPSED_KEY, false);
-        set({ sidebarWidth: nextWidth, sidebarCollapsed: false });
+        set({
+            sidebarWidth: nextWidth,
+            sidebarCollapsed: false,
+            ...clearWorkspaceFocusIfActive(get()),
+        });
     },
     collapseSidebarToWidth: (width) => {
         const nextWidth = clampSidebarWidth(width);
@@ -235,6 +281,9 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     },
     toggleRightPanel: () =>
         set((state) => {
+            if (state.workspaceFocusPaneId) {
+                return { workspaceFocusPaneId: null };
+            }
             const collapsed = !state.rightPanelCollapsed;
             persistBoolean(RIGHT_PANEL_COLLAPSED_KEY, collapsed);
             return {
@@ -246,6 +295,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
         set((state) => ({
             rightPanelExpanded: expanded,
             rightPanelCollapsed: expanded ? false : state.rightPanelCollapsed,
+            ...(expanded ? { workspaceFocusPaneId: null } : {}),
         })),
     toggleRightPanelExpanded: () =>
         set((state) => ({
@@ -276,6 +326,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
             rightPanelWidth: nextWidth,
             rightPanelCollapsed: false,
             rightPanelExpanded: false,
+            ...clearWorkspaceFocusIfActive(get()),
         });
     },
     collapseRightPanelToWidth: (width) => {

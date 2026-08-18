@@ -6,6 +6,7 @@ import {
     createInitialLayout,
     DEFAULT_EDITOR_PANE_ID,
     findPanePath,
+    findPaneLayoutNode,
     getLayoutPaneIds,
     getNextGeneratedPaneId,
     movePane,
@@ -101,6 +102,8 @@ describe("workspaceLayoutTree", () => {
         expect(findPanePath(tree, "pane-a")).toEqual([0]);
         expect(findPanePath(tree, "pane-c")).toEqual([1, 1]);
         expect(findPanePath(tree, "missing")).toBeNull();
+        expect(findPaneLayoutNode(tree, "pane-c")?.paneId).toBe("pane-c");
+        expect(findPaneLayoutNode(tree, "missing")).toBeNull();
     });
 
     it("splits into the same direction without creating an extra nested split", () => {

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderComponent } from "../../test/test-utils";
 import { useEditorStore } from "../../app/store/editorStore";
+import { useLayoutStore } from "../../app/store/layoutStore";
 import { useSettingsStore } from "../../app/store/settingsStore";
 import { useVaultStore } from "../../app/store/vaultStore";
 import { useChatStore } from "../ai/store/chatStore";
@@ -167,6 +168,7 @@ describe("EditorPaneBar", () => {
             "primary",
         );
         useSettingsStore.getState().reset();
+        useLayoutStore.setState({ workspaceFocusPaneId: null });
     });
 
     it("shows compact empty-pane chrome when a pane has no tabs", () => {
@@ -190,6 +192,42 @@ describe("EditorPaneBar", () => {
         expect(
             document.querySelector('[data-pane-empty="true"]'),
         ).not.toBeNull();
+    });
+
+    it("toggles workspace focus from the pane header button", async () => {
+        const user = userEvent.setup();
+        renderComponent(<EditorPaneBar paneId="primary" isFocused />);
+
+        await user.click(screen.getByRole("button", { name: "全屏" }));
+
+        expect(useLayoutStore.getState().workspaceFocusPaneId).toBe("primary");
+        expect(screen.getByRole("button", { name: "退出全屏" })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+        );
+
+        await user.click(screen.getByRole("button", { name: "退出全屏" }));
+        expect(useLayoutStore.getState().workspaceFocusPaneId).toBeNull();
+    });
+
+    it("enters workspace focus from the tab context menu", async () => {
+        const user = userEvent.setup();
+        renderComponent(<EditorPaneBar paneId="secondary" isFocused />);
+
+        const tabButton = document.querySelector(
+            '[data-pane-tab-id="tab-b"]',
+        ) as HTMLElement | null;
+        expect(tabButton).not.toBeNull();
+        fireEvent.contextMenu(tabButton!);
+        const fullscreenItems = await screen.findAllByRole("button", {
+            name: "全屏",
+        });
+        await user.click(fullscreenItems[fullscreenItems.length - 1]!);
+
+        expect(useLayoutStore.getState().workspaceFocusPaneId).toBe(
+            "secondary",
+        );
+        expect(useEditorStore.getState().focusedPaneId).toBe("secondary");
     });
 
     it("shows pane history navigation buttons when open behavior uses history", () => {

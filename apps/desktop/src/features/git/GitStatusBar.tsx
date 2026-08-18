@@ -10,6 +10,9 @@ function openGitSidebar() {
 }
 
 export function GitStatusBar() {
+    const workspaceFocusActive = useLayoutStore(
+        (state) => Boolean(state.workspaceFocusPaneId),
+    );
     const vaultPath = useVaultStore((state) => state.vaultPath);
     const setVaultPath = useGitStatusStore((state) => state.setVaultPath);
     const status = useGitStatusStore((state) => state.status);
@@ -23,7 +26,7 @@ export function GitStatusBar() {
         setVaultPath(vaultPath);
     }, [setVaultPath, vaultPath]);
 
-    if (!vaultPath) {
+    if (workspaceFocusActive || !vaultPath) {
         return null;
     }
 
