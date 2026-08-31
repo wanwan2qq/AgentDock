@@ -387,7 +387,7 @@ jobs:
                   verify_universal "$APP_PATH/Contents/Resources/native-backend/embedded/node/bin/node"
 
             - name: Sign Linux RPM package
-              if: matrix.platform == 'linux'
+              if: matrix.platform == 'linux' && needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   APT_REPO_GPG_PRIVATE_KEY: ${{ secrets.APT_REPO_GPG_PRIVATE_KEY }}
@@ -437,7 +437,7 @@ jobs:
                     --install
 
             - name: Validate Linux RPM package
-              if: matrix.platform == 'linux'
+              if: matrix.platform == 'linux' && needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               run: |
                   node apps/desktop/scripts/validate-linux-rpm-package.mjs \
@@ -588,9 +588,12 @@ jobs:
         name: Validate APT Repository Secrets
         needs: prepare
         runs-on: ubuntu-latest
+        outputs:
+            apt_signing_enabled: ${{ steps.validate.outputs.enabled }}
 
         steps:
             - name: Validate APT signing configuration
+              id: validate
               shell: bash
               env:
                   APT_REPO_GPG_PRIVATE_KEY: ${{ secrets.APT_REPO_GPG_PRIVATE_KEY }}
@@ -599,8 +602,9 @@ jobs:
               run: |
                   for name in APT_REPO_GPG_PRIVATE_KEY APT_REPO_GPG_PASSPHRASE APT_REPO_GPG_KEY_ID; do
                     if [[ -z "${!name}" ]]; then
-                      echo "Missing required GitHub Actions secret: ${name}" >&2
-                      exit 1
+                      echo "APT signing secrets are not configured; skipping signed Linux repository publishing."
+                      echo "enabled=false" >> "$GITHUB_OUTPUT"
+                      exit 0
                     fi
                   done
 
@@ -611,6 +615,7 @@ jobs:
 
                   printf '%s' "$APT_REPO_GPG_PRIVATE_KEY" | gpg --batch --import
                   gpg --batch --list-secret-keys "$APT_REPO_GPG_KEY_ID" >/dev/null
+                  echo "enabled=true" >> "$GITHUB_OUTPUT"
 
     publish-release:
         name: Publish GitHub Release
@@ -691,6 +696,7 @@ jobs:
             - prepare
             - build-target
             - publish-release
+            - apt-repository-preflight
         runs-on: ubuntu-latest
 
         steps:
@@ -893,9 +899,11 @@ jobs:
                   EOF
 
             - name: Install Linux repository tools
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               run: sudo apt-get update && sudo apt-get install -y createrepo-c dpkg gnupg gzip rpm
 
             - name: Build APT repository
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   APT_RELEASE_DIR: ${{ runner.temp }}/apt-release
@@ -910,6 +918,7 @@ jobs:
                     --component main
 
             - name: Build DNF repository
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   PAGES_DIR: ${{ runner.temp }}/gh-pages
@@ -922,6 +931,7 @@ jobs:
                     --repo-slug "${{ needs.prepare.outputs.repo_slug }}"
 
             - name: Sign APT repository
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   APT_REPO_GPG_PRIVATE_KEY: ${{ secrets.APT_REPO_GPG_PRIVATE_KEY }}
@@ -949,6 +959,7 @@ jobs:
                     --suite stable
 
             - name: Sign DNF repository
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   APT_REPO_GPG_PRIVATE_KEY: ${{ secrets.APT_REPO_GPG_PRIVATE_KEY }}
@@ -973,6 +984,7 @@ jobs:
                     --key-id "$APT_REPO_GPG_KEY_ID"
 
             - name: Validate APT repository
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   APT_RELEASE_DIR: ${{ runner.temp }}/apt-release
@@ -986,6 +998,7 @@ jobs:
                     --component main
 
             - name: Validate DNF repository
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   PAGES_DIR: ${{ runner.temp }}/gh-pages
@@ -995,6 +1008,7 @@ jobs:
                     --version "${{ needs.prepare.outputs.version }}"
 
             - name: Validate APT repository with apt
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   APT_RELEASE_DIR: ${{ runner.temp }}/apt-release
@@ -1034,6 +1048,7 @@ jobs:
                     '
 
             - name: Validate DNF repository with dnf
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   PAGES_DIR: ${{ runner.temp }}/gh-pages
@@ -1058,6 +1073,7 @@ jobs:
                     '
 
             - name: Upload APT repository metadata to GitHub release
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1074,6 +1090,7 @@ jobs:
                     --clobber
 
             - name: Validate published APT release endpoint
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   APT_RELEASE_DIR: ${{ runner.temp }}/apt-release
@@ -1105,6 +1122,7 @@ jobs:
                     '
 
             - name: Publish Linux repository entrypoints to gh-pages
+              if: needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'
               shell: bash
               env:
                   PAGES_DIR: ${{ runner.temp }}/gh-pages
