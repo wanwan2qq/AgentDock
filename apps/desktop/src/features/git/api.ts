@@ -3,6 +3,7 @@ import type {
     GitBranchList,
     GitCommandResult,
     GitDiffResult,
+    GitLogResult,
     GitStatusSnapshot,
 } from "./types";
 
@@ -49,6 +50,14 @@ export function checkoutGitBranch(branch: string) {
     return vaultInvoke<GitCommandResult>("git_checkout", {
         branch,
         createTracking: true,
+    });
+}
+
+export function fetchGitLog(branch?: string | null, limit = 50, skip = 0) {
+    return vaultInvoke<GitLogResult>("git_log", {
+        branch: branch ?? null,
+        limit,
+        skip,
     });
 }
 

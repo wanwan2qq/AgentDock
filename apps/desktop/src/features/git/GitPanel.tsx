@@ -10,6 +10,7 @@ import {
     commitGitChanges,
     fetchGitBranches,
     fetchGitDiff,
+    fetchGitLog,
     ignoreNeverwriteDirectory,
     pullGit,
     pushGit,
@@ -17,7 +18,29 @@ import {
     unstageGitPaths,
 } from "./api";
 import { useGitStatusStore } from "./gitStatusStore";
-import type { GitBranchList, GitFileStatus } from "./types";
+import type { GitBranchList, GitCommitEntry, GitFileStatus } from "./types";
+
+const GIT_LOG_PAGE_SIZE = 50;
+
+function formatCommitDate(iso: string) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+        return iso;
+    }
+    const diffMs = Date.now() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (60 * 1000));
+    if (diffMinutes < 1) return "刚刚";
+    if (diffMinutes < 60) return `${diffMinutes} 分钟前`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} 小时前`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays} 天前`;
+    return date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+    });
+}
 
 function statusLabel(file: GitFileStatus) {
     if (file.conflict) return "C";
@@ -61,12 +84,55 @@ export function GitPanel() {
         local: [],
         remote: [],
     });
+    const [commits, setCommits] = useState<GitCommitEntry[]>([]);
+    const [logLoading, setLogLoading] = useState(false);
+    const [logHasMore, setLogHasMore] = useState(false);
+    const [loadingMoreLog, setLoadingMoreLog] = useState(false);
 
     const loading = statusLoading || loadingBranches;
+
+    const loadLog = useCallback(
+        async (branch: string | null, options?: { append?: boolean; skip?: number }) => {
+            if (!vaultPath || !branch) {
+                setCommits([]);
+                setLogHasMore(false);
+                return;
+            }
+            const append = options?.append ?? false;
+            const skip = options?.skip ?? 0;
+            if (append) {
+                setLoadingMoreLog(true);
+            } else {
+                setLogLoading(true);
+            }
+            try {
+                const result = await fetchGitLog(branch, GIT_LOG_PAGE_SIZE, skip);
+                setCommits((prev) =>
+                    append ? [...prev, ...result.commits] : result.commits,
+                );
+                setLogHasMore(result.commits.length >= GIT_LOG_PAGE_SIZE);
+            } catch (err) {
+                logError("git-panel", "Failed to load branch history", err);
+                if (!append) {
+                    setCommits([]);
+                    setLogHasMore(false);
+                }
+            } finally {
+                if (append) {
+                    setLoadingMoreLog(false);
+                } else {
+                    setLogLoading(false);
+                }
+            }
+        },
+        [vaultPath],
+    );
 
     const refresh = useCallback(async () => {
         if (!vaultPath) {
             setBranches({ current: null, local: [], remote: [] });
+            setCommits([]);
+            setLogHasMore(false);
             return;
         }
         setLoadingBranches(true);
@@ -92,6 +158,10 @@ export function GitPanel() {
                     );
                     return valid;
                 });
+                void loadLog(next.branch);
+            } else {
+                setCommits([]);
+                setLogHasMore(false);
             }
             setBranches(nextBranches);
         } catch (err) {
@@ -100,7 +170,7 @@ export function GitPanel() {
         } finally {
             setLoadingBranches(false);
         }
-    }, [refreshStatus, vaultPath]);
+    }, [loadLog, refreshStatus, vaultPath]);
 
     useEffect(() => {
         setVaultPath(vaultPath);
@@ -493,6 +563,37 @@ export function GitPanel() {
             ) : null}
 
             <div className="min-h-0 flex-1 overflow-auto px-1 pb-2">
+                <Section title={`提交历史${commits.length > 0 ? ` (${commits.length})` : ""}`}>
+                    {logLoading ? (
+                        <Muted>加载历史中…</Muted>
+                    ) : commits.length === 0 ? (
+                        <Muted>当前分支暂无提交记录</Muted>
+                    ) : (
+                        <>
+                            {commits.map((commit) => (
+                                <CommitRow key={commit.hash} commit={commit} />
+                            ))}
+                            {logHasMore ? (
+                                <div className="px-2 py-1">
+                                    <ActionButton
+                                        label={
+                                            loadingMoreLog ? "加载中…" : "加载更多"
+                                        }
+                                        disabled={loadingMoreLog}
+                                        onClick={() => {
+                                            if (!status.branch) return;
+                                            void loadLog(status.branch, {
+                                                append: true,
+                                                skip: commits.length,
+                                            });
+                                        }}
+                                    />
+                                </div>
+                            ) : null}
+                        </>
+                    )}
+                </Section>
+
                 {conflictFiles.length > 0 ? (
                     <Section title={`冲突 (${conflictFiles.length})`}>
                         {conflictFiles.map((file) => (
@@ -779,6 +880,41 @@ function ActionButton({
         >
             {label}
         </button>
+    );
+}
+
+function CommitRow({ commit }: { commit: GitCommitEntry }) {
+    return (
+        <div
+            className="flex items-start gap-2 rounded-md px-2 py-1.5"
+            title={`${commit.hash}\n${commit.author}\n${commit.date}`}
+        >
+            <code
+                className="shrink-0 rounded px-1 py-0.5 text-[10px]"
+                style={{
+                    background: "var(--bg-secondary)",
+                    color: "var(--accent)",
+                    fontFamily: "var(--font-mono), ui-monospace, monospace",
+                }}
+            >
+                {commit.shortHash}
+            </code>
+            <div className="min-w-0 flex-1">
+                <div
+                    className="truncate text-[12px]"
+                    style={{ color: "var(--text-primary)" }}
+                    title={commit.subject}
+                >
+                    {commit.subject}
+                </div>
+                <div
+                    className="mt-0.5 truncate text-[10px]"
+                    style={{ color: "var(--text-secondary)" }}
+                >
+                    {commit.author} · {formatCommitDate(commit.date)}
+                </div>
+            </div>
+        </div>
     );
 }
 

@@ -41,3 +41,16 @@ export interface GitBranchList {
     local: string[];
     remote: string[];
 }
+
+export interface GitCommitEntry {
+    hash: string;
+    shortHash: string;
+    subject: string;
+    author: string;
+    date: string;
+}
+
+export interface GitLogResult {
+    branch: string | null;
+    commits: GitCommitEntry[];
+}

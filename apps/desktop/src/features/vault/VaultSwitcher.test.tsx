@@ -1,11 +1,12 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useVaultStore } from "../../app/store/vaultStore";
+import { requestOpenVault } from "../../app/vaultOpenRequest";
 import { renderComponent } from "../../test/test-utils";
 import { VaultSwitcher } from "./VaultSwitcher";
 
-vi.mock("../../app/detachedWindows", () => ({
-    openVaultWindow: vi.fn(),
+vi.mock("../../app/vaultOpenRequest", () => ({
+    requestOpenVault: vi.fn(),
 }));
 
 describe("VaultSwitcher", () => {

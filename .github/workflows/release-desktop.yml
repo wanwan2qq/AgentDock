@@ -326,6 +326,8 @@ jobs:
               run: |
                   APP_PATH=""
                   for candidate in \
+                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-universal/AgentDock.app" \
+                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac/AgentDock.app" \
                     "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-universal/NeverWrite.app" \
                     "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac/NeverWrite.app"; do
                     if [[ -d "$candidate" ]]; then
@@ -335,7 +337,7 @@ jobs:
                   done
 
                   if [[ -z "$APP_PATH" ]]; then
-                    echo "Could not find packaged NeverWrite.app in $NEVERWRITE_ELECTRON_OUTPUT_DIR." >&2
+                    echo "Could not find packaged AgentDock.app in $NEVERWRITE_ELECTRON_OUTPUT_DIR." >&2
                     exit 1
                   fi
 
@@ -353,6 +355,8 @@ jobs:
               run: |
                   APP_PATH=""
                   for candidate in \
+                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-universal/AgentDock.app" \
+                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac/AgentDock.app" \
                     "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-universal/NeverWrite.app" \
                     "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac/NeverWrite.app"; do
                     if [[ -d "$candidate" ]]; then
@@ -362,7 +366,7 @@ jobs:
                   done
 
                   if [[ -z "$APP_PATH" ]]; then
-                    echo "Could not find packaged NeverWrite.app in $NEVERWRITE_ELECTRON_OUTPUT_DIR." >&2
+                    echo "Could not find packaged AgentDock.app in $NEVERWRITE_ELECTRON_OUTPUT_DIR." >&2
                     exit 1
                   fi
 
@@ -570,8 +574,8 @@ jobs:
                   validate_extension_zip "$chrome_zip" chrome
                   validate_extension_zip "$firefox_zip" firefox
 
-                  cp "$chrome_zip" "$RUNNER_TEMP/web-clipper-assets/NeverWrite-Web-Clipper-${{ needs.prepare.outputs.tag }}-chrome-mv3.zip"
-                  cp "$firefox_zip" "$RUNNER_TEMP/web-clipper-assets/NeverWrite-Web-Clipper-${{ needs.prepare.outputs.tag }}-firefox-mv3.zip"
+                  cp "$chrome_zip" "$RUNNER_TEMP/web-clipper-assets/AgentDock-Web-Clipper-${{ needs.prepare.outputs.tag }}-chrome-mv3.zip"
+                  cp "$firefox_zip" "$RUNNER_TEMP/web-clipper-assets/AgentDock-Web-Clipper-${{ needs.prepare.outputs.tag }}-firefox-mv3.zip"
 
             - name: Upload browser extension release assets
               uses: actions/upload-artifact@v7
@@ -661,7 +665,7 @@ jobs:
               run: |
                   VERSION="${{ needs.prepare.outputs.version }}"
                   TAG="${{ needs.prepare.outputs.tag }}"
-                  TITLE="NeverWrite v${VERSION}"
+                  TITLE="AgentDock v${VERSION}"
                   NOTES_FILE=".artifacts/release-body/release-body.md"
                   if gh release view "$TAG" >/dev/null 2>&1; then
                     gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE"
@@ -1097,7 +1101,7 @@ jobs:
                       apt-cache policy neverwrite | grep -F "$VERSION"
                       apt-get --print-uris install "neverwrite=$VERSION" | tee /tmp/neverwrite-uris.txt
                       grep -F "https://github.com/${REPO_SLUG}/releases/download/${RELEASE_TAG}" /tmp/neverwrite-uris.txt
-                      grep -F "NeverWrite-${VERSION}-amd64.deb" /tmp/neverwrite-uris.txt
+                      grep -F "AgentDock-${VERSION}-amd64.deb" /tmp/neverwrite-uris.txt
                     '
 
             - name: Publish Linux repository entrypoints to gh-pages

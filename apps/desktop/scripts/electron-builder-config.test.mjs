@@ -154,7 +154,7 @@ test("desktop app icons are wired for all packaged platforms", () => {
 });
 
 test("Debian package metadata is stable for Ubuntu/Debian releases", () => {
-    assert.equal(packageJson.homepage, "https://github.com/jsgrrchg/NeverWrite");
+    assert.equal(packageJson.homepage, "https://github.com/wanwan2qq/AgentDock");
     assert.equal(config.deb.packageName, "neverwrite");
     assert.equal(config.deb.packageCategory, "utils");
     assert.equal(config.deb.priority, "optional");

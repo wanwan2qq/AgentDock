@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { openVaultWindow } from "./app/detachedWindows";
+import { requestOpenVault } from "./app/vaultOpenRequest";
 import { useEditorStore } from "./app/store/editorStore";
 import { getEditorSessionKey } from "./app/store/editorSession";
 import { useLayoutStore } from "./app/store/layoutStore";
@@ -130,6 +131,18 @@ vi.mock("./app/detachedWindows", () => ({
     openVaultWindow: vi.fn(async () => {}),
     readDetachedWindowPayload: vi.fn(() => null),
 }));
+
+vi.mock("./app/vaultOpenRequest", async () => {
+    const actual = await vi.importActual<typeof import("./app/vaultOpenRequest")>(
+        "./app/vaultOpenRequest",
+    );
+    return {
+        ...actual,
+        requestOpenVault: vi.fn(async (path: string) => {
+            await actual.executeVaultOpenDisposition(path, "new-window");
+        }),
+    };
+});
 
 vi.mock("./app/detachedWindowBootstrap", () => ({
     bootstrapDetachedWindow: vi.fn(async () => {}),
@@ -518,10 +531,11 @@ describe("App web clipper routing", () => {
         });
     });
 
-    it("opens a new vault window when the dock menu requests it", async () => {
+    it("routes dock vault requests through the open-vault dialog flow", async () => {
         renderComponent(<App />);
         await flushPromises();
         vi.mocked(openVaultWindow).mockClear();
+        vi.mocked(requestOpenVault).mockClear();
         vi.mocked(useVaultStore.getState().openVault).mockClear();
 
         await act(async () => {
@@ -531,6 +545,7 @@ describe("App web clipper routing", () => {
             await Promise.resolve();
         });
 
+        expect(requestOpenVault).toHaveBeenCalledWith("/vaults/dock");
         expect(openVaultWindow).toHaveBeenCalledWith("/vaults/dock");
         expect(useVaultStore.getState().openVault).not.toHaveBeenCalled();
     });

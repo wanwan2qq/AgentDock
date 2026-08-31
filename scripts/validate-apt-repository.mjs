@@ -10,6 +10,8 @@ import {
     APT_DEFAULT_SUITE,
     APT_LAYOUT_CLASSIC,
     APT_LAYOUT_FLAT_RELEASE,
+    APT_ORIGIN,
+    APT_LABEL,
     APT_PACKAGE_NAME,
     APT_PACKAGE_CHECKSUMS,
     APT_PUBLIC_KEY_FILE_NAME,
@@ -151,8 +153,8 @@ function validateReleaseFile({ aptDir, suite, component, layout }) {
         fs.readFileSync(releasePath, "utf8"),
     );
     const expectedFields = {
-        Origin: "NeverWrite",
-        Label: "NeverWrite",
+        Origin: APT_ORIGIN,
+        Label: APT_LABEL,
         Suite: suite,
         Codename: APT_DEFAULT_CODENAME,
         Architectures: APT_SUPPORTED_ARCHITECTURES.join(" "),
@@ -254,7 +256,7 @@ function resolveFlatPackageFilename({
     const metadata = parseDebianReleaseAssetName(normalizedFilename);
     if (!metadata) {
         throw new Error(
-            `${arch} Packages contains invalid Filename "${filename}". Expected a NeverWrite Debian release asset name.`,
+            `${arch} Packages contains invalid Filename "${filename}". Expected an AgentDock Debian release asset name.`,
         );
     }
     if (metadata.architecture !== arch) {

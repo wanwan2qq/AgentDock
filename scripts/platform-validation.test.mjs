@@ -17,12 +17,12 @@ function buildMetadataEntries() {
             feedTarget: "darwin-universal",
             metadataFileName: "latest-mac.yml",
             feedRelativePath: "darwin-universal/latest-mac.yml",
-            manualAssetName: "NeverWrite_0.2.0_macOS_Universal.dmg",
-            updaterAssetName: "NeverWrite_0.2.0_macOS_Universal.zip",
+            manualAssetName: "AgentDock_0.2.0_macOS_Universal.dmg",
+            updaterAssetName: "AgentDock_0.2.0_macOS_Universal.zip",
             updaterBlockmapAssetName:
-                "NeverWrite_0.2.0_macOS_Universal.zip.blockmap",
+                "AgentDock_0.2.0_macOS_Universal.zip.blockmap",
             updaterUrl:
-                "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.2.0/NeverWrite_0.2.0_macOS_Universal.zip",
+                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock_0.2.0_macOS_Universal.zip",
         },
         {
             version: "0.2.0",
@@ -30,12 +30,12 @@ function buildMetadataEntries() {
             feedTarget: "windows-arm64",
             metadataFileName: "latest.yml",
             feedRelativePath: "windows-arm64/latest.yml",
-            manualAssetName: "NeverWrite_0.2.0_Windows_ARM64_Setup.exe",
-            updaterAssetName: "NeverWrite_0.2.0_Windows_ARM64_Setup.exe",
+            manualAssetName: "AgentDock_0.2.0_Windows_ARM64_Setup.exe",
+            updaterAssetName: "AgentDock_0.2.0_Windows_ARM64_Setup.exe",
             updaterBlockmapAssetName:
-                "NeverWrite_0.2.0_Windows_ARM64_Setup.exe.blockmap",
+                "AgentDock_0.2.0_Windows_ARM64_Setup.exe.blockmap",
             updaterUrl:
-                "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.2.0/NeverWrite_0.2.0_Windows_ARM64_Setup.exe",
+                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock_0.2.0_Windows_ARM64_Setup.exe",
         },
         {
             version: "0.2.0",
@@ -43,12 +43,12 @@ function buildMetadataEntries() {
             feedTarget: "windows-x64",
             metadataFileName: "latest.yml",
             feedRelativePath: "windows-x64/latest.yml",
-            manualAssetName: "NeverWrite_0.2.0_Windows_x64_Setup.exe",
-            updaterAssetName: "NeverWrite_0.2.0_Windows_x64_Setup.exe",
+            manualAssetName: "AgentDock_0.2.0_Windows_x64_Setup.exe",
+            updaterAssetName: "AgentDock_0.2.0_Windows_x64_Setup.exe",
             updaterBlockmapAssetName:
-                "NeverWrite_0.2.0_Windows_x64_Setup.exe.blockmap",
+                "AgentDock_0.2.0_Windows_x64_Setup.exe.blockmap",
             updaterUrl:
-                "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.2.0/NeverWrite_0.2.0_Windows_x64_Setup.exe",
+                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock_0.2.0_Windows_x64_Setup.exe",
         },
         {
             version: "0.2.0",
@@ -56,14 +56,14 @@ function buildMetadataEntries() {
             feedTarget: "linux-arm64",
             metadataFileName: "latest-linux.yml",
             feedRelativePath: "linux-arm64/latest-linux.yml",
-            manualAssetName: "NeverWrite-0.2.0-arm64.AppImage",
-            updaterAssetName: "NeverWrite-0.2.0-arm64.AppImage",
+            manualAssetName: "AgentDock-0.2.0-arm64.AppImage",
+            updaterAssetName: "AgentDock-0.2.0-arm64.AppImage",
             updaterBlockmapAssetName: null,
             updaterUrl:
-                "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.2.0/NeverWrite-0.2.0-arm64.AppImage",
+                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock-0.2.0-arm64.AppImage",
             additionalManualAssets: [
-                { kind: "deb", assetName: "NeverWrite-0.2.0-arm64.deb", sizeBytes: 456 },
-                { kind: "rpm", assetName: "NeverWrite-0.2.0-aarch64.rpm", sizeBytes: 789 },
+                { kind: "deb", assetName: "AgentDock-0.2.0-arm64.deb", sizeBytes: 456 },
+                { kind: "rpm", assetName: "AgentDock-0.2.0-aarch64.rpm", sizeBytes: 789 },
             ],
         },
         {
@@ -72,14 +72,14 @@ function buildMetadataEntries() {
             feedTarget: "linux-x64",
             metadataFileName: "latest-linux.yml",
             feedRelativePath: "linux-x64/latest-linux.yml",
-            manualAssetName: "NeverWrite-0.2.0-x64.AppImage",
-            updaterAssetName: "NeverWrite-0.2.0-x64.AppImage",
+            manualAssetName: "AgentDock-0.2.0-x64.AppImage",
+            updaterAssetName: "AgentDock-0.2.0-x64.AppImage",
             updaterBlockmapAssetName: null,
             updaterUrl:
-                "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.2.0/NeverWrite-0.2.0-x64.AppImage",
+                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock-0.2.0-x64.AppImage",
             additionalManualAssets: [
-                { kind: "deb", assetName: "NeverWrite-0.2.0-amd64.deb", sizeBytes: 123 },
-                { kind: "rpm", assetName: "NeverWrite-0.2.0-x86_64.rpm", sizeBytes: 456 },
+                { kind: "deb", assetName: "AgentDock-0.2.0-amd64.deb", sizeBytes: 123 },
+                { kind: "rpm", assetName: "AgentDock-0.2.0-x86_64.rpm", sizeBytes: 456 },
             ],
         },
     ];
@@ -129,7 +129,7 @@ test("buildPlatformValidationMatrix aligns feed URLs with target metadata", () =
         version: "0.2.0",
         tag: "v0.2.0",
         channel: "stable",
-        pagesBaseUrl: "https://jsgrrchg.github.io/NeverWrite",
+        pagesBaseUrl: "https://wanwan2qq.github.io/AgentDock",
         metadataEntries: buildMetadataEntries(),
     });
 
@@ -137,28 +137,28 @@ test("buildPlatformValidationMatrix aligns feed URLs with target metadata", () =
     assert.equal(rows[0].buildTarget, "universal-apple-darwin");
     assert.equal(
         rows[0].feedUrl,
-        "https://jsgrrchg.github.io/NeverWrite/stable/darwin-universal/latest-mac.yml",
+        "https://wanwan2qq.github.io/AgentDock/stable/darwin-universal/latest-mac.yml",
     );
     assert.equal(rows[2].feedTarget, "windows-x64");
     assert.equal(
         rows[2].updaterAssetName,
-        "NeverWrite_0.2.0_Windows_x64_Setup.exe",
+        "AgentDock_0.2.0_Windows_x64_Setup.exe",
     );
     assert.equal(rows[4].feedTarget, "linux-x64");
     assert.equal(
         rows[4].updaterAssetName,
-        "NeverWrite-0.2.0-x64.AppImage",
+        "AgentDock-0.2.0-x64.AppImage",
     );
     assert.deepEqual(rows[4].additionalManualAssets, [
-        { kind: "deb", assetName: "NeverWrite-0.2.0-amd64.deb", sizeBytes: 123 },
-        { kind: "rpm", assetName: "NeverWrite-0.2.0-x86_64.rpm", sizeBytes: 456 },
+        { kind: "deb", assetName: "AgentDock-0.2.0-amd64.deb", sizeBytes: 123 },
+        { kind: "rpm", assetName: "AgentDock-0.2.0-x86_64.rpm", sizeBytes: 456 },
     ]);
 });
 
 test("tamperFeedChecksum only modifies the sha512 line", () => {
     const tampered = tamperFeedChecksum(`
 version: 0.2.0
-path: https://example.com/NeverWrite.zip
+path: https://example.com/AgentDock.zip
 sha512: original
 releaseDate: 2026-04-04T12:00:00.000Z
 `);
@@ -173,7 +173,7 @@ test("renderPlatformValidationChecklist includes invalid-checksum fixtures", () 
             version: "0.2.0",
             tag: "v0.2.0",
             channel: "stable",
-            pagesBaseUrl: "https://jsgrrchg.github.io/NeverWrite",
+            pagesBaseUrl: "https://wanwan2qq.github.io/AgentDock",
             metadataEntries: buildMetadataEntries(),
         }),
         channel: "stable",
@@ -191,11 +191,11 @@ test("renderPlatformValidationChecklist includes invalid-checksum fixtures", () 
     );
     assert.match(
         markdown,
-        /Additional manual asset \(deb\): `NeverWrite-0\.2\.0-amd64\.deb`/,
+        /Additional manual asset \(deb\): `AgentDock-0\.2\.0-amd64\.deb`/,
     );
     assert.match(
         markdown,
-        /Additional manual asset \(rpm\): `NeverWrite-0\.2\.0-x86_64\.rpm`/,
+        /Additional manual asset \(rpm\): `AgentDock-0\.2\.0-x86_64\.rpm`/,
     );
 });
 
@@ -203,12 +203,12 @@ test("validateTargetMetadataEntries requires Debian and RPM package metadata for
     const entries = buildMetadataEntries();
     entries[4] = {
         ...entries[4],
-        additionalManualAssets: [{ kind: "deb", assetName: "NeverWrite-0.2.0-amd64.deb", sizeBytes: 123 }],
+        additionalManualAssets: [{ kind: "deb", assetName: "AgentDock-0.2.0-amd64.deb", sizeBytes: 123 }],
     };
 
     assert.throws(
         () => validateTargetMetadataEntries(entries),
-        /must include RPM package NeverWrite-0\.2\.0-x86_64\.rpm/i,
+        /must include RPM package AgentDock-0\.2\.0-x86_64\.rpm/i,
     );
 });
 
@@ -216,11 +216,11 @@ test("validateTargetMetadataEntries requires Debian package metadata for Linux",
     const entries = buildMetadataEntries();
     entries[4] = {
         ...entries[4],
-        additionalManualAssets: [{ kind: "rpm", assetName: "NeverWrite-0.2.0-x86_64.rpm", sizeBytes: 456 }],
+        additionalManualAssets: [{ kind: "rpm", assetName: "AgentDock-0.2.0-x86_64.rpm", sizeBytes: 456 }],
     };
 
     assert.throws(
         () => validateTargetMetadataEntries(entries),
-        /must include Debian package NeverWrite-0\.2\.0-amd64\.deb/i,
+        /must include Debian package AgentDock-0\.2\.0-amd64\.deb/i,
     );
 });

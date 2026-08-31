@@ -5,7 +5,7 @@ import {
     getRecentVaults,
     type RecentVault,
 } from "../../app/store/vaultStore";
-import { openVaultWindow } from "../../app/detachedWindows";
+import { requestOpenVault } from "../../app/vaultOpenRequest";
 import {
     ContextMenu,
     type ContextMenuState,
@@ -69,14 +69,14 @@ export function VaultSwitcher({
     const handleSelectVault = (path: string) => {
         closeSwitcher();
         if (path === vaultPath) return;
-        void openVaultWindow(path);
+        void requestOpenVault(path);
     };
 
     const handleOpenVault = async () => {
         closeSwitcher();
         const selected = await open({ directory: true, title: "选择仓库" });
         if (!selected || selected === vaultPath) return;
-        void openVaultWindow(selected);
+        void requestOpenVault(selected);
     };
 
     const menuItem = (

@@ -48,6 +48,22 @@ struct CheckoutInput {
     create_tracking: bool,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LogInput {
+    vault_path: String,
+    #[serde(default)]
+    branch: Option<String>,
+    #[serde(default = "default_log_limit")]
+    limit: u32,
+    #[serde(default)]
+    skip: u32,
+}
+
+fn default_log_limit() -> u32 {
+    50
+}
+
 fn default_true() -> bool {
     true
 }
@@ -107,6 +123,15 @@ pub fn invoke(command: &str, args: Value) -> Result<Value, String> {
         "git_checkout" => {
             let input: CheckoutInput = parse_input(args)?;
             checkout_branch(&input.vault_path, &input.branch, input.create_tracking)
+        }
+        "git_log" => {
+            let input: LogInput = parse_input(args)?;
+            list_log(
+                &input.vault_path,
+                input.branch.as_deref(),
+                input.limit,
+                input.skip,
+            )
         }
         "git_ignore_neverwrite" => {
             let input: VaultScopedInput = parse_input(args)?;
@@ -381,6 +406,69 @@ fn list_branches(vault_path: &str) -> Result<Value, String> {
         "current": current,
         "local": local,
         "remote": remote,
+    }))
+}
+
+fn list_log(
+    vault_path: &str,
+    branch: Option<&str>,
+    limit: u32,
+    skip: u32,
+) -> Result<Value, String> {
+    let root = normalize_vault_path(vault_path)?;
+    require_git_repo(&root)?;
+
+    let limit = limit.clamp(1, 200);
+    let skip = skip.min(500);
+
+    let mut args: Vec<String> = vec![
+        "log".to_string(),
+        "--format=%H%x09%h%x09%s%x09%an%x09%aI".to_string(),
+        format!("-n{limit}"),
+    ];
+    if skip > 0 {
+        args.push(format!("--skip={skip}"));
+    }
+
+    let resolved_branch = if let Some(name) = branch {
+        Some(sanitize_branch_name(name)?)
+    } else {
+        None
+    };
+    if let Some(name) = resolved_branch.as_deref() {
+        args.push(name.to_string());
+    }
+
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let output = run_git(&root, &arg_refs)?;
+    if !output.status.success() {
+        return Err(format_command_failure("git log", &output));
+    }
+
+    let mut commits: Vec<Value> = Vec::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.splitn(5, '\t');
+        let Some(hash) = parts.next() else { continue };
+        let Some(short_hash) = parts.next() else { continue };
+        let Some(subject) = parts.next() else { continue };
+        let Some(author) = parts.next() else { continue };
+        let Some(date) = parts.next() else { continue };
+        commits.push(json!({
+            "hash": hash,
+            "shortHash": short_hash,
+            "subject": subject,
+            "author": author,
+            "date": date,
+        }));
+    }
+
+    Ok(json!({
+        "branch": resolved_branch,
+        "commits": commits,
     }))
 }
 
@@ -992,5 +1080,73 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn log_lists_commits_on_branch() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        assert!(
+            Command::new("git")
+                .args(["init", "-b", "main"])
+                .current_dir(root)
+                .status()
+                .expect("git init")
+                .success()
+        );
+        for (key, value) in [("user.email", "test@example.com"), ("user.name", "Test")] {
+            assert!(
+                Command::new("git")
+                    .args(["config", key, value])
+                    .current_dir(root)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+
+        fs::write(root.join("a.md"), "a\n").unwrap();
+        assert!(
+            Command::new("git")
+                .args(["add", "a.md"])
+                .current_dir(root)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("git")
+                .args(["commit", "-m", "first commit"])
+                .current_dir(root)
+                .status()
+                .unwrap()
+                .success()
+        );
+
+        fs::write(root.join("b.md"), "b\n").unwrap();
+        assert!(
+            Command::new("git")
+                .args(["add", "b.md"])
+                .current_dir(root)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("git")
+                .args(["commit", "-m", "second commit"])
+                .current_dir(root)
+                .status()
+                .unwrap()
+                .success()
+        );
+
+        let root_str = root.to_str().unwrap();
+        let log = list_log(root_str, Some("main"), 10, 0).expect("log");
+        let commits = log["commits"].as_array().expect("commits array");
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0]["subject"], "second commit");
+        assert_eq!(commits[1]["subject"], "first commit");
+        assert_eq!(commits[0]["shortHash"].as_str().unwrap().len(), 7);
     }
 }

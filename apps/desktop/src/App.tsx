@@ -25,6 +25,7 @@ import { EditorPaneContent } from "./features/editor/EditorPaneContent";
 import { MultiPaneWorkspace } from "./features/editor/MultiPaneWorkspace";
 import { EditorChromeBar } from "./features/editor/EditorChromeBar";
 import { GitStatusBar } from "./features/git/GitStatusBar";
+import { VaultOpenDispositionDialog } from "./features/vault/VaultOpenDispositionDialog";
 import { openUntitledMarkdownNote } from "./features/editor/markdownNoteCreation";
 import { useBookmarkStore } from "./app/store/bookmarkStore";
 import { CommandPalette } from "./features/command-palette/CommandPalette";
@@ -50,6 +51,10 @@ import {
     readDetachedWindowPayload,
 } from "./app/detachedWindows";
 import { bootstrapDetachedWindow } from "./app/detachedWindowBootstrap";
+import {
+    requestOpenVault,
+    setVaultOpenReplaceHandler,
+} from "./app/vaultOpenRequest";
 import {
     buildWindowSessionEntry,
     refreshWindowSessionSnapshot,
@@ -669,8 +674,7 @@ function useRegisterCommands(
             execute: () => {
                 void open({ directory: true, title: "Select vault" }).then(
                     (selected) => {
-                        if (selected)
-                            void useVaultStore.getState().openVault(selected);
+                        if (selected) void requestOpenVault(selected);
                     },
                 );
             },
@@ -1168,7 +1172,7 @@ function useNativeMenuActions(windowMode: ReturnType<typeof getWindowMode>) {
         resolveDeferredUnlisten(
             listen<string>(DOCK_OPEN_VAULT_EVENT, (event) => {
                 if (disposed) return;
-                void openVaultWindow(event.payload);
+                void requestOpenVault(event.payload);
             }),
             {
                 isDisposed: () => disposed,
@@ -1500,6 +1504,11 @@ export default function App() {
             restored?.layoutTree,
         );
     }, [hydrateWorkspace, setEditorPaneSizes]);
+
+    useEffect(() => {
+        setVaultOpenReplaceHandler(restoreSessionForCurrentVault);
+        return () => setVaultOpenReplaceHandler(null);
+    }, [restoreSessionForCurrentVault]);
 
     useEffect(() => {
         const blockNativeContextMenu = (event: MouseEvent) => {
@@ -2288,6 +2297,7 @@ export default function App() {
                     right={<RightPanel />}
                 />
                 <VaultOpeningOverlay />
+                <VaultOpenDispositionDialog />
             </div>
 
             <YouTubeModalHost />

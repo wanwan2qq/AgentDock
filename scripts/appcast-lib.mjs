@@ -11,8 +11,8 @@ import {
 
 export const DEFAULT_APPCAST_CHANNEL = "stable";
 export const APPCAST_CHANNELS = ["stable", "beta", "nightly"];
-export const PUBLIC_PRODUCT_NAME = "NeverWrite";
-export const CANONICAL_RELEASE_REPO_SLUG = "jsgrrchg/NeverWrite";
+export const PUBLIC_PRODUCT_NAME = "AgentDock";
+export const CANONICAL_RELEASE_REPO_SLUG = "wanwan2qq/AgentDock";
 export const V1_BUILD_TARGETS = [
     "universal-apple-darwin",
     "aarch64-pc-windows-msvc",

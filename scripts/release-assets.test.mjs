@@ -74,49 +74,49 @@ test("buildManualDownloadRows exposes the public installer set for humans", () =
             buildTarget: "universal-apple-darwin",
             platformLabel: "macOS",
             architectureLabel: "Universal",
-            recommendedAssetName: "NeverWrite_0.2.0_macOS_Universal.dmg",
+            recommendedAssetName: "AgentDock_0.2.0_macOS_Universal.dmg",
             portableAssetName: null,
         },
         {
             buildTarget: "aarch64-pc-windows-msvc",
             platformLabel: "Windows",
             architectureLabel: "ARM64",
-            recommendedAssetName: "NeverWrite_0.2.0_Windows_ARM64_Setup.exe",
+            recommendedAssetName: "AgentDock_0.2.0_Windows_ARM64_Setup.exe",
             portableAssetName: null,
         },
         {
             buildTarget: "x86_64-pc-windows-msvc",
             platformLabel: "Windows",
             architectureLabel: "x64",
-            recommendedAssetName: "NeverWrite_0.2.0_Windows_x64_Setup.exe",
+            recommendedAssetName: "AgentDock_0.2.0_Windows_x64_Setup.exe",
             portableAssetName: null,
         },
         {
             buildTarget: "aarch64-unknown-linux-gnu",
             platformLabel: "Linux Ubuntu/Debian",
             architectureLabel: "arm64",
-            recommendedAssetName: "NeverWrite-0.2.0-arm64.deb",
-            portableAssetName: "NeverWrite-0.2.0-arm64.AppImage",
+            recommendedAssetName: "AgentDock-0.2.0-arm64.deb",
+            portableAssetName: "AgentDock-0.2.0-arm64.AppImage",
         },
         {
             buildTarget: "x86_64-unknown-linux-gnu",
             platformLabel: "Linux Ubuntu/Debian",
             architectureLabel: "amd64",
-            recommendedAssetName: "NeverWrite-0.2.0-amd64.deb",
-            portableAssetName: "NeverWrite-0.2.0-x64.AppImage",
+            recommendedAssetName: "AgentDock-0.2.0-amd64.deb",
+            portableAssetName: "AgentDock-0.2.0-x64.AppImage",
         },
         {
             buildTarget: "aarch64-unknown-linux-gnu",
             platformLabel: "Linux Fedora/RHEL",
             architectureLabel: "aarch64",
-            recommendedAssetName: "NeverWrite-0.2.0-aarch64.rpm",
+            recommendedAssetName: "AgentDock-0.2.0-aarch64.rpm",
             portableAssetName: null,
         },
         {
             buildTarget: "x86_64-unknown-linux-gnu",
             platformLabel: "Linux Fedora/RHEL",
             architectureLabel: "x86_64",
-            recommendedAssetName: "NeverWrite-0.2.0-x86_64.rpm",
+            recommendedAssetName: "AgentDock-0.2.0-x86_64.rpm",
             portableAssetName: null,
         },
     ]);
@@ -128,25 +128,25 @@ test("buildReleaseBody distinguishes manual installers from internal updater ass
         "## Added\n\n- Manual packaging polish.",
     );
     assert.match(body, /## Manual installers/);
-    assert.match(body, /NeverWrite_0.2.0_macOS_Universal\.dmg/);
-    assert.match(body, /NeverWrite_0.2.0_Windows_x64_Setup\.exe/);
-    assert.match(body, /NeverWrite-0.2.0-amd64\.deb/);
-    assert.match(body, /NeverWrite-0.2.0-x64\.AppImage/);
-    assert.match(body, /NeverWrite-0\.2\.0-x86_64\.rpm/);
-    assert.match(body, /configure the NeverWrite DNF repository/);
+    assert.match(body, /AgentDock_0.2.0_macOS_Universal\.dmg/);
+    assert.match(body, /AgentDock_0.2.0_Windows_x64_Setup\.exe/);
+    assert.match(body, /AgentDock-0.2.0-amd64\.deb/);
+    assert.match(body, /AgentDock-0.2.0-x64\.AppImage/);
+    assert.match(body, /AgentDock-0\.2\.0-x86_64\.rpm/);
+    assert.match(body, /configure the AgentDock DNF repository/);
     assert.match(body, /sudo tee \/etc\/yum\.repos\.d\/neverwrite\.repo/);
     assert.match(body, /repo_gpgcheck=1/);
-    assert.match(body, /configure the NeverWrite APT repository/);
+    assert.match(body, /configure the AgentDock APT repository/);
     assert.match(body, /neverwrite-archive-keyring\.asc/);
     assert.match(body, /internal updater assets/i);
     assert.match(body, /## Browser extensions/);
     assert.match(
         body,
-        /NeverWrite-Web-Clipper-v0\.2\.0-chrome-mv3\.zip/,
+        /AgentDock-Web-Clipper-v0\.2\.0-chrome-mv3\.zip/,
     );
     assert.match(
         body,
-        /NeverWrite-Web-Clipper-v0\.2\.0-firefox-mv3\.zip/,
+        /AgentDock-Web-Clipper-v0\.2\.0-firefox-mv3\.zip/,
     );
     assert.match(body, /Mozilla-signed package/i);
     assert.match(body, /## Release notes/);
@@ -155,11 +155,11 @@ test("buildReleaseBody distinguishes manual installers from internal updater ass
 test("buildWebClipperReleaseAssetName names browser extension release zips", () => {
     assert.equal(
         buildWebClipperReleaseAssetName("0.2.0", "chrome"),
-        "NeverWrite-Web-Clipper-v0.2.0-chrome-mv3.zip",
+        "AgentDock-Web-Clipper-v0.2.0-chrome-mv3.zip",
     );
     assert.equal(
         buildWebClipperReleaseAssetName("v0.2.0", "firefox"),
-        "NeverWrite-Web-Clipper-v0.2.0-firefox-mv3.zip",
+        "AgentDock-Web-Clipper-v0.2.0-firefox-mv3.zip",
     );
     assert.throws(
         () => buildWebClipperReleaseAssetName("0.2.0", "safari"),
@@ -174,13 +174,13 @@ test("collectBundleArtifacts locates macOS bundles and updater archives", () => 
         fs.mkdirSync(dmgDir, { recursive: true });
         fs.mkdirSync(macosDir, { recursive: true });
 
-        fs.writeFileSync(path.join(dmgDir, "NeverWrite.dmg"), "dmg");
-        fs.writeFileSync(path.join(macosDir, "NeverWrite.app.tar.gz"), "tar");
+        fs.writeFileSync(path.join(dmgDir, "AgentDock.dmg"), "dmg");
+        fs.writeFileSync(path.join(macosDir, "AgentDock.app.tar.gz"), "tar");
         fs.writeFileSync(
-            path.join(macosDir, "NeverWrite.app.tar.gz.sig"),
+            path.join(macosDir, "AgentDock.app.tar.gz.sig"),
             "sig",
         );
-        fs.mkdirSync(path.join(macosDir, "NeverWrite.app"));
+        fs.mkdirSync(path.join(macosDir, "AgentDock.app"));
 
         const artifacts = collectBundleArtifacts(
             tempDir,
@@ -188,23 +188,23 @@ test("collectBundleArtifacts locates macOS bundles and updater archives", () => 
         );
         assert.equal(
             path.basename(artifacts.manualAssetPath),
-            "NeverWrite.dmg",
+            "AgentDock.dmg",
         );
         assert.equal(
             path.basename(artifacts.updaterAssetPath),
-            "NeverWrite.app.tar.gz",
+            "AgentDock.app.tar.gz",
         );
         assert.equal(
             path.basename(artifacts.updaterSignaturePath),
-            "NeverWrite.app.tar.gz.sig",
+            "AgentDock.app.tar.gz.sig",
         );
-        assert.equal(path.basename(artifacts.appBundlePath), "NeverWrite.app");
+        assert.equal(path.basename(artifacts.appBundlePath), "AgentDock.app");
     });
 });
 
 test("validateMacosBundleResources ensures resources exist inside the app bundle", () => {
     withTempDir((tempDir) => {
-        const appBundlePath = path.join(tempDir, "NeverWrite.app");
+        const appBundlePath = path.join(tempDir, "AgentDock.app");
         const resourcesDir = path.join(appBundlePath, "Contents", "Resources");
         for (const relativePath of requiredStagedResourcePaths(
             "universal-apple-darwin",
@@ -228,15 +228,15 @@ test("stageReleaseAssets renames manual installers and emits appcast metadata", 
         fs.mkdirSync(nsisDir, { recursive: true });
 
         fs.writeFileSync(
-            path.join(nsisDir, "NeverWrite_0.2.0_x64-setup.exe"),
+            path.join(nsisDir, "AgentDock_0.2.0_x64-setup.exe"),
             "installer",
         );
         fs.writeFileSync(
-            path.join(nsisDir, "NeverWrite-setup.nsis.zip"),
+            path.join(nsisDir, "AgentDock-setup.nsis.zip"),
             "updater",
         );
         fs.writeFileSync(
-            path.join(nsisDir, "NeverWrite-setup.nsis.zip.sig"),
+            path.join(nsisDir, "AgentDock-setup.nsis.zip.sig"),
             "sig-win-x64",
         );
 
@@ -245,46 +245,46 @@ test("stageReleaseAssets renames manual installers and emits appcast metadata", 
             buildTarget: "x86_64-pc-windows-msvc",
             version: "0.2.0",
             tag: "v0.2.0",
-            repoSlug: "jsgrrchg/NeverWrite",
+            repoSlug: "wanwan2qq/AgentDock",
             outputDir,
         });
 
         assert.equal(
             metadata.manualAssetName,
-            "NeverWrite_0.2.0_Windows_x64_Setup.exe",
+            "AgentDock_0.2.0_Windows_x64_Setup.exe",
         );
         assert.equal(metadata.appcastKey, "windows-x86_64");
         assert.equal(
             metadata.updaterAssetName,
-            "NeverWrite_0.2.0_Windows_x64.nsis.zip",
+            "AgentDock_0.2.0_Windows_x64.nsis.zip",
         );
         assert.equal(
             metadata.updaterUrl,
-            "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.2.0/NeverWrite_0.2.0_Windows_x64.nsis.zip",
+            "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock_0.2.0_Windows_x64.nsis.zip",
         );
         assert.equal(metadata.updaterSignature, "sig-win-x64");
         assert.ok(
             fs.existsSync(
-                path.join(outputDir, "NeverWrite_0.2.0_Windows_x64_Setup.exe"),
+                path.join(outputDir, "AgentDock_0.2.0_Windows_x64_Setup.exe"),
             ),
         );
         assert.ok(
             fs.existsSync(
-                path.join(outputDir, "NeverWrite_0.2.0_Windows_x64.nsis.zip"),
+                path.join(outputDir, "AgentDock_0.2.0_Windows_x64.nsis.zip"),
             ),
         );
         assert.ok(
             fs.existsSync(
                 path.join(
                     outputDir,
-                    "NeverWrite_0.2.0_Windows_x64.nsis.zip.sig",
+                    "AgentDock_0.2.0_Windows_x64.nsis.zip.sig",
                 ),
             ),
         );
     });
 });
 
-test("stageReleaseAssets fails fast when bundled updater assets do not follow the native NeverWrite naming", () => {
+test("stageReleaseAssets fails fast when bundled updater assets do not follow the native AgentDock naming", () => {
     withTempDir((tempDir) => {
         const bundleRoot = path.join(tempDir, "bundle");
         const nsisDir = path.join(bundleRoot, "nsis");
@@ -292,15 +292,15 @@ test("stageReleaseAssets fails fast when bundled updater assets do not follow th
         fs.mkdirSync(nsisDir, { recursive: true });
 
         fs.writeFileSync(
-            path.join(nsisDir, "NeverWrite_0.2.0_x64-setup.exe"),
+            path.join(nsisDir, "AgentDock_0.2.0_x64-setup.exe"),
             "installer",
         );
         fs.writeFileSync(
-            path.join(nsisDir, "NeverWrite_0.2.0_x64.nsis.zip"),
+            path.join(nsisDir, "AgentDock_0.2.0_x64.nsis.zip"),
             "updater",
         );
         fs.writeFileSync(
-            path.join(nsisDir, "NeverWrite_0.2.0_x64.nsis.zip.sig"),
+            path.join(nsisDir, "AgentDock_0.2.0_x64.nsis.zip.sig"),
             "sig-win-x64",
         );
 
@@ -311,7 +311,7 @@ test("stageReleaseAssets fails fast when bundled updater assets do not follow th
                     buildTarget: "x86_64-pc-windows-msvc",
                     version: "0.2.0",
                     tag: "v0.2.0",
-                    repoSlug: "jsgrrchg/NeverWrite",
+                    repoSlug: "wanwan2qq/AgentDock",
                     outputDir,
                 }),
             /Unexpected updater asset name/i,

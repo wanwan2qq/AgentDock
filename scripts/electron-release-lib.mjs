@@ -9,6 +9,7 @@ import {
     describeRpmPackage,
     normalizeAppcastChannel,
     normalizeReleaseVersion,
+    PUBLIC_PRODUCT_NAME,
     rpmArchForBuildTarget,
 } from "./appcast-lib.mjs";
 
@@ -68,15 +69,15 @@ export function buildElectronUpdaterAssetName(version, buildTarget) {
 
     switch (buildTarget) {
         case "universal-apple-darwin":
-            return `NeverWrite_${normalizedVersion}_macOS_Universal.zip`;
+            return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_macOS_Universal.zip`;
         case "aarch64-pc-windows-msvc":
-            return `NeverWrite_${normalizedVersion}_Windows_ARM64_Setup.exe`;
+            return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_Windows_ARM64_Setup.exe`;
         case "x86_64-pc-windows-msvc":
-            return `NeverWrite_${normalizedVersion}_Windows_x64_Setup.exe`;
+            return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_Windows_x64_Setup.exe`;
         case "aarch64-unknown-linux-gnu":
-            return `NeverWrite-${normalizedVersion}-arm64.AppImage`;
+            return `${PUBLIC_PRODUCT_NAME}-${normalizedVersion}-arm64.AppImage`;
         case "x86_64-unknown-linux-gnu":
-            return `NeverWrite-${normalizedVersion}-x64.AppImage`;
+            return `${PUBLIC_PRODUCT_NAME}-${normalizedVersion}-x64.AppImage`;
         default:
             throw new Error(`Unsupported build target "${buildTarget}".`);
     }

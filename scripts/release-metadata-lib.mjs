@@ -39,7 +39,7 @@ export const CHANGELOG_PATH = path.join(REPO_ROOT, "CHANGELOG.md");
 
 const STRICT_SEMVER_RE = /^\d+\.\d+\.\d+$/;
 const RELEASE_TAG_RE = /^v(\d+\.\d+\.\d+)$/;
-const EXPECTED_DESKTOP_PRODUCT_NAME = "NeverWrite";
+const EXPECTED_DESKTOP_PRODUCT_NAME = "AgentDock";
 const EXPECTED_DESKTOP_IDENTIFIER = "com.neverwrite";
 
 export function isStrictSemver(value) {

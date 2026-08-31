@@ -48,6 +48,7 @@ import {
 } from "../../app/store/editorStore";
 import { useSettingsStore } from "../../app/store/settingsStore";
 import { useVaultStore } from "../../app/store/vaultStore";
+import { requestOpenVault } from "../../app/vaultOpenRequest";
 import {
     getCodeMirrorShortcut,
     matchesShortcutAction,
@@ -538,7 +539,6 @@ export function Editor({
     const vaultPath = useVaultStore((s) => s.vaultPath);
     const updateNoteMetadata = useVaultStore((s) => s.updateNoteMetadata);
     const touchContent = useVaultStore((s) => s.touchContent);
-    const openVault = useVaultStore((s) => s.openVault);
     const lastVaultPathRef = useRef<string | null>(vaultPath);
     const getPaneSnapshot = useCallback(
         () => selectEditorPaneState(useEditorStore.getState(), paneId),
@@ -3391,7 +3391,7 @@ export function Editor({
                 } else if (type === "drop") {
                     setIsDraggingVault(false);
                     const path = event.payload.paths[0];
-                    if (path) void openVault(path);
+                    if (path) void requestOpenVault(path);
                 } else {
                     setIsDraggingVault(false);
                 }
@@ -3404,7 +3404,7 @@ export function Editor({
             mounted = false;
             unlisten?.();
         };
-    }, [activeTabInfo, isVisible, openVault]);
+    }, [activeTabInfo, isVisible]);
 
     // Syntax highlighting resolves through `--code-*` CSS vars now, so the
     // editor repaints automatically when `applyThemeColors` updates the

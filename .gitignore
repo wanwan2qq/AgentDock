@@ -27,6 +27,8 @@ apps/desktop/dist/
 apps/desktop/dist-electron/
 apps/desktop/dist-electron*/
 apps/desktop/out/
+# Copied/extracted Vite renderer entry bundles (build artifacts)
+apps/desktop/index-*.js
 apps/desktop/node_modules/
 apps/desktop/test-results/
 apps/desktop/playwright-report/

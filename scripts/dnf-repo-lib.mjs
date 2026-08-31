@@ -5,6 +5,7 @@ import {
     normalizeReleaseVersion,
     buildRpmPackageAssetName,
     parseGitHubRepoSlug,
+    PUBLIC_PRODUCT_NAME,
 } from "./appcast-lib.mjs";
 
 export const DNF_REPOSITORY_RELATIVE_ROOT = "dnf";
@@ -58,7 +59,7 @@ export function buildNeverWriteRepoExample(baseUrl = DNF_DEFAULT_BASE_URL) {
     const normalizedUrl = baseUrl.replace(/\/+$/, "");
     return [
         "[neverwrite]",
-        "name=NeverWrite",
+        `name=${PUBLIC_PRODUCT_NAME}`,
         `baseurl=${normalizedUrl}`,
         "enabled=1",
         "gpgcheck=1",

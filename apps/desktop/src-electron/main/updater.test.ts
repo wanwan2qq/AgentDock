@@ -88,7 +88,7 @@ describe("ElectronAppUpdater configuration", () => {
             channel: "stable",
             currentVersion: "0.2.0",
             endpoint:
-                "https://jsgrrchg.github.io/NeverWrite/stable/darwin-universal/latest-mac.yml",
+                "https://wanwan2qq.github.io/AgentDock/stable/darwin-universal/latest-mac.yml",
             message: null,
             update: null,
         });
@@ -130,7 +130,7 @@ describe("ElectronAppUpdater configuration", () => {
         expect(status).toMatchObject({
             enabled: true,
             endpoint:
-                "https://jsgrrchg.github.io/NeverWrite/stable/linux-x64/latest-linux.yml",
+                "https://wanwan2qq.github.io/AgentDock/stable/linux-x64/latest-linux.yml",
             message: null,
         });
     });
@@ -144,7 +144,7 @@ describe("ElectronAppUpdater configuration", () => {
         expect(status).toMatchObject({
             enabled: true,
             endpoint:
-                "https://jsgrrchg.github.io/NeverWrite/stable/linux-arm64/latest-linux-arm64.yml",
+                "https://wanwan2qq.github.io/AgentDock/stable/linux-arm64/latest-linux-arm64.yml",
             message: null,
         });
     });
@@ -158,7 +158,7 @@ describe("ElectronAppUpdater configuration", () => {
             enabled: false,
             endpoint: null,
             message:
-                "Updates for Debian packages are handled by apt when the NeverWrite APT repository is configured.",
+                "Updates for Debian packages are handled by apt when the AgentDock APT repository is configured.",
             update: null,
         });
     });
@@ -172,7 +172,7 @@ describe("ElectronAppUpdater configuration", () => {
             enabled: false,
             endpoint: null,
             message:
-                "Updates for Debian packages are handled by apt when the NeverWrite APT repository is configured.",
+                "Updates for Debian packages are handled by apt when the AgentDock APT repository is configured.",
             update: null,
         });
     });

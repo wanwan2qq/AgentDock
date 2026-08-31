@@ -34,6 +34,19 @@ refactors, dependency updates, CI changes, and code cleanup do not belong here.
 
 ---
 
+## [0.5.1] - 2026-08-31
+
+### Added
+
+- Added workspace tab focus mode to hide side chrome and maximize the active editor pane, with keyboard shortcut, command palette entry, and Escape to exit.
+- Added a disposition dialog when opening a vault while another is already open: replace the current window, open in a new window, or cancel.
+- Added branch commit history to the Git panel, showing recent commits on the current branch with load-more pagination.
+
+### Changed
+
+- Changed the desktop auto-update feed and release links to the AgentDock fork (`wanwan2qq/AgentDock`) so fork releases can be published independently.
+- Renamed public release artifacts and update metadata from NeverWrite to AgentDock.
+
 ## [0.5.0] - 2026-07-12
 
 ### Added

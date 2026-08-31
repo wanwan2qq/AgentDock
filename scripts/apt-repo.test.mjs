@@ -70,7 +70,7 @@ function writeFixtureAptRepository({ filenamesByArchitecture = {} } = {}) {
                 "Package: neverwrite",
                 "Version: 0.3.0",
                 `Architecture: ${architecture}`,
-                "Description: NeverWrite desktop",
+                "Description: AgentDock desktop",
                 "",
             ].join("\n")),
             filename: filenamesByArchitecture[architecture] ?? packageRelativePath,
@@ -168,7 +168,7 @@ function writeFixtureFlatAptRepository({ filenamesByArchitecture = {} } = {}) {
                     "Package: neverwrite",
                     "Version: 0.3.0",
                     `Architecture: ${architecture}`,
-                    "Description: NeverWrite desktop",
+                    "Description: AgentDock desktop",
                     "",
                 ].join("\n")),
                 filename: filenamesByArchitecture[architecture] ?? assetName,
@@ -254,11 +254,11 @@ test("APT binary package paths are scoped by architecture", () => {
 test("Debian release asset names match GitHub Release assets", () => {
     assert.equal(
         buildDebianReleaseAssetName("0.2.8", "amd64"),
-        "NeverWrite-0.2.8-amd64.deb",
+        "AgentDock-0.2.8-amd64.deb",
     );
     assert.equal(
         buildDebianReleaseAssetName("0.2.8", "arm64"),
-        "NeverWrite-0.2.8-arm64.deb",
+        "AgentDock-0.2.8-arm64.deb",
     );
 });
 
@@ -271,7 +271,7 @@ test("APT config normalizers reject unsupported repository dimensions", () => {
     assert.throws(() => normalizeDebianArchitecture("riscv64"), /Unsupported Debian architecture/i);
 });
 
-test("NeverWrite Deb822 source example uses the public APT endpoint", () => {
+test("AgentDock Deb822 source example uses the public APT endpoint", () => {
     const source = buildNeverWriteSourcesExample();
     assert.match(source, new RegExp(`URIs: ${APT_DEFAULT_BASE_URL}`));
     assert.match(source, /Suites: stable/);
@@ -280,7 +280,7 @@ test("NeverWrite Deb822 source example uses the public APT endpoint", () => {
     assert.match(source, /Signed-By: \/etc\/apt\/keyrings\/neverwrite\.asc/);
 });
 
-test("NeverWrite Deb822 source example supports the flat release endpoint", () => {
+test("AgentDock Deb822 source example supports the flat release endpoint", () => {
     const source = buildNeverWriteSourcesExample(APT_RELEASE_DOWNLOAD_BASE_URL, {
         suite: APT_EXACT_PATH_SUITE,
         component: null,
@@ -296,13 +296,13 @@ test("Debian control parsing preserves multiline descriptions", () => {
     const fields = parseDebianControlStanza([
         "Package: neverwrite",
         "Version: 0.2.8",
-        "Description: NeverWrite desktop",
+        "Description: AgentDock desktop",
         " poweruser writing app",
         "",
     ].join("\n"));
 
     assert.equal(fields.length, 3);
-    assert.equal(fields[2].value, "NeverWrite desktop\n poweruser writing app");
+    assert.equal(fields[2].value, "AgentDock desktop\n poweruser writing app");
 });
 
 test("Packages stanzas append repository filename and checksums", () => {
@@ -311,7 +311,7 @@ test("Packages stanzas append repository filename and checksums", () => {
             "Package: neverwrite",
             "Version: 0.2.8",
             "Architecture: amd64",
-            "Description: NeverWrite desktop",
+            "Description: AgentDock desktop",
             "",
         ].join("\n")),
         filename: "pool/main/n/neverwrite/neverwrite_0.2.8_amd64.deb",
@@ -346,7 +346,7 @@ test("Release file includes suite, architectures, components, and checksums", ()
         generatedAt: new Date("2026-05-24T12:00:00Z"),
     });
 
-    assert.match(release, /^Origin: NeverWrite$/m);
+    assert.match(release, /^Origin: AgentDock$/m);
     assert.match(release, /^Suite: stable$/m);
     assert.match(release, /^Codename: neverwrite-stable$/m);
     assert.match(release, /^Architectures: amd64 arm64$/m);
@@ -360,7 +360,7 @@ test("APT pool file parser and version sorter support retention", () => {
         version: "0.2.8",
         architecture: "amd64",
     });
-    assert.equal(parseAptPoolPackageFileName("NeverWrite-0.2.8-amd64.deb"), null);
+    assert.equal(parseAptPoolPackageFileName("AgentDock-0.2.8-amd64.deb"), null);
     assert.deepEqual(
         ["0.2.8", "0.3.0", "0.2.10"].sort(compareReleaseVersionsDescending),
         ["0.3.0", "0.2.10", "0.2.8"],
@@ -380,7 +380,7 @@ test("APT repository validator accepts local pool package filenames", (t) => {
 test("APT repository validator rejects package Filename URLs", (t) => {
     const { rootDir, aptDir } = writeFixtureAptRepository({
         filenamesByArchitecture: {
-            amd64: "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.3.0/NeverWrite-0.3.0-amd64.deb",
+            amd64: "https://github.com/wanwan2qq/AgentDock/releases/download/v0.3.0/AgentDock-0.3.0-amd64.deb",
         },
     });
     t.after(() => fs.rmSync(rootDir, { recursive: true, force: true }));
@@ -419,7 +419,7 @@ test("APT repository validator rejects flat package Filename paths", (t) => {
 test("APT repository validator rejects flat package Filename URLs", (t) => {
     const { rootDir, aptDir, packageAssetsDir } = writeFixtureFlatAptRepository({
         filenamesByArchitecture: {
-            amd64: "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.3.0/NeverWrite-0.3.0-amd64.deb",
+            amd64: "https://github.com/wanwan2qq/AgentDock/releases/download/v0.3.0/AgentDock-0.3.0-amd64.deb",
         },
     });
     t.after(() => fs.rmSync(rootDir, { recursive: true, force: true }));

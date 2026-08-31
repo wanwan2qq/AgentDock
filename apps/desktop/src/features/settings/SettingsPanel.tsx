@@ -2575,14 +2575,14 @@ const MONO_FONT_STACK =
     'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
 
 const RELEASE_NOTES_URL =
-    "https://github.com/jsgrrchg/NeverWrite/releases/latest";
-const REPOSITORY_ISSUES_URL = "https://github.com/jsgrrchg/NeverWrite/issues";
+    "https://github.com/wanwan2qq/AgentDock/releases/latest";
+const REPOSITORY_ISSUES_URL = "https://github.com/wanwan2qq/AgentDock/issues";
 const REPOSITORY_DISCUSSIONS_URL =
-    "https://github.com/jsgrrchg/NeverWrite/discussions";
+    "https://github.com/wanwan2qq/AgentDock/discussions";
 const NEW_REPOSITORY_ISSUE_URL =
-    "https://github.com/jsgrrchg/NeverWrite/issues/new";
+    "https://github.com/wanwan2qq/AgentDock/issues/new";
 const NEW_REPOSITORY_DISCUSSION_URL =
-    "https://github.com/jsgrrchg/NeverWrite/discussions/new/choose";
+    "https://github.com/wanwan2qq/AgentDock/discussions/new/choose";
 const BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/jsgrrchg";
 const GITHUB_SPONSORS_URL = "https://github.com/sponsors/jsgrrchg";
 

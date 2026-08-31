@@ -121,14 +121,14 @@ version = "0.15.0"
     );
 });
 
-test("collectReleaseIdentityIssues enforces the NeverWrite desktop identity", () => {
+test("collectReleaseIdentityIssues enforces the AgentDock desktop identity", () => {
     assert.deepEqual(
         collectReleaseIdentityIssues({
             productName: "OldProduct",
             identifier: "com.oldproduct",
         }),
         [
-            'electron-builder.config.mjs productName must be "NeverWrite", received "OldProduct".',
+            'electron-builder.config.mjs productName must be "AgentDock", received "OldProduct".',
             'electron-builder.config.mjs appId must be "com.neverwrite", received "com.oldproduct".',
         ],
     );

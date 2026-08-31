@@ -17,7 +17,7 @@ export const APT_PACKAGE_NAME = "neverwrite";
 export const APT_ORIGIN = PUBLIC_PRODUCT_NAME;
 export const APT_LABEL = PUBLIC_PRODUCT_NAME;
 export const APT_DESCRIPTION =
-    "NeverWrite desktop Debian package repository";
+    "AgentDock desktop Debian package repository";
 export const APT_DEFAULT_SUITE = "stable";
 export const APT_EXACT_PATH_SUITE = "./";
 export const APT_DEFAULT_CODENAME = "neverwrite-stable";

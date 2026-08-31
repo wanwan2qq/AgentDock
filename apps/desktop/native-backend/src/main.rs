@@ -920,6 +920,7 @@ impl NativeBackend {
             | "git_list_conflicts"
             | "git_list_branches"
             | "git_checkout"
+            | "git_log"
             | "git_ignore_neverwrite" => git::invoke(command, args),
             "spellcheck_list_languages"
             | "spellcheck_list_catalog"

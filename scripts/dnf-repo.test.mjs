@@ -36,7 +36,7 @@ function writeFixtureDnfRepository(
     rootDir,
     {
         version = "0.4.0",
-        packageLocationBase = "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.4.0",
+        packageLocationBase = "https://github.com/wanwan2qq/AgentDock/releases/download/v0.4.0",
         includePackageBinary = false,
     } = {},
 ) {
@@ -115,34 +115,34 @@ function validateDnfRepository(dnfDir, version = "0.4.0") {
 test("RPM release asset names use RPM architecture naming", () => {
     assert.equal(
         buildRpmReleaseAssetName("0.3.0", "x86_64"),
-        "NeverWrite-0.3.0-x86_64.rpm",
+        "AgentDock-0.3.0-x86_64.rpm",
     );
     assert.equal(
         buildRpmReleaseAssetName("0.3.0", "aarch64"),
-        "NeverWrite-0.3.0-aarch64.rpm",
+        "AgentDock-0.3.0-aarch64.rpm",
     );
 });
 
 test("buildGitHubReleaseRpmLocationPrefix builds GitHub release asset prefix", () => {
     assert.equal(
-        buildGitHubReleaseRpmLocationPrefix("jsgrrchg/NeverWrite", "v0.3.0"),
-        "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.3.0/",
+        buildGitHubReleaseRpmLocationPrefix("wanwan2qq/AgentDock", "v0.3.0"),
+        "https://github.com/wanwan2qq/AgentDock/releases/download/v0.3.0/",
     );
 });
 
 test("buildGitHubReleaseRpmUrl builds correct GitHub URL", () => {
     const url = buildGitHubReleaseRpmUrl(
-        "jsgrrchg/NeverWrite", "v0.3.0", "0.3.0", "x86_64",
+        "wanwan2qq/AgentDock", "v0.3.0", "0.3.0", "x86_64",
     );
     assert.equal(
         url,
-        "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.3.0/NeverWrite-0.3.0-x86_64.rpm",
+        "https://github.com/wanwan2qq/AgentDock/releases/download/v0.3.0/AgentDock-0.3.0-x86_64.rpm",
     );
 });
 
 test("buildNeverWriteRepoExample uses the public DNF endpoint", () => {
     const example = buildNeverWriteRepoExample();
-    assert.match(example, /baseurl=https:\/\/jsgrrchg\.github\.io\/NeverWrite\/dnf/);
+    assert.match(example, /baseurl=https:\/\/wanwan2qq\.github\.io\/AgentDock\/dnf/);
     assert.match(example, /gpgcheck=1/);
     assert.match(example, /repo_gpgcheck=1/);
     assert.match(example, /\[neverwrite\]/);
@@ -183,7 +183,7 @@ test("validate-dnf-repository rejects package binaries in the DNF metadata tree"
 test("validate-dnf-repository rejects package locations outside GitHub Releases", () => {
     withTempDir((tempDir) => {
         const dnfDir = writeFixtureDnfRepository(tempDir, {
-            packageLocationBase: "https://jsgrrchg.github.io/NeverWrite/dnf",
+            packageLocationBase: "https://wanwan2qq.github.io/AgentDock/dnf",
         });
         const result = validateDnfRepository(dnfDir);
 

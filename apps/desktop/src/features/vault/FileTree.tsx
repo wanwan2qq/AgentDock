@@ -34,6 +34,7 @@ import {
     type NoteDto,
     type VaultEntryDto,
 } from "../../app/store/vaultStore";
+import { requestOpenVault } from "../../app/vaultOpenRequest";
 import {
     useEditorStore,
     isFileTab,
@@ -1693,7 +1694,6 @@ const FlatTreeRowView = memo(
 // --- Open vault form ---
 
 function OpenVaultForm() {
-    const openVault = useVaultStore((s) => s.openVault);
     const cancelOpenVault = useVaultStore((s) => s.cancelOpenVault);
     const isLoading = useVaultStore((s) => s.isLoading);
     const vaultOpenState = useVaultStore((s) => s.vaultOpenState);
@@ -1704,7 +1704,7 @@ function OpenVaultForm() {
             directory: true,
             title: "选择知识库文件夹",
         });
-        if (selected) openVault(selected);
+        if (selected) void requestOpenVault(selected);
     };
 
     return (

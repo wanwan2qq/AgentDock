@@ -46,26 +46,26 @@ test("buildChannelAppcastUrl joins the public base url and channel path", () => 
 test("buildPublicReleaseAssetName uses the human-facing naming convention", () => {
     assert.equal(
         buildPublicReleaseAssetName("0.2.0", "universal-apple-darwin"),
-        "NeverWrite_0.2.0_macOS_Universal.dmg",
+        "AgentDock_0.2.0_macOS_Universal.dmg",
     );
     assert.equal(
         buildPublicReleaseAssetName("0.2.0", "x86_64-pc-windows-msvc"),
-        "NeverWrite_0.2.0_Windows_x64_Setup.exe",
+        "AgentDock_0.2.0_Windows_x64_Setup.exe",
     );
     assert.equal(
         buildPublicReleaseAssetName("0.2.0", "x86_64-unknown-linux-gnu"),
-        "NeverWrite-0.2.0-x64.AppImage",
+        "AgentDock-0.2.0-x64.AppImage",
     );
 });
 
 test("buildDebianPackageAssetName uses Debian architecture names", () => {
     assert.equal(
         buildDebianPackageAssetName("0.2.0", "x86_64-unknown-linux-gnu"),
-        "NeverWrite-0.2.0-amd64.deb",
+        "AgentDock-0.2.0-amd64.deb",
     );
     assert.equal(
         buildDebianPackageAssetName("0.2.0", "aarch64-unknown-linux-gnu"),
-        "NeverWrite-0.2.0-arm64.deb",
+        "AgentDock-0.2.0-arm64.deb",
     );
     assert.throws(
         () => buildDebianPackageAssetName("0.2.0", "universal-apple-darwin"),
@@ -76,11 +76,11 @@ test("buildDebianPackageAssetName uses Debian architecture names", () => {
 test("buildRpmPackageAssetName uses RPM architecture names", () => {
     assert.equal(
         buildRpmPackageAssetName("0.3.0", "x86_64-unknown-linux-gnu"),
-        "NeverWrite-0.3.0-x86_64.rpm",
+        "AgentDock-0.3.0-x86_64.rpm",
     );
     assert.equal(
         buildRpmPackageAssetName("0.3.0", "aarch64-unknown-linux-gnu"),
-        "NeverWrite-0.3.0-aarch64.rpm",
+        "AgentDock-0.3.0-aarch64.rpm",
     );
 });
 
@@ -121,36 +121,36 @@ test("describeUpdaterArtifactKind documents updater archive families", () => {
         "Windows updater archive (.nsis.zip)",
     );
     assert.equal(
-        getSignatureAssetName("NeverWrite.app.tar.gz"),
-        "NeverWrite.app.tar.gz.sig",
+        getSignatureAssetName("AgentDock.app.tar.gz"),
+        "AgentDock.app.tar.gz.sig",
     );
 });
 
 test("canonical bundle and updater artifact names are fixed for v1 release automation", () => {
-    assert.equal(getCanonicalAppBundleName(), "NeverWrite.app");
+    assert.equal(getCanonicalAppBundleName(), "AgentDock.app");
     assert.equal(
         getBundledUpdaterArtifactName("universal-apple-darwin"),
-        "NeverWrite.app.tar.gz",
+        "AgentDock.app.tar.gz",
     );
     assert.equal(
         getBundledUpdaterArtifactName("x86_64-pc-windows-msvc"),
-        "NeverWrite-setup.nsis.zip",
+        "AgentDock-setup.nsis.zip",
     );
     assert.equal(
         buildUpdaterReleaseAssetName("0.2.0", "universal-apple-darwin"),
-        "NeverWrite_0.2.0_macOS_Universal.app.tar.gz",
+        "AgentDock_0.2.0_macOS_Universal.app.tar.gz",
     );
     assert.equal(
         buildUpdaterReleaseAssetName("0.2.0", "x86_64-pc-windows-msvc"),
-        "NeverWrite_0.2.0_Windows_x64.nsis.zip",
+        "AgentDock_0.2.0_Windows_x64.nsis.zip",
     );
     assert.equal(
         getBundledUpdaterArtifactName("x86_64-unknown-linux-gnu"),
-        "NeverWrite-x64.AppImage",
+        "AgentDock-x64.AppImage",
     );
     assert.equal(
         buildUpdaterReleaseAssetName("0.2.0", "x86_64-unknown-linux-gnu"),
-        "NeverWrite-0.2.0-x64.AppImage",
+        "AgentDock-0.2.0-x64.AppImage",
     );
 });
 

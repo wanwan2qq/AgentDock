@@ -43,19 +43,19 @@ test("stage-electron-release-assets rewrites macOS feed metadata", () => {
             "darwin-universal.json",
         );
 
-        writeFile(path.join(distDir, "NeverWrite.dmg"), "manual");
-        writeFile(path.join(distDir, "NeverWrite.zip"), "updater");
-        writeFile(path.join(distDir, "NeverWrite.zip.blockmap"), "blockmap");
+        writeFile(path.join(distDir, "AgentDock.dmg"), "manual");
+        writeFile(path.join(distDir, "AgentDock.zip"), "updater");
+        writeFile(path.join(distDir, "AgentDock.zip.blockmap"), "blockmap");
         writeFile(
             path.join(distDir, "latest-mac.yml"),
             [
                 "version: 0.2.0",
-                "path: NeverWrite.zip",
+                "path: AgentDock.zip",
                 "sha512: original",
                 "files:",
-                "  - url: NeverWrite.zip",
+                "  - url: AgentDock.zip",
                 "    sha512: original",
-                "  - url: NeverWrite.dmg",
+                "  - url: AgentDock.dmg",
                 "    sha512: manual",
                 "",
             ].join("\n"),
@@ -74,7 +74,7 @@ test("stage-electron-release-assets rewrites macOS feed metadata", () => {
                 "--tag",
                 "v0.2.0",
                 "--repo",
-                "jsgrrchg/NeverWrite",
+                "wanwan2qq/AgentDock",
                 "--output-dir",
                 outputDir,
                 "--metadata-out",
@@ -98,32 +98,32 @@ test("stage-electron-release-assets rewrites macOS feed metadata", () => {
         );
         assert.equal(
             metadata.updaterAssetName,
-            "NeverWrite_0.2.0_macOS_Universal.zip",
+            "AgentDock_0.2.0_macOS_Universal.zip",
         );
         assert.equal(metadata.manualAssetSizeBytes, 6);
         assert.equal(metadata.updaterAssetSizeBytes, 7);
         assert.equal(metadata.updaterBlockmapSizeBytes, 8);
         assert.match(
             rewrittenFeed,
-            /https:\/\/github\.com\/jsgrrchg\/NeverWrite\/releases\/download\/v0\.2\.0\/NeverWrite_0\.2\.0_macOS_Universal\.zip/,
+            /https:\/\/github\.com\/wanwan2qq\/AgentDock\/releases\/download\/v0\.2\.0\/AgentDock_0\.2\.0_macOS_Universal\.zip/,
         );
         assert.match(
             rewrittenFeed,
-            /files:\n\s+- url: https:\/\/github\.com\/jsgrrchg\/NeverWrite\/releases\/download\/v0\.2\.0\/NeverWrite_0\.2\.0_macOS_Universal\.zip/,
+            /files:\n\s+- url: https:\/\/github\.com\/wanwan2qq\/AgentDock\/releases\/download\/v0\.2\.0\/AgentDock_0\.2\.0_macOS_Universal\.zip/,
         );
         assert.match(
             rewrittenFeed,
-            /\n\s+- url: https:\/\/github\.com\/jsgrrchg\/NeverWrite\/releases\/download\/v0\.2\.0\/NeverWrite_0\.2\.0_macOS_Universal\.dmg/,
+            /\n\s+- url: https:\/\/github\.com\/wanwan2qq\/AgentDock\/releases\/download\/v0\.2\.0\/AgentDock_0\.2\.0_macOS_Universal\.dmg/,
         );
         assert.equal(rewrittenFeed.includes(sha512Base64("updater")), true);
         assert.equal(rewrittenFeed.includes(sha512Base64("manual")), true);
         assert.doesNotMatch(
             rewrittenFeed,
-            /\n\s+- url: NeverWrite\.zip/,
+            /\n\s+- url: AgentDock.zip/,
         );
         assert.doesNotMatch(
             rewrittenFeed,
-            /\n\s+- url: NeverWrite\.dmg/,
+            /\n\s+- url: AgentDock.dmg/,
         );
         assert.doesNotMatch(rewrittenFeed, /sha512: original/);
         assert.doesNotMatch(rewrittenFeed, /sha512: manual/);
@@ -136,7 +136,7 @@ test("stage-electron-release-assets keeps Windows metadata target-specific", () 
         const outputDir = path.join(tempDir, "staged");
         const metadataOut = path.join(tempDir, "metadata", "windows-x64.json");
 
-        writeFile(path.join(distDir, "win-unpacked", "NeverWrite.exe"), "app");
+        writeFile(path.join(distDir, "win-unpacked", "AgentDock.exe"), "app");
         writeFile(
             path.join(
                 distDir,
@@ -170,19 +170,19 @@ test("stage-electron-release-assets keeps Windows metadata target-specific", () 
             ),
             "node",
         );
-        writeFile(path.join(distDir, "NeverWrite Setup.exe"), "installer");
+        writeFile(path.join(distDir, "AgentDock Setup.exe"), "installer");
         writeFile(
-            path.join(distDir, "NeverWrite Setup.exe.blockmap"),
+            path.join(distDir, "AgentDock Setup.exe.blockmap"),
             "blockmap",
         );
         writeFile(
             path.join(distDir, "latest.yml"),
             [
                 "version: 0.2.0",
-                "path: NeverWrite Setup.exe",
+                "path: AgentDock Setup.exe",
                 "sha512: original",
                 "files:",
-                "  - url: NeverWrite Setup.exe",
+                "  - url: AgentDock Setup.exe",
                 "    sha512: original",
                 "",
             ].join("\n"),
@@ -201,7 +201,7 @@ test("stage-electron-release-assets keeps Windows metadata target-specific", () 
                 "--tag",
                 "v0.2.0",
                 "--repo",
-                "jsgrrchg/NeverWrite",
+                "wanwan2qq/AgentDock",
                 "--output-dir",
                 outputDir,
                 "--metadata-out",
@@ -219,11 +219,11 @@ test("stage-electron-release-assets keeps Windows metadata target-specific", () 
         assert.equal(metadata.metadataFileName, "latest.yml");
         assert.equal(
             metadata.updaterAssetName,
-            "NeverWrite_0.2.0_Windows_x64_Setup.exe",
+            "AgentDock_0.2.0_Windows_x64_Setup.exe",
         );
         assert.equal(
             metadata.updaterBlockmapAssetName,
-            "NeverWrite_0.2.0_Windows_x64_Setup.exe.blockmap",
+            "AgentDock_0.2.0_Windows_x64_Setup.exe.blockmap",
         );
         assert.equal(metadata.feedRelativePath, "windows-x64/latest.yml");
     });
@@ -271,31 +271,31 @@ test("stage-electron-release-assets stages Linux AppImage feeds", () => {
             "node",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.AppImage"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.AppImage"),
             "appimage",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-amd64.deb"),
+            path.join(distDir, "AgentDock-0.2.0-amd64.deb"),
             "deb package",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.rpm"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.rpm"),
             "rpm package",
         );
         writeFile(
             path.join(distDir, "latest-linux.yml"),
             [
                 "version: 0.2.0",
-                "path: NeverWrite-0.2.0-x64.AppImage",
+                "path: AgentDock-0.2.0-x64.AppImage",
                 "sha512: original",
                 "files:",
-                "  - url: NeverWrite-0.2.0-x64.AppImage",
+                "  - url: AgentDock-0.2.0-x64.AppImage",
                 "    sha512: original",
-                "  - url: NeverWrite-0.2.0-amd64.deb",
+                "  - url: AgentDock-0.2.0-amd64.deb",
                 "    sha512: deb",
                 "packages:",
                 "  deb:",
-                "    path: NeverWrite-0.2.0-amd64.deb",
+                "    path: AgentDock-0.2.0-amd64.deb",
                 "",
             ].join("\n"),
         );
@@ -313,7 +313,7 @@ test("stage-electron-release-assets stages Linux AppImage feeds", () => {
                 "--tag",
                 "v0.2.0",
                 "--repo",
-                "jsgrrchg/NeverWrite",
+                "wanwan2qq/AgentDock",
                 "--output-dir",
                 outputDir,
                 "--metadata-out",
@@ -333,33 +333,33 @@ test("stage-electron-release-assets stages Linux AppImage feeds", () => {
 
         assert.equal(metadata.feedTarget, "linux-x64");
         assert.equal(metadata.metadataFileName, "latest-linux.yml");
-        assert.equal(metadata.manualAssetName, "NeverWrite-0.2.0-x64.AppImage");
-        assert.equal(metadata.updaterAssetName, "NeverWrite-0.2.0-x64.AppImage");
+        assert.equal(metadata.manualAssetName, "AgentDock-0.2.0-x64.AppImage");
+        assert.equal(metadata.updaterAssetName, "AgentDock-0.2.0-x64.AppImage");
         assert.deepEqual(metadata.additionalManualAssets, [
-            { kind: "deb", assetName: "NeverWrite-0.2.0-amd64.deb", sizeBytes: 11 },
-            { kind: "rpm", assetName: "NeverWrite-0.2.0-x86_64.rpm", sizeBytes: 11 },
+            { kind: "deb", assetName: "AgentDock-0.2.0-amd64.deb", sizeBytes: 11 },
+            { kind: "rpm", assetName: "AgentDock-0.2.0-x86_64.rpm", sizeBytes: 11 },
         ]);
         assert.equal(metadata.updaterBlockmapAssetName, null);
         assert.equal(metadata.updaterBlockmapSizeBytes, 0);
         assert.equal(metadata.feedRelativePath, "linux-x64/latest-linux.yml");
         assert.deepEqual(metadata.feedAliasRelativePaths, []);
         assert.equal(
-            fs.existsSync(path.join(outputDir, "NeverWrite-0.2.0-amd64.deb")),
+            fs.existsSync(path.join(outputDir, "AgentDock-0.2.0-amd64.deb")),
             true,
         );
         assert.equal(
-            fs.existsSync(path.join(outputDir, "NeverWrite-0.2.0-x86_64.rpm")),
+            fs.existsSync(path.join(outputDir, "AgentDock-0.2.0-x86_64.rpm")),
             true,
         );
         assert.equal(
             fs.existsSync(
-                path.join(outputDir, "NeverWrite-0.2.0-x64.AppImage.blockmap"),
+                path.join(outputDir, "AgentDock-0.2.0-x64.AppImage.blockmap"),
             ),
             false,
         );
         assert.match(
             rewrittenFeed,
-            /https:\/\/github\.com\/jsgrrchg\/NeverWrite\/releases\/download\/v0\.2\.0\/NeverWrite-0\.2\.0-x64\.AppImage/,
+            /https:\/\/github\.com\/wanwan2qq\/AgentDock\/releases\/download\/v0\.2\.0\/AgentDock-0\.2\.0-x64\.AppImage/,
         );
         assert.doesNotMatch(rewrittenFeed, /\.deb/);
         assert.doesNotMatch(rewrittenFeed, /packages:/);
@@ -375,29 +375,29 @@ test("stage-electron-release-assets restores AppImage files when Linux feeds onl
         const appImageSha512 = sha512Base64(appImageContents);
 
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.AppImage"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.AppImage"),
             appImageContents,
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-amd64.deb"),
+            path.join(distDir, "AgentDock-0.2.0-amd64.deb"),
             "deb package",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.rpm"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.rpm"),
             "rpm package",
         );
         writeFile(
             path.join(distDir, "latest-linux.yml"),
             [
                 "version: 0.2.0",
-                "path: NeverWrite-0.2.0-amd64.deb",
+                "path: AgentDock-0.2.0-amd64.deb",
                 "sha512: deb",
                 "files:",
-                "  - url: NeverWrite-0.2.0-amd64.deb",
+                "  - url: AgentDock-0.2.0-amd64.deb",
                 "    sha512: deb",
                 "packages:",
                 "  deb:",
-                "    path: NeverWrite-0.2.0-amd64.deb",
+                "    path: AgentDock-0.2.0-amd64.deb",
                 "",
             ].join("\n"),
         );
@@ -415,7 +415,7 @@ test("stage-electron-release-assets restores AppImage files when Linux feeds onl
                 "--tag",
                 "v0.2.0",
                 "--repo",
-                "jsgrrchg/NeverWrite",
+                "wanwan2qq/AgentDock",
                 "--output-dir",
                 outputDir,
                 "--metadata-out",
@@ -433,7 +433,7 @@ test("stage-electron-release-assets restores AppImage files when Linux feeds onl
         );
         const feedDocument = parseDocument(rewrittenFeed);
         const updaterUrl =
-            "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.2.0/NeverWrite-0.2.0-x64.AppImage";
+            "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock-0.2.0-x64.AppImage";
         const files = feedDocument.get("files", true);
 
         assert.equal(feedDocument.get("path"), updaterUrl);
@@ -456,15 +456,15 @@ test("stage-electron-release-assets synthesizes missing Linux AppImage feeds", (
         const appImageSha512 = sha512Base64(appImageContents);
 
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-arm64.AppImage"),
+            path.join(distDir, "AgentDock-0.2.0-arm64.AppImage"),
             appImageContents,
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-arm64.deb"),
+            path.join(distDir, "AgentDock-0.2.0-arm64.deb"),
             "arm64 deb",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-aarch64.rpm"),
+            path.join(distDir, "AgentDock-0.2.0-aarch64.rpm"),
             "arm64 rpm",
         );
 
@@ -481,7 +481,7 @@ test("stage-electron-release-assets synthesizes missing Linux AppImage feeds", (
                 "--tag",
                 "v0.2.0",
                 "--repo",
-                "jsgrrchg/NeverWrite",
+                "wanwan2qq/AgentDock",
                 "--output-dir",
                 outputDir,
                 "--metadata-out",
@@ -501,11 +501,11 @@ test("stage-electron-release-assets synthesizes missing Linux AppImage feeds", (
 
         assert.equal(metadata.feedTarget, "linux-arm64");
         assert.equal(metadata.metadataFileName, "latest-linux.yml");
-        assert.equal(metadata.manualAssetName, "NeverWrite-0.2.0-arm64.AppImage");
-        assert.equal(metadata.updaterAssetName, "NeverWrite-0.2.0-arm64.AppImage");
+        assert.equal(metadata.manualAssetName, "AgentDock-0.2.0-arm64.AppImage");
+        assert.equal(metadata.updaterAssetName, "AgentDock-0.2.0-arm64.AppImage");
         assert.deepEqual(metadata.additionalManualAssets, [
-            { kind: "deb", assetName: "NeverWrite-0.2.0-arm64.deb", sizeBytes: 9 },
-            { kind: "rpm", assetName: "NeverWrite-0.2.0-aarch64.rpm", sizeBytes: 9 },
+            { kind: "deb", assetName: "AgentDock-0.2.0-arm64.deb", sizeBytes: 9 },
+            { kind: "rpm", assetName: "AgentDock-0.2.0-aarch64.rpm", sizeBytes: 9 },
         ]);
         assert.equal(metadata.updaterBlockmapAssetName, null);
         assert.equal(metadata.updaterBlockmapSizeBytes, 0);
@@ -522,7 +522,7 @@ test("stage-electron-release-assets synthesizes missing Linux AppImage feeds", (
 
         const feedDocument = parseDocument(rewrittenFeed);
         const updaterUrl =
-            "https://github.com/jsgrrchg/NeverWrite/releases/download/v0.2.0/NeverWrite-0.2.0-arm64.AppImage";
+            "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock-0.2.0-arm64.AppImage";
         assert.equal(feedDocument.get("version"), "0.2.0");
         assert.equal(
             Number.isNaN(Date.parse(feedDocument.get("releaseDate"))),
@@ -546,15 +546,15 @@ test("stage-electron-release-assets requires generated Linux x64 feeds", () => {
         const metadataOut = path.join(tempDir, "metadata", "linux-x64.json");
 
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.AppImage"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.AppImage"),
             "x64 appimage",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-amd64.deb"),
+            path.join(distDir, "AgentDock-0.2.0-amd64.deb"),
             "x64 deb",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.rpm"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.rpm"),
             "x64 rpm",
         );
 
@@ -573,7 +573,7 @@ test("stage-electron-release-assets requires generated Linux x64 feeds", () => {
                         "--tag",
                         "v0.2.0",
                         "--repo",
-                        "jsgrrchg/NeverWrite",
+                        "wanwan2qq/AgentDock",
                         "--output-dir",
                         outputDir,
                         "--metadata-out",
@@ -596,25 +596,25 @@ test("stage-electron-release-assets requires Linux Debian packages", () => {
         const metadataOut = path.join(tempDir, "metadata", "linux-x64.json");
 
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.AppImage"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.AppImage"),
             "x64 appimage",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-arm64.deb"),
+            path.join(distDir, "AgentDock-0.2.0-arm64.deb"),
             "wrong arch deb",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.rpm"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.rpm"),
             "x64 rpm",
         );
         writeFile(
             path.join(distDir, "latest-linux.yml"),
             [
                 "version: 0.2.0",
-                "path: NeverWrite-0.2.0-x64.AppImage",
+                "path: AgentDock-0.2.0-x64.AppImage",
                 "sha512: original",
                 "files:",
-                "  - url: NeverWrite-0.2.0-x64.AppImage",
+                "  - url: AgentDock-0.2.0-x64.AppImage",
                 "    sha512: original",
                 "",
             ].join("\n"),
@@ -635,7 +635,7 @@ test("stage-electron-release-assets requires Linux Debian packages", () => {
                         "--tag",
                         "v0.2.0",
                         "--repo",
-                        "jsgrrchg/NeverWrite",
+                        "wanwan2qq/AgentDock",
                         "--output-dir",
                         outputDir,
                         "--metadata-out",
@@ -658,15 +658,15 @@ test("stage-electron-release-assets requires Linux RPM packages", () => {
         const metadataOut = path.join(tempDir, "metadata", "linux-arm64.json");
 
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-arm64.AppImage"),
+            path.join(distDir, "AgentDock-0.2.0-arm64.AppImage"),
             "arm64 appimage",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-arm64.deb"),
+            path.join(distDir, "AgentDock-0.2.0-arm64.deb"),
             "arm64 deb",
         );
         writeFile(
-            path.join(distDir, "NeverWrite-0.2.0-x86_64.rpm"),
+            path.join(distDir, "AgentDock-0.2.0-x86_64.rpm"),
             "wrong arch rpm",
         );
 
@@ -685,7 +685,7 @@ test("stage-electron-release-assets requires Linux RPM packages", () => {
                         "--tag",
                         "v0.2.0",
                         "--repo",
-                        "jsgrrchg/NeverWrite",
+                        "wanwan2qq/AgentDock",
                         "--output-dir",
                         outputDir,
                         "--metadata-out",

@@ -14,11 +14,17 @@ import {
     getBundledUpdaterArtifactName,
     getSignatureAssetName,
     normalizeReleaseVersion,
+    PUBLIC_PRODUCT_NAME,
 } from "./appcast-lib.mjs";
 import {
     APT_DEFAULT_BASE_URL,
     APT_RELEASE_DOWNLOAD_BASE_URL,
 } from "./apt-repo-lib.mjs";
+import {
+    buildNeverWriteRepoExample,
+    DNF_DEFAULT_BASE_URL,
+    DNF_PUBLIC_KEY_FILE_NAME,
+} from "./dnf-repo-lib.mjs";
 
 export const PUBLIC_DOWNLOAD_VARIANTS = [
     {
@@ -80,7 +86,7 @@ export function buildWebClipperReleaseAssetName(version, browser) {
             `Unsupported web clipper browser "${browser}". Expected one of: ${WEB_CLIPPER_RELEASE_BROWSERS.join(", ")}.`,
         );
     }
-    return `NeverWrite-Web-Clipper-v${normalizedVersion}-${browser}-mv3.zip`;
+    return `${PUBLIC_PRODUCT_NAME}-Web-Clipper-v${normalizedVersion}-${browser}-mv3.zip`;
 }
 
 export function runtimeBinaryFileName(buildTarget, baseName) {
@@ -325,7 +331,7 @@ export function buildReleaseBody(version, releaseNotes) {
         "",
         renderManualDownloadTable(version),
         "",
-        "For Ubuntu/Debian, use the `.deb` package directly or configure the NeverWrite APT repository for future system updates.",
+        `For Ubuntu/Debian, use the \`.deb\` package directly or configure the ${PUBLIC_PRODUCT_NAME} APT repository for future system updates.`,
         "APT repository setup:",
         "",
         "```bash",
@@ -344,20 +350,14 @@ export function buildReleaseBody(version, releaseNotes) {
         "sudo apt install neverwrite",
         "```",
         "",
-        "For Fedora/RHEL, use the `.rpm` package directly or configure the NeverWrite DNF repository for future system updates.",
+        `For Fedora/RHEL, use the \`.rpm\` package directly or configure the ${PUBLIC_PRODUCT_NAME} DNF repository for future system updates.`,
         "DNF repository setup:",
         "",
         "```bash",
         "sudo tee /etc/yum.repos.d/neverwrite.repo >/dev/null <<'EOF'",
-        "[neverwrite]",
-        "name=NeverWrite",
-        "baseurl=https://jsgrrchg.github.io/NeverWrite/dnf",
-        "enabled=1",
-        "gpgcheck=1",
-        "repo_gpgcheck=1",
-        "gpgkey=https://jsgrrchg.github.io/NeverWrite/dnf/neverwrite-archive-keyring.asc",
+        buildNeverWriteRepoExample(DNF_DEFAULT_BASE_URL),
         "EOF",
-        "sudo rpm --import https://jsgrrchg.github.io/NeverWrite/dnf/neverwrite-archive-keyring.asc",
+        `sudo rpm --import ${DNF_DEFAULT_BASE_URL}/${DNF_PUBLIC_KEY_FILE_NAME}`,
         "sudo dnf install neverwrite",
         "```",
         "",

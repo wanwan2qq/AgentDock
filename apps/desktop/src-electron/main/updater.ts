@@ -65,9 +65,9 @@ const UPDATER_VERBOSE_LOG_ENV_VARS = [
     "NEVERWRITE_UPDATER_VERBOSE_LOGS",
     "NEVERWRITE_UPDATER_DEBUG",
 ];
-const DEFAULT_UPDATER_BASE_URL = "https://jsgrrchg.github.io/NeverWrite";
+const DEFAULT_UPDATER_BASE_URL = "https://wanwan2qq.github.io/AgentDock";
 const LINUX_DEBIAN_PACKAGE_UPDATER_MESSAGE =
-    "Updates for Debian packages are handled by apt when the NeverWrite APT repository is configured.";
+    "Updates for Debian packages are handled by apt when the AgentDock APT repository is configured.";
 
 function readFirstNonEmptyEnv(keys: readonly string[]) {
     for (const key of keys) {

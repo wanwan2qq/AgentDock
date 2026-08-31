@@ -356,16 +356,16 @@ describe("SettingsPanel", () => {
         );
 
         expect(vi.mocked(openUrl)).toHaveBeenCalledWith(
-            "https://github.com/jsgrrchg/NeverWrite/issues",
+            "https://github.com/wanwan2qq/AgentDock/issues",
         );
         expect(vi.mocked(openUrl)).toHaveBeenCalledWith(
-            "https://github.com/jsgrrchg/NeverWrite/discussions",
+            "https://github.com/wanwan2qq/AgentDock/discussions",
         );
         expect(vi.mocked(openUrl)).toHaveBeenCalledWith(
-            "https://github.com/jsgrrchg/NeverWrite/issues/new",
+            "https://github.com/wanwan2qq/AgentDock/issues/new",
         );
         expect(vi.mocked(openUrl)).toHaveBeenCalledWith(
-            "https://github.com/jsgrrchg/NeverWrite/discussions/new/choose",
+            "https://github.com/wanwan2qq/AgentDock/discussions/new/choose",
         );
     });
 
