@@ -29,9 +29,14 @@
 
 - [ ] GitHub 仓库 Settings → **Pages**：Source 为 **`gh-pages` 分支**（根目录或 `/`）。
 - [ ] 仓库 Actions 已启用；维护者有权限 push tag、写 Release、写 `gh-pages`。
+- [ ] **macOS 签名 / 公证**（正式自动更新推荐）：仓库 Secrets 配置  
+  `CSC_LINK`、`CSC_KEY_PASSWORD`，以及公证用的  
+  `APPLE_API_KEY`/`APPLE_API_KEY_ID`/`APPLE_API_ISSUER`  
+  或 `APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID`。  
+  **未配置时**：CI 会打 **unsigned** macOS 包并仍发布 updater feed；首次安装需 `xattr -cr`，应用内更新也更脆弱。
 - [ ] **Linux APT 签名**（仅当要发布 Linux `.deb` 仓库时）：仓库 Secrets 已配置  
   `APT_REPO_GPG_PRIVATE_KEY`、`APT_REPO_GPG_PASSPHRASE`、`APT_REPO_GPG_KEY_ID`。  
-  若只发 macOS/Windows 或仅手动 `.deb`，可先跳过，但 CI 里 Linux 矩阵可能依赖 preflight。
+  未配置时 CI 会跳过 signed apt 仓库发布，桌面包仍可发。
 - [ ] 确认 `scripts/appcast-lib.mjs` 中：  
   `CANONICAL_RELEASE_REPO_SLUG = "wanwan2qq/AgentDock"`  
   `PUBLIC_PRODUCT_NAME = "AgentDock"`
