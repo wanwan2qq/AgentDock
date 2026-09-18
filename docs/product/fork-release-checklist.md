@@ -95,7 +95,7 @@ git push origin vX.Y.Z
 ### 6. 监控 CI
 
 - [ ] 打开 Actions → **Release Desktop** → 对应 `vX.Y.Z` run。
-- [ ] 等待 matrix 构建完成：`universal-apple-darwin`、Windows x64/ARM64、Linux x64/ARM64 等。
+- [ ] 等待 matrix 构建完成：当前仅 `aarch64-apple-darwin`（macOS Apple Silicon）。
 - [ ] 确认 job **Publish GitHub Release**、**Deploy GitHub Pages**（或同等 deploy job）成功。
 - [ ] 若失败：读失败 job 日志，修复后**新 tag 或 re-run**（不要 force-push tag）。
 
@@ -104,7 +104,7 @@ git push origin vX.Y.Z
 **GitHub Release**
 
 - [ ] 存在 Release `vX.Y.Z`，标题形如 `AgentDock vX.Y.Z`。
-- [ ] 资产含 macOS（`.dmg` + updater `.zip`）、Windows `.exe` 等；命名遵循 `AgentDock_*` / `AgentDock-*` 规则。
+- [ ] 资产含 macOS Apple Silicon（`.dmg` + updater `.zip`）；命名遵循 `AgentDock_*` / `AgentDock-*` 规则。
 
 **GitHub Pages feed**（macOS 示例）
 

@@ -13,22 +13,11 @@ export const DEFAULT_APPCAST_CHANNEL = "stable";
 export const APPCAST_CHANNELS = ["stable", "beta", "nightly"];
 export const PUBLIC_PRODUCT_NAME = "AgentDock";
 export const CANONICAL_RELEASE_REPO_SLUG = "wanwan2qq/AgentDock";
-export const V1_BUILD_TARGETS = [
-    "universal-apple-darwin",
-    "aarch64-pc-windows-msvc",
-    "x86_64-pc-windows-msvc",
-    "aarch64-unknown-linux-gnu",
-    "x86_64-unknown-linux-gnu",
-];
-export const V1_APPCAST_KEYS = [
-    "darwin-universal",
-    "windows-aarch64",
-    "windows-x86_64",
-    "linux-aarch64",
-    "linux-x86_64",
-];
+export const V1_BUILD_TARGETS = ["aarch64-apple-darwin"];
+export const V1_APPCAST_KEYS = ["darwin-universal"];
 export const BUILD_TARGET_TO_APPCAST_KEY = {
     "universal-apple-darwin": "darwin-universal",
+    "aarch64-apple-darwin": "darwin-universal",
     "aarch64-pc-windows-msvc": "windows-aarch64",
     "x86_64-pc-windows-msvc": "windows-x86_64",
     "aarch64-unknown-linux-gnu": "linux-aarch64",
@@ -112,6 +101,8 @@ export function buildPublicReleaseAssetName(version, buildTarget) {
     switch (buildTarget) {
         case "universal-apple-darwin":
             return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_macOS_Universal.dmg`;
+        case "aarch64-apple-darwin":
+            return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_macOS_ARM64.dmg`;
         case "aarch64-pc-windows-msvc":
             return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_Windows_ARM64_Setup.exe`;
         case "x86_64-pc-windows-msvc":
@@ -172,6 +163,7 @@ export function getCanonicalAppBundleName() {
 export function getBundledUpdaterArtifactName(buildTarget) {
     switch (buildTarget) {
         case "universal-apple-darwin":
+        case "aarch64-apple-darwin":
             return `${PUBLIC_PRODUCT_NAME}.app.tar.gz`;
         case "aarch64-pc-windows-msvc":
         case "x86_64-pc-windows-msvc":
@@ -191,6 +183,8 @@ export function buildUpdaterReleaseAssetName(version, buildTarget) {
     switch (buildTarget) {
         case "universal-apple-darwin":
             return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_macOS_Universal.app.tar.gz`;
+        case "aarch64-apple-darwin":
+            return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_macOS_ARM64.app.tar.gz`;
         case "aarch64-pc-windows-msvc":
             return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_Windows_ARM64.nsis.zip`;
         case "x86_64-pc-windows-msvc":

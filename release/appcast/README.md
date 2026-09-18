@@ -18,22 +18,18 @@ GitHub Pages publishes one feed per channel, platform, and architecture:
 <channel>/<feed-target>/latest-linux.yml
 ```
 
-Current feed targets:
+Current required feed targets (AgentDock fork ships Apple Silicon only):
 
 | Build target | Feed target | Metadata file |
 | --- | --- | --- |
-| `universal-apple-darwin` | `darwin-universal` | `latest-mac.yml` |
-| `aarch64-pc-windows-msvc` | `windows-arm64` | `latest.yml` |
-| `x86_64-pc-windows-msvc` | `windows-x64` | `latest.yml` |
-| `aarch64-unknown-linux-gnu` | `linux-arm64` | `latest-linux.yml` |
-| `x86_64-unknown-linux-gnu` | `linux-x64` | `latest-linux.yml` |
+| `aarch64-apple-darwin` | `darwin-universal` | `latest-mac.yml` |
 
-Example published URLs:
+The `darwin-universal` feed path is kept so already-installed clients continue to resolve updates. Windows/Linux targets remain supported by the libraries but are not part of the Release Desktop matrix.
+
+Example published URL:
 
 ```text
-https://jsgrrchg.github.io/NeverWrite/stable/darwin-universal/latest-mac.yml
-https://jsgrrchg.github.io/NeverWrite/stable/windows-x64/latest.yml
-https://jsgrrchg.github.io/NeverWrite/stable/linux-x64/latest-linux.yml
+https://wanwan2qq.github.io/AgentDock/stable/darwin-universal/latest-mac.yml
 ```
 
 The updater metadata always points back to versioned assets on `GitHub Releases`.
@@ -47,17 +43,13 @@ Each build target uploads:
 - one updater asset for `electron-updater`
 - one blockmap for differential updates
 
-Public naming remains stable per target:
+Public naming for the required Apple Silicon target:
 
 | Build target | Manual asset | Additional manual asset | Updater asset |
 | --- | --- | --- | --- |
-| `universal-apple-darwin` | `NeverWrite_<version>_macOS_Universal.dmg` | _None_ | `NeverWrite_<version>_macOS_Universal.zip` |
-| `aarch64-pc-windows-msvc` | `NeverWrite_<version>_Windows_ARM64_Setup.exe` | _None_ | `NeverWrite_<version>_Windows_ARM64_Setup.exe` |
-| `x86_64-pc-windows-msvc` | `NeverWrite_<version>_Windows_x64_Setup.exe` | _None_ | `NeverWrite_<version>_Windows_x64_Setup.exe` |
-| `x86_64-unknown-linux-gnu` | `NeverWrite-<version>-x64.AppImage` | `NeverWrite-<version>-amd64.deb` | `NeverWrite-<version>-x64.AppImage` |
-| `aarch64-unknown-linux-gnu` | `NeverWrite-<version>-arm64.AppImage` | `NeverWrite-<version>-arm64.deb` | `NeverWrite-<version>-arm64.AppImage` |
+| `aarch64-apple-darwin` | `AgentDock_<version>_macOS_ARM64.dmg` | _None_ | `AgentDock_<version>_macOS_ARM64.zip` |
 
-The architecture suffix is mandatory for Windows. macOS publishes a universal package and a single universal updater feed. We do not publish shared Windows `latest.yml` metadata for multiple architectures in the same directory because `electron-builder` would otherwise collide on Windows metadata names.
+macOS Apple Silicon builds publish under the existing `darwin-universal` updater feed path for client compatibility.
 
 For Ubuntu/Debian, the recommended installer is the `.deb` package:
 

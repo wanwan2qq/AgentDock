@@ -13,103 +13,56 @@ function buildMetadataEntries() {
     return [
         {
             version: "0.2.0",
-            buildTarget: "universal-apple-darwin",
+            buildTarget: "aarch64-apple-darwin",
             feedTarget: "darwin-universal",
             metadataFileName: "latest-mac.yml",
             feedRelativePath: "darwin-universal/latest-mac.yml",
-            manualAssetName: "AgentDock_0.2.0_macOS_Universal.dmg",
-            updaterAssetName: "AgentDock_0.2.0_macOS_Universal.zip",
+            manualAssetName: "AgentDock_0.2.0_macOS_ARM64.dmg",
+            updaterAssetName: "AgentDock_0.2.0_macOS_ARM64.zip",
             updaterBlockmapAssetName:
-                "AgentDock_0.2.0_macOS_Universal.zip.blockmap",
+                "AgentDock_0.2.0_macOS_ARM64.zip.blockmap",
             updaterUrl:
-                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock_0.2.0_macOS_Universal.zip",
-        },
-        {
-            version: "0.2.0",
-            buildTarget: "aarch64-pc-windows-msvc",
-            feedTarget: "windows-arm64",
-            metadataFileName: "latest.yml",
-            feedRelativePath: "windows-arm64/latest.yml",
-            manualAssetName: "AgentDock_0.2.0_Windows_ARM64_Setup.exe",
-            updaterAssetName: "AgentDock_0.2.0_Windows_ARM64_Setup.exe",
-            updaterBlockmapAssetName:
-                "AgentDock_0.2.0_Windows_ARM64_Setup.exe.blockmap",
-            updaterUrl:
-                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock_0.2.0_Windows_ARM64_Setup.exe",
-        },
-        {
-            version: "0.2.0",
-            buildTarget: "x86_64-pc-windows-msvc",
-            feedTarget: "windows-x64",
-            metadataFileName: "latest.yml",
-            feedRelativePath: "windows-x64/latest.yml",
-            manualAssetName: "AgentDock_0.2.0_Windows_x64_Setup.exe",
-            updaterAssetName: "AgentDock_0.2.0_Windows_x64_Setup.exe",
-            updaterBlockmapAssetName:
-                "AgentDock_0.2.0_Windows_x64_Setup.exe.blockmap",
-            updaterUrl:
-                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock_0.2.0_Windows_x64_Setup.exe",
-        },
-        {
-            version: "0.2.0",
-            buildTarget: "aarch64-unknown-linux-gnu",
-            feedTarget: "linux-arm64",
-            metadataFileName: "latest-linux.yml",
-            feedRelativePath: "linux-arm64/latest-linux.yml",
-            manualAssetName: "AgentDock-0.2.0-arm64.AppImage",
-            updaterAssetName: "AgentDock-0.2.0-arm64.AppImage",
-            updaterBlockmapAssetName: null,
-            updaterUrl:
-                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock-0.2.0-arm64.AppImage",
-            additionalManualAssets: [
-                { kind: "deb", assetName: "AgentDock-0.2.0-arm64.deb", sizeBytes: 456 },
-                { kind: "rpm", assetName: "AgentDock-0.2.0-aarch64.rpm", sizeBytes: 789 },
-            ],
-        },
-        {
-            version: "0.2.0",
-            buildTarget: "x86_64-unknown-linux-gnu",
-            feedTarget: "linux-x64",
-            metadataFileName: "latest-linux.yml",
-            feedRelativePath: "linux-x64/latest-linux.yml",
-            manualAssetName: "AgentDock-0.2.0-x64.AppImage",
-            updaterAssetName: "AgentDock-0.2.0-x64.AppImage",
-            updaterBlockmapAssetName: null,
-            updaterUrl:
-                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock-0.2.0-x64.AppImage",
-            additionalManualAssets: [
-                { kind: "deb", assetName: "AgentDock-0.2.0-amd64.deb", sizeBytes: 123 },
-                { kind: "rpm", assetName: "AgentDock-0.2.0-x86_64.rpm", sizeBytes: 456 },
-            ],
+                "https://github.com/wanwan2qq/AgentDock/releases/download/v0.2.0/AgentDock_0.2.0_macOS_ARM64.zip",
         },
     ];
 }
 
-test("resolveValidationTarget accepts build targets and feed targets", () => {
-    assert.deepEqual(resolveValidationTarget("universal-apple-darwin"), {
-        buildTarget: "universal-apple-darwin",
+test("resolveValidationTarget accepts Apple Silicon build and feed targets", () => {
+    assert.deepEqual(resolveValidationTarget("aarch64-apple-darwin"), {
+        buildTarget: "aarch64-apple-darwin",
         feedTarget: "darwin-universal",
         metadataFileName: "latest-mac.yml",
-        platformLabel: "macOS",
-        architectureLabel: "Universal",
         updaterArtifactKind: "macOS updater archive (.zip)",
+        platformLabel: "macOS",
+        architectureLabel: "Apple Silicon",
     });
     assert.equal(
-        resolveValidationTarget("windows-x64").buildTarget,
-        "x86_64-pc-windows-msvc",
-    );
-    assert.equal(
-        resolveValidationTarget("linux-x64").buildTarget,
-        "x86_64-unknown-linux-gnu",
+        resolveValidationTarget("darwin-universal").buildTarget,
+        "aarch64-apple-darwin",
     );
 });
 
-test("validateTargetMetadataEntries rejects duplicate updater URLs", () => {
-    const duplicated = buildMetadataEntries();
-    duplicated[1] = {
-        ...duplicated[1],
-        updaterUrl: duplicated[0].updaterUrl,
-    };
+test("validateTargetMetadataEntries accepts complete Apple Silicon coverage", () => {
+    assert.doesNotThrow(() =>
+        validateTargetMetadataEntries(buildMetadataEntries()),
+    );
+});
+
+test("validateTargetMetadataEntries rejects reused updater URLs", () => {
+    const entries = buildMetadataEntries();
+    const duplicated = [
+        ...entries,
+        {
+            buildTarget: "x86_64-pc-windows-msvc",
+            feedTarget: "windows-x64",
+            feedRelativePath: "windows-x64/latest.yml",
+            updaterUrl: entries[0].updaterUrl,
+            manualAssetName: "AgentDock_0.2.0_Windows_x64_Setup.exe",
+            updaterAssetName: "AgentDock_0.2.0_Windows_x64_Setup.exe",
+            updaterBlockmapAssetName:
+                "AgentDock_0.2.0_Windows_x64_Setup.exe.blockmap",
+        },
+    ];
 
     assert.throws(
         () => validateTargetMetadataEntries(duplicated),
@@ -119,8 +72,8 @@ test("validateTargetMetadataEntries rejects duplicate updater URLs", () => {
 
 test("validateTargetMetadataEntries rejects incomplete target coverage", () => {
     assert.throws(
-        () => validateTargetMetadataEntries(buildMetadataEntries().slice(0, 2)),
-        /missing required build targets/i,
+        () => validateTargetMetadataEntries([]),
+        /non-empty array|No target metadata/i,
     );
 });
 
@@ -133,26 +86,17 @@ test("buildPlatformValidationMatrix aligns feed URLs with target metadata", () =
         metadataEntries: buildMetadataEntries(),
     });
 
-    assert.equal(rows.length, 5);
-    assert.equal(rows[0].buildTarget, "universal-apple-darwin");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].buildTarget, "aarch64-apple-darwin");
+    assert.equal(rows[0].feedTarget, "darwin-universal");
     assert.equal(
         rows[0].feedUrl,
         "https://wanwan2qq.github.io/AgentDock/stable/darwin-universal/latest-mac.yml",
     );
-    assert.equal(rows[2].feedTarget, "windows-x64");
     assert.equal(
-        rows[2].updaterAssetName,
-        "AgentDock_0.2.0_Windows_x64_Setup.exe",
+        rows[0].updaterAssetName,
+        "AgentDock_0.2.0_macOS_ARM64.zip",
     );
-    assert.equal(rows[4].feedTarget, "linux-x64");
-    assert.equal(
-        rows[4].updaterAssetName,
-        "AgentDock-0.2.0-x64.AppImage",
-    );
-    assert.deepEqual(rows[4].additionalManualAssets, [
-        { kind: "deb", assetName: "AgentDock-0.2.0-amd64.deb", sizeBytes: 123 },
-        { kind: "rpm", assetName: "AgentDock-0.2.0-x86_64.rpm", sizeBytes: 456 },
-    ]);
 });
 
 test("tamperFeedChecksum only modifies the sha512 line", () => {
@@ -188,39 +132,5 @@ test("renderPlatformValidationChecklist includes invalid-checksum fixtures", () 
     assert.match(
         markdown,
         /The app does not switch to another architecture feed/,
-    );
-    assert.match(
-        markdown,
-        /Additional manual asset \(deb\): `AgentDock-0\.2\.0-amd64\.deb`/,
-    );
-    assert.match(
-        markdown,
-        /Additional manual asset \(rpm\): `AgentDock-0\.2\.0-x86_64\.rpm`/,
-    );
-});
-
-test("validateTargetMetadataEntries requires Debian and RPM package metadata for Linux", () => {
-    const entries = buildMetadataEntries();
-    entries[4] = {
-        ...entries[4],
-        additionalManualAssets: [{ kind: "deb", assetName: "AgentDock-0.2.0-amd64.deb", sizeBytes: 123 }],
-    };
-
-    assert.throws(
-        () => validateTargetMetadataEntries(entries),
-        /must include RPM package AgentDock-0\.2\.0-x86_64\.rpm/i,
-    );
-});
-
-test("validateTargetMetadataEntries requires Debian package metadata for Linux", () => {
-    const entries = buildMetadataEntries();
-    entries[4] = {
-        ...entries[4],
-        additionalManualAssets: [{ kind: "rpm", assetName: "AgentDock-0.2.0-x86_64.rpm", sizeBytes: 456 }],
-    };
-
-    assert.throws(
-        () => validateTargetMetadataEntries(entries),
-        /must include Debian package AgentDock-0\.2\.0-amd64\.deb/i,
     );
 });

@@ -157,31 +157,15 @@ test("canonical bundle and updater artifact names are fixed for v1 release autom
 test("normalizePlatformEntries accepts build targets and emits appcast keys", () => {
     assert.deepEqual(
         normalizePlatformEntries({
-            "universal-apple-darwin": {
-                url: "https://example.com/macos-universal.tar.gz",
+            "aarch64-apple-darwin": {
+                url: "https://example.com/macos-arm64.zip",
                 signature: "sig-a",
-            },
-            "x86_64-pc-windows-msvc": {
-                url: "https://example.com/windows-x64.zip",
-                signature: "sig-b",
-            },
-            "x86_64-unknown-linux-gnu": {
-                url: "https://example.com/linux-x64.AppImage",
-                signature: "sig-c",
             },
         }),
         {
             "darwin-universal": {
-                url: "https://example.com/macos-universal.tar.gz",
+                url: "https://example.com/macos-arm64.zip",
                 signature: "sig-a",
-            },
-            "windows-x86_64": {
-                url: "https://example.com/windows-x64.zip",
-                signature: "sig-b",
-            },
-            "linux-x86_64": {
-                url: "https://example.com/linux-x64.AppImage",
-                signature: "sig-c",
             },
         },
     );
@@ -190,41 +174,23 @@ test("normalizePlatformEntries accepts build targets and emits appcast keys", ()
 test("createStaticAppcastManifest requires all v1 platform keys and preserves order", () => {
     const manifest = createStaticAppcastManifest({
         version: "v0.2.0",
-        notes: "## Added\n\n- Multi-target appcast.",
+        notes: "## Added\n\n- Apple Silicon appcast.",
         pubDate: "2026-04-04T18:00:00Z",
         platforms: {
-            "x86_64-pc-windows-msvc": {
-                url: "https://example.com/windows-x64.zip",
-                signature: "sig-wx64",
-            },
-            "universal-apple-darwin": {
-                url: "https://example.com/macos-universal.tar.gz",
-                signature: "sig-muniv",
-            },
-            "aarch64-pc-windows-msvc": {
-                url: "https://example.com/windows-arm64.zip",
-                signature: "sig-warm",
-            },
-            "aarch64-unknown-linux-gnu": {
-                url: "https://example.com/linux-arm64.AppImage",
-                signature: "sig-larm",
-            },
-            "x86_64-unknown-linux-gnu": {
-                url: "https://example.com/linux-x64.AppImage",
-                signature: "sig-lx64",
+            "aarch64-apple-darwin": {
+                url: "https://example.com/macos-arm64.zip",
+                signature: "sig-marm",
             },
         },
     });
 
-    assert.deepEqual(Object.keys(manifest.platforms), [
-        "darwin-universal",
-        "windows-aarch64",
-        "windows-x86_64",
-        "linux-aarch64",
-        "linux-x86_64",
-    ]);
+    assert.deepEqual(Object.keys(manifest.platforms), ["darwin-universal"]);
     assert.equal(manifest.version, "0.2.0");
     assert.equal(manifest.pub_date, "2026-04-04T18:00:00Z");
+    assert.equal(
+        manifest.platforms["darwin-universal"].url,
+        "https://example.com/macos-arm64.zip",
+    );
 });
 
 test("createStaticAppcastManifest rejects missing v1 platforms", () => {
@@ -234,12 +200,7 @@ test("createStaticAppcastManifest rejects missing v1 platforms", () => {
                 version: "0.2.0",
                 notes: "- notes",
                 pubDate: "2026-04-04T18:00:00Z",
-                platforms: {
-                    "darwin-universal": {
-                        url: "https://example.com/macos-universal.tar.gz",
-                        signature: "sig",
-                    },
-                },
+                platforms: {},
             }),
         /missing required v1 platforms/i,
     );

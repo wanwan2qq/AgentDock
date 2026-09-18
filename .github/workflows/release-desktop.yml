@@ -96,35 +96,10 @@ jobs:
                 include:
                     - runner: macos-latest
                       platform: mac
-                      arch: universal
-                      target: universal-apple-darwin
-                      rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
-                      node_dist_arm64: darwin-arm64
-                      node_dist_x64: darwin-x64
-                    - runner: windows-11-arm
-                      platform: win
                       arch: arm64
-                      target: aarch64-pc-windows-msvc
-                      rust_targets: aarch64-pc-windows-msvc
-                      node_dist: win-arm64
-                    - runner: windows-latest
-                      platform: win
-                      arch: x64
-                      target: x86_64-pc-windows-msvc
-                      rust_targets: x86_64-pc-windows-msvc
-                      node_dist: win-x64
-                    - runner: ubuntu-22.04
-                      platform: linux
-                      arch: x64
-                      target: x86_64-unknown-linux-gnu
-                      rust_targets: x86_64-unknown-linux-gnu
-                      node_dist: linux-x64
-                    - runner: ubuntu-22.04
-                      platform: linux
-                      arch: arm64
-                      target: aarch64-unknown-linux-gnu
-                      rust_targets: aarch64-unknown-linux-gnu
-                      node_dist: linux-arm64
+                      target: aarch64-apple-darwin
+                      rust_targets: aarch64-apple-darwin
+                      node_dist: darwin-arm64
 
         steps:
             - uses: actions/checkout@v6
@@ -332,16 +307,16 @@ jobs:
               run: npm run electron:app:smoke:packaged
 
             - name: Verify signed macOS Codex runtime
-              if: matrix.target == 'universal-apple-darwin' && steps.macos_signing.outputs.enabled == 'true'
+              if: matrix.target == 'aarch64-apple-darwin' && steps.macos_signing.outputs.enabled == 'true'
               shell: bash
               env:
                   NEVERWRITE_ELECTRON_OUTPUT_DIR: ${{ runner.temp }}/electron-dist
               run: |
                   APP_PATH=""
                   for candidate in \
-                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-universal/AgentDock.app" \
+                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-arm64/AgentDock.app" \
                     "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac/AgentDock.app" \
-                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-universal/NeverWrite.app" \
+                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-arm64/NeverWrite.app" \
                     "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac/NeverWrite.app"; do
                     if [[ -d "$candidate" ]]; then
                       APP_PATH="$candidate"
@@ -360,17 +335,17 @@ jobs:
                   done
                   codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
-            - name: Verify macOS universal runtime binaries
-              if: matrix.target == 'universal-apple-darwin'
+            - name: Verify macOS Apple Silicon runtime binaries
+              if: matrix.target == 'aarch64-apple-darwin'
               shell: bash
               env:
                   NEVERWRITE_ELECTRON_OUTPUT_DIR: ${{ runner.temp }}/electron-dist
               run: |
                   APP_PATH=""
                   for candidate in \
-                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-universal/AgentDock.app" \
+                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-arm64/AgentDock.app" \
                     "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac/AgentDock.app" \
-                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-universal/NeverWrite.app" \
+                    "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac-arm64/NeverWrite.app" \
                     "$NEVERWRITE_ELECTRON_OUTPUT_DIR/mac/NeverWrite.app"; do
                     if [[ -d "$candidate" ]]; then
                       APP_PATH="$candidate"
@@ -383,21 +358,21 @@ jobs:
                     exit 1
                   fi
 
-                  verify_universal() {
+                  verify_arm64() {
                     local binary_path="$1"
                     local archs
                     archs="$(lipo -archs "$binary_path")"
                     echo "$binary_path: $archs"
-                    if [[ "$archs" != "arm64 x86_64" && "$archs" != "x86_64 arm64" ]]; then
-                      echo "Expected universal arm64/x86_64 binary: $binary_path" >&2
+                    if [[ "$archs" != "arm64" ]]; then
+                      echo "Expected arm64-only binary: $binary_path" >&2
                       exit 1
                     fi
                   }
 
-                  verify_universal "$APP_PATH/Contents/Resources/native-backend/neverwrite-native-backend"
-                  verify_universal "$APP_PATH/Contents/Resources/native-backend/binaries/codex-acp"
-                  verify_universal "$APP_PATH/Contents/Resources/native-backend/binaries/codex-code-mode-host"
-                  verify_universal "$APP_PATH/Contents/Resources/native-backend/embedded/node/bin/node"
+                  verify_arm64 "$APP_PATH/Contents/Resources/native-backend/neverwrite-native-backend"
+                  verify_arm64 "$APP_PATH/Contents/Resources/native-backend/binaries/codex-acp"
+                  verify_arm64 "$APP_PATH/Contents/Resources/native-backend/binaries/codex-code-mode-host"
+                  verify_arm64 "$APP_PATH/Contents/Resources/native-backend/embedded/node/bin/node"
 
             - name: Sign Linux RPM package
               if: matrix.platform == 'linux' && needs.apt-repository-preflight.outputs.apt_signing_enabled == 'true'

@@ -27,16 +27,12 @@ export {
     rpmArchForBuildTarget,
 };
 
-export const ELECTRON_BUILD_TARGETS = [
-    "universal-apple-darwin",
-    "aarch64-pc-windows-msvc",
-    "x86_64-pc-windows-msvc",
-    "aarch64-unknown-linux-gnu",
-    "x86_64-unknown-linux-gnu",
-];
+export const ELECTRON_BUILD_TARGETS = ["aarch64-apple-darwin"];
 
 export const BUILD_TARGET_TO_FEED_TARGET = {
-    "universal-apple-darwin": "darwin-universal",
+    // Keep publishing under darwin-universal so already-installed clients
+    // (which still request that feed) can update on Apple Silicon builds.
+    "aarch64-apple-darwin": "darwin-universal",
     "aarch64-pc-windows-msvc": "windows-arm64",
     "x86_64-pc-windows-msvc": "windows-x64",
     "aarch64-unknown-linux-gnu": "linux-arm64",
@@ -70,6 +66,8 @@ export function buildElectronUpdaterAssetName(version, buildTarget) {
     switch (buildTarget) {
         case "universal-apple-darwin":
             return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_macOS_Universal.zip`;
+        case "aarch64-apple-darwin":
+            return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_macOS_ARM64.zip`;
         case "aarch64-pc-windows-msvc":
             return `${PUBLIC_PRODUCT_NAME}_${normalizedVersion}_Windows_ARM64_Setup.exe`;
         case "x86_64-pc-windows-msvc":
@@ -103,6 +101,11 @@ export function describeBuildTarget(buildTarget) {
             return {
                 platformLabel: "macOS",
                 architectureLabel: "Universal",
+            };
+        case "aarch64-apple-darwin":
+            return {
+                platformLabel: "macOS",
+                architectureLabel: "Apple Silicon",
             };
         case "aarch64-pc-windows-msvc":
             return {
