@@ -4,6 +4,10 @@ import { useVaultStore } from "../../app/store/vaultStore";
 import { resolveVaultAbsolutePath } from "../../app/utils/vaultPaths";
 import { getPathBaseName } from "../../app/utils/path";
 import { logError } from "../../app/utils/runtimeLog";
+import {
+    safeStorageGetItem,
+    safeStorageSetItem,
+} from "../../app/utils/safeStorage";
 import { openAiEditedFileByAbsolutePath } from "../ai/chatFileNavigation";
 import {
     checkoutGitBranch,
@@ -21,6 +25,37 @@ import { useGitStatusStore } from "./gitStatusStore";
 import type { GitBranchList, GitCommitEntry, GitFileStatus } from "./types";
 
 const GIT_LOG_PAGE_SIZE = 50;
+const GIT_SECTION_COLLAPSED_KEY = "neverwrite:gitSectionCollapsed";
+const GIT_SECTION_IDS = ["history", "staged", "changes"] as const;
+
+type GitSectionId = (typeof GIT_SECTION_IDS)[number];
+
+function defaultGitSectionCollapsed(): Record<GitSectionId, boolean> {
+    return { history: false, staged: false, changes: false };
+}
+
+function readGitSectionCollapsed(): Record<GitSectionId, boolean> {
+    const next = defaultGitSectionCollapsed();
+    try {
+        const raw = safeStorageGetItem(GIT_SECTION_COLLAPSED_KEY);
+        if (!raw) return next;
+        const parsed = JSON.parse(raw) as unknown;
+        if (!parsed || typeof parsed !== "object") return next;
+        const record = parsed as Record<string, unknown>;
+        for (const id of GIT_SECTION_IDS) {
+            if (typeof record[id] === "boolean") {
+                next[id] = record[id];
+            }
+        }
+        return next;
+    } catch {
+        return defaultGitSectionCollapsed();
+    }
+}
+
+function writeGitSectionCollapsed(value: Record<GitSectionId, boolean>) {
+    safeStorageSetItem(GIT_SECTION_COLLAPSED_KEY, JSON.stringify(value));
+}
 
 function formatCommitDate(iso: string) {
     const date = new Date(iso);
@@ -88,6 +123,17 @@ export function GitPanel() {
     const [logLoading, setLogLoading] = useState(false);
     const [logHasMore, setLogHasMore] = useState(false);
     const [loadingMoreLog, setLoadingMoreLog] = useState(false);
+    const [collapsedSections, setCollapsedSections] = useState(
+        readGitSectionCollapsed,
+    );
+
+    const toggleSection = useCallback((id: GitSectionId) => {
+        setCollapsedSections((current) => {
+            const next = { ...current, [id]: !current[id] };
+            writeGitSectionCollapsed(next);
+            return next;
+        });
+    }, []);
 
     const loading = statusLoading || loadingBranches;
 
@@ -563,7 +609,12 @@ export function GitPanel() {
             ) : null}
 
             <div className="min-h-0 flex-1 overflow-auto px-1 pb-2">
-                <Section title={`提交历史${commits.length > 0 ? ` (${commits.length})` : ""}`}>
+                <Section
+                    title={`提交历史${commits.length > 0 ? ` (${commits.length})` : ""}`}
+                    collapsed={collapsedSections.history}
+                    onToggle={() => toggleSection("history")}
+                    toggleLabel="提交历史"
+                >
                     {logLoading ? (
                         <Muted>加载历史中…</Muted>
                     ) : commits.length === 0 ? (
@@ -611,6 +662,9 @@ export function GitPanel() {
 
                 <Section
                     title={`已暂存 (${stagedFiles.length})`}
+                    collapsed={collapsedSections.staged}
+                    onToggle={() => toggleSection("staged")}
+                    toggleLabel="已暂存"
                     actions={
                         stagedFiles.length > 0 ? (
                             <ActionButton
@@ -645,6 +699,9 @@ export function GitPanel() {
 
                 <Section
                     title={`更改 (${changedFiles.length})`}
+                    collapsed={collapsedSections.changes}
+                    onToggle={() => toggleSection("changes")}
+                    toggleLabel="更改"
                     actions={
                         <>
                             <ActionButton
@@ -819,24 +876,77 @@ function Section({
     title,
     actions,
     children,
+    collapsed = false,
+    onToggle,
+    toggleLabel,
 }: {
     title: string;
     actions?: ReactNode;
     children: ReactNode;
+    collapsed?: boolean;
+    onToggle?: () => void;
+    toggleLabel?: string;
 }) {
     return (
         <div className="mb-3">
             <div className="mb-1 flex items-center gap-1 px-2">
-                <span
-                    className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-wide"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    {title}
-                </span>
+                {onToggle ? (
+                    <button
+                        type="button"
+                        aria-expanded={!collapsed}
+                        aria-label={
+                            collapsed
+                                ? `展开${toggleLabel ?? title}`
+                                : `折叠${toggleLabel ?? title}`
+                        }
+                        title={collapsed ? "展开" : "折叠"}
+                        onClick={onToggle}
+                        className="flex min-w-0 flex-1 items-center gap-0.5 border-0 bg-transparent p-0 text-left"
+                        style={{ color: "var(--text-secondary)", cursor: "pointer" }}
+                    >
+                        <SectionChevron open={!collapsed} />
+                        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-wide">
+                            {title}
+                        </span>
+                    </button>
+                ) : (
+                    <span
+                        className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-wide"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        {title}
+                    </span>
+                )}
                 <div className="flex shrink-0 items-center gap-1">{actions}</div>
             </div>
-            {children}
+            {collapsed ? null : children}
         </div>
+    );
+}
+
+function SectionChevron({ open }: { open: boolean }) {
+    return (
+        <svg
+            width="12"
+            height="12"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+            style={{
+                flexShrink: 0,
+                transform: open ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 120ms ease",
+                opacity: 0.7,
+            }}
+        >
+            <path
+                d="M6 4l4 4-4 4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
     );
 }
 
