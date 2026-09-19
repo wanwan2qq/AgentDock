@@ -59,6 +59,7 @@ import { useSettingsStore } from "../../../app/store/settingsStore";
 import { useVaultStore } from "../../../app/store/vaultStore";
 import { toVaultRelativePath } from "../../../app/utils/vaultPaths";
 import {
+    buildAiHistoryAttachmentPreviewUrl,
     buildCodexGeneratedImagePreviewUrl,
     buildVaultPreviewUrlFromAbsolutePath,
 } from "../../../app/utils/filePreviewUrl";
@@ -107,7 +108,9 @@ function UserMessageAttachmentThumbnail({
     const filePath = attachment.filePath;
     if (!filePath) return null;
 
-    const previewUrl = buildVaultPreviewUrlFromAbsolutePath(filePath, vaultPath);
+    const previewUrl =
+        buildVaultPreviewUrlFromAbsolutePath(filePath, vaultPath) ??
+        buildAiHistoryAttachmentPreviewUrl(filePath);
     const unavailable = !previewUrl || loadFailed;
     const label = attachment.label || fileNameFromPath(filePath);
     const fileName = fileNameFromPath(filePath);

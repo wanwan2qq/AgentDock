@@ -66,8 +66,8 @@ AgentDock 远程 `main` 仍停在 `72a2386`；上游已领先约三周、跨 0.6
 
 - [ ] **ACP 空闲断线恢复**；未发送 prompt 不进 recovery context
 - [ ] 重连失败时的启动诊断（脱敏）
-- [ ] 全局快捷键 Settings > Shortcuts
-- [ ] 聊天内容宽度 Appearance
+- [x] 全局快捷键 Settings > Shortcuts
+- [x] 聊天内容宽度 Appearance
 - [ ] 半透明 composer、plan widget、流式 fence
 - [ ] 滚动到底 / 面包屑过长
 - [ ] 0.7.1：正式包 chat backdrop blur 丢失

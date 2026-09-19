@@ -898,6 +898,69 @@ export async function aiPruneSessionHistories(
     });
 }
 
+export type AIHistoryScope = "device" | "vault";
+
+export interface AIHistoryStorageStatus {
+    scope: AIHistoryScope;
+    storeInVault: boolean;
+    sessionCount: number;
+    deviceSessionCount: number;
+    vaultSessionCount: number;
+}
+
+export interface AIHistoryStorageMoveResult {
+    scope: AIHistoryScope;
+    storeInVault: boolean;
+    movedSessions: number;
+    movedAttachments: number;
+}
+
+export async function aiGetHistoryStorage(
+    vaultPath: string,
+): Promise<AIHistoryStorageStatus> {
+    return invoke<AIHistoryStorageStatus>("ai_get_history_storage", {
+        vaultPath,
+    });
+}
+
+export async function aiSetHistoryStorage(
+    vaultPath: string,
+    storeInVault: boolean,
+): Promise<AIHistoryStorageMoveResult> {
+    return invoke<AIHistoryStorageMoveResult>("ai_set_history_storage", {
+        vaultPath,
+        storeInVault,
+    });
+}
+
+export async function aiSaveChatAttachment(
+    vaultPath: string,
+    fileName: string,
+    bytes: number[],
+): Promise<{
+    path: string;
+    relative_path: string;
+    file_name: string;
+    mime_type: string | null;
+    storedInVault?: boolean;
+}> {
+    return invoke("ai_save_chat_attachment", {
+        vaultPath,
+        fileName,
+        bytes,
+    });
+}
+
+export async function aiDeleteChatAttachment(
+    vaultPath: string,
+    pathOrRelative: string,
+): Promise<void> {
+    await invoke("ai_delete_chat_attachment", {
+        vaultPath,
+        path: pathOrRelative,
+    });
+}
+
 export async function aiRegisterFileBaseline(
     sessionId: string,
     displayPath: string,

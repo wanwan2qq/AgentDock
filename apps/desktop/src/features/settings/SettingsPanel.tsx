@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { listen } from "@neverwrite/runtime";
+import { confirm, listen } from "@neverwrite/runtime";
 import { getCurrentWebviewWindow } from "@neverwrite/runtime";
 import { openPath, openUrl, revealItemInDir } from "@neverwrite/runtime";
 import {
@@ -22,9 +22,15 @@ import {
     type RecentVault,
 } from "../../app/store/vaultStore";
 import { useChatStore } from "../ai/store/chatStore";
+import {
+    aiGetHistoryStorage,
+    aiSetHistoryStorage,
+    type AIHistoryStorageStatus,
+} from "../ai/api";
 import type { ActivityDisplayMode } from "../ai/activityDisplayMode";
 import { useSpellcheckStore } from "../spellcheck/store";
-import { getShortcutSettingsEntries } from "../../app/shortcuts/registry";
+import { getShortcutSettingsEntries, findShortcutConflict, getShortcutDefinition, type ShortcutActionId } from "../../app/shortcuts/registry";
+import { useShortcutOverrideStore } from "../../app/shortcuts/shortcutOverrides";
 import {
     formatPrimaryShortcut,
     formatShortcutAction,
@@ -957,6 +963,7 @@ function AppearanceSettings({
         fileTreeScale,
         agentsSidebarScale,
         fileTreeStickyFolders,
+        chatContentWidth,
         setSetting,
     } = useSettingsStore();
     const [appZoomPercent, setAppZoomPercent] = useAppZoomPercent();
@@ -1000,6 +1007,12 @@ function AppearanceSettings({
             ],
         ],
     );
+    const showChatWidth = sectionHasSettingsSearchMatches(searchQuery, "Chat", [
+        [
+            "Chat content width",
+            "Maximum width of chat messages and the composer, in pixels.",
+        ],
+    ]);
     const showZoom = sectionHasSettingsSearchMatches(searchQuery, "Zoom", [
         [
             "App zoom",
@@ -1008,7 +1021,7 @@ function AppearanceSettings({
         ],
     ]);
 
-    if (!showMode && !showTheme && !showNavigation && !showZoom) {
+    if (!showMode && !showTheme && !showNavigation && !showChatWidth && !showZoom) {
         return <EmptyPanelSearchResult />;
     }
 
@@ -1081,6 +1094,26 @@ function AppearanceSettings({
                         onChange={(v) =>
                             setSetting("fileTreeStickyFolders", v)
                         }
+                    />
+                }
+            />
+
+            {showChatWidth ? <SectionLabel>Chat</SectionLabel> : null}
+            <SearchableRow
+                searchQuery={searchQuery}
+                section="Chat"
+                label="Chat content width"
+                description="Maximum width of chat messages and the composer, in pixels."
+                control={
+                    <SliderField
+                        value={chatContentWidth}
+                        min={480}
+                        max={1100}
+                        step={20}
+                        onChange={(value) =>
+                            setSetting("chatContentWidth", value)
+                        }
+                        formatValue={(value) => `${value}px`}
                     />
                 }
             />
@@ -3816,6 +3849,12 @@ function ShortcutsSettings({
     searchQuery: SettingsSearchQuery;
 }) {
     const platform = getDesktopPlatform();
+    const overrides = useShortcutOverrideStore((state) => state.overrides);
+    const setOverride = useShortcutOverrideStore((state) => state.setOverride);
+    const clearOverride = useShortcutOverrideStore((state) => state.clearOverride);
+    const clearAll = useShortcutOverrideStore((state) => state.clearAll);
+    const [recordingId, setRecordingId] = useState<ShortcutActionId | null>(null);
+    const [recordError, setRecordError] = useState<string | null>(null);
     const shortcuts = getShortcutSettingsEntries(platform);
     const filteredShortcuts = shortcuts.filter((shortcut) =>
         matchesSettingsSearch(
@@ -3834,6 +3873,72 @@ function ShortcutsSettings({
         },
         {},
     );
+
+    useEffect(() => {
+        if (!recordingId) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.key === "Escape") {
+                setRecordingId(null);
+                setRecordError(null);
+                return;
+            }
+            if (event.key === "Backspace" || event.key === "Delete") {
+                clearOverride(recordingId);
+                setRecordingId(null);
+                setRecordError(null);
+                return;
+            }
+            if (
+                event.key === "Meta" ||
+                event.key === "Control" ||
+                event.key === "Alt" ||
+                event.key === "Shift"
+            ) {
+                return;
+            }
+            const modifiers = [
+                event.metaKey ? "meta" : null,
+                event.ctrlKey ? "ctrl" : null,
+                event.altKey ? "alt" : null,
+                event.shiftKey ? "shift" : null,
+            ].filter((modifier): modifier is "meta" | "ctrl" | "alt" | "shift" =>
+                modifier !== null,
+            );
+            if (
+                !modifiers.some(
+                    (modifier) =>
+                        modifier === "meta" ||
+                        modifier === "ctrl" ||
+                        modifier === "alt",
+                )
+            ) {
+                setRecordError("需要包含 ⌘、Ctrl 或 Alt。");
+                return;
+            }
+            const binding = {
+                key: event.key.length === 1 ? event.key.toLowerCase() : event.key,
+                modifiers,
+            };
+            const conflict = findShortcutConflict(
+                binding,
+                recordingId,
+                platform,
+            );
+            if (conflict) {
+                setRecordError(
+                    `已被「${getShortcutDefinition(conflict).label}」使用。`,
+                );
+                return;
+            }
+            setOverride(recordingId, binding);
+            setRecordingId(null);
+            setRecordError(null);
+        };
+        window.addEventListener("keydown", onKeyDown, true);
+        return () => window.removeEventListener("keydown", onKeyDown, true);
+    }, [clearOverride, platform, recordingId, setOverride]);
 
     if (shortcuts.length === 0) {
         return (
@@ -3858,46 +3963,190 @@ function ShortcutsSettings({
 
     return (
         <div>
+            <p
+                style={{
+                    fontSize: 12,
+                    color: "var(--text-secondary)",
+                    margin: "4px 0 8px",
+                }}
+            >
+                点击快捷键后按下新组合。Esc 取消，Delete 恢复默认。编辑器格式快捷键在重新打开笔记后生效。
+            </p>
+            {recordError ? (
+                <p style={{ fontSize: 12, color: "var(--error, #ef4444)", margin: "0 0 8px" }}>
+                    {recordError}
+                </p>
+            ) : null}
+            {Object.keys(overrides).length > 0 ? (
+                <button
+                    type="button"
+                    onClick={() => {
+                        clearAll();
+                        setRecordError(null);
+                    }}
+                    style={{
+                        marginBottom: 8,
+                        border: "none",
+                        background: "transparent",
+                        color: "var(--text-secondary)",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        padding: 0,
+                    }}
+                >
+                    恢复全部默认
+                </button>
+            ) : null}
             {Object.entries(grouped).map(([cat, items]) => (
                 <div key={cat}>
                     <SectionLabel>{cat}</SectionLabel>
-                    {items.map((item) => (
-                        <div
-                            key={item.label}
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "9px 0",
-                                borderBottom: "1px solid var(--border)",
-                            }}
-                        >
-                            <span
+                    {items.map((item) => {
+                        const recording = recordingId === item.id;
+                        const customized = Boolean(overrides[item.id]);
+                        return (
+                            <div
+                                key={item.id}
                                 style={{
-                                    fontSize: 13,
-                                    color: "var(--text-primary)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    padding: "9px 0",
+                                    borderBottom: "1px solid var(--border)",
+                                    gap: 16,
                                 }}
                             >
-                                {item.label}
-                            </span>
-                            <kbd
-                                style={{
-                                    fontSize: 11,
-                                    fontFamily: "inherit",
-                                    color: "var(--text-secondary)",
-                                    backgroundColor: "var(--bg-tertiary)",
-                                    border: "1px solid var(--border)",
-                                    borderRadius: 5,
-                                    padding: "2px 7px",
-                                }}
-                            >
-                                {item.shortcut}
-                            </kbd>
-                        </div>
-                    ))}
+                                <span
+                                    style={{
+                                        fontSize: 13,
+                                        color: "var(--text-primary)",
+                                    }}
+                                >
+                                    {item.label}
+                                </span>
+                                <button
+                                    type="button"
+                                    aria-label={`${item.label} shortcut`}
+                                    onClick={() => {
+                                        setRecordingId(item.id);
+                                        setRecordError(null);
+                                    }}
+                                    style={{
+                                        fontSize: 11,
+                                        fontFamily: "inherit",
+                                        color: recording
+                                            ? "var(--text-primary)"
+                                            : "var(--text-secondary)",
+                                        backgroundColor: "var(--bg-tertiary)",
+                                        border: customized
+                                            ? "1px solid var(--accent)"
+                                            : "1px solid var(--border)",
+                                        borderRadius: 5,
+                                        padding: "2px 7px",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    {recording ? "按下快捷键…" : item.shortcut}
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             ))}
         </div>
+    );
+}
+
+function ChatHistoryStorageRow({
+    searchQuery,
+}: {
+    searchQuery: SettingsSearchQuery;
+}) {
+    const storeVaultPath = useVaultStore((state) => state.vaultPath);
+    // Settings opens in its own window and does not open the vault store.
+    // The current vault is passed on the URL instead.
+    const vaultPath = storeVaultPath ?? readSearchParam("vault");
+    const [status, setStatus] = useState<AIHistoryStorageStatus | null>(null);
+    const [busy, setBusy] = useState(false);
+
+    useEffect(() => {
+        if (!vaultPath) {
+            setStatus(null);
+            return;
+        }
+        let cancelled = false;
+        void aiGetHistoryStorage(vaultPath)
+            .then((next) => {
+                if (!cancelled) setStatus(next);
+            })
+            .catch((error) => {
+                console.error("[settings] Failed to load AI history storage:", error);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [vaultPath]);
+
+    const storeInVault = status?.storeInVault ?? false;
+
+    const onToggle = async (next: boolean) => {
+        if (!vaultPath || busy || !status || next === storeInVault) return;
+        const moving = next
+            ? status.deviceSessionCount
+            : status.vaultSessionCount;
+        const message = next
+            ? moving > 0
+                ? `将把 ${moving} 条对话从这台电脑移入当前仓库。团队 Git 会包含这些聊天记录。是否继续？`
+                : "之后的对话会保存在当前仓库内。是否继续？"
+            : moving > 0
+              ? `将把 ${moving} 条对话从当前仓库移到这台电脑。仓库里的 .neverwrite/sessions 会被清掉。是否继续？`
+              : "之后的对话会保存在这台电脑，不再写入仓库。是否继续？";
+        const approved = await confirm(message, {
+            title: "AI chat storage",
+            kind: "warning",
+            okLabel: "Move",
+            cancelLabel: "Cancel",
+        });
+        if (!approved) return;
+        setBusy(true);
+        try {
+            const result = await aiSetHistoryStorage(vaultPath, next);
+            setStatus({
+                scope: result.scope,
+                storeInVault: result.storeInVault,
+                sessionCount: result.movedSessions,
+                deviceSessionCount: result.storeInVault ? 0 : result.movedSessions,
+                vaultSessionCount: result.storeInVault ? result.movedSessions : 0,
+            });
+        } catch (error) {
+            console.error("[settings] Failed to move AI history:", error);
+            await confirm(
+                error instanceof Error
+                    ? error.message
+                    : "Could not move AI chat history.",
+                { title: "Move failed", kind: "error", okLabel: "OK" },
+            );
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <SearchableRow
+            searchQuery={searchQuery}
+            section="Chat"
+            label="Store AI chats inside this vault"
+            description="When off, chat transcripts stay on this computer instead of the vault. Recommended for Git-shared knowledge bases."
+            keywords={["device", "local", "history", "Git"]}
+            control={
+                <Toggle
+                    value={storeInVault}
+                    disabled={!vaultPath || busy || status == null}
+                    onChange={(value) => {
+                        void onToggle(value);
+                    }}
+                />
+            }
+        />
     );
 }
 
@@ -3976,6 +4225,14 @@ function AISettings({ searchQuery }: { searchQuery: SettingsSearchQuery }) {
             "Expanded",
             "Collapsed",
             "Hide routine activity",
+        ],
+        [
+            "Store AI chats inside this vault",
+            "When off, chat transcripts stay on this computer instead of the vault. Recommended for Git-shared knowledge bases.",
+            "device",
+            "local",
+            "history",
+            "Git",
         ],
         [
             "Chat history retention",
@@ -4115,6 +4372,7 @@ function AISettings({ searchQuery }: { searchQuery: SettingsSearchQuery }) {
                     />
                 }
             />
+            <ChatHistoryStorageRow searchQuery={searchQuery} />
             <SearchableRow
                 searchQuery={searchQuery}
                 section="Chat"
@@ -4535,6 +4793,9 @@ const STATIC_CATEGORY_SEARCH_VALUES: Record<Category, readonly SearchValue[]> = 
         "File tree size",
         "Agents size",
         "Sticky folders",
+        "Chat",
+        "Chat content width",
+        "Maximum width of chat messages and the composer, in pixels.",
         "Zoom",
         "App zoom",
         "View menu",
@@ -4681,6 +4942,7 @@ const STATIC_CATEGORY_SEARCH_VALUES: Record<Category, readonly SearchValue[]> = 
         "Expanded",
         "Collapsed",
         "Hide routine activity",
+        "Store AI chats inside this vault",
         "Chat history retention",
         "Composer",
         "Require command enter control enter to send",

@@ -19,6 +19,10 @@ use devtools::DevTerminalManager;
 use neverwrite_ai::persistence::{
     self, PersistedSessionHistory, PersistedSessionHistoryPage, SessionSearchResult,
 };
+use neverwrite_ai::{
+    delete_chat_attachment, history_storage_status, resolve_history_location, save_chat_attachment,
+    set_history_scope, HistoryLocation,
+};
 use neverwrite_index::VaultIndex;
 use neverwrite_types::{
     AdvancedSearchParams, BacklinkDto, NoteDetailDto, NoteDocument, NoteDto, NoteId, NoteMetadata,
@@ -892,6 +896,10 @@ impl NativeBackend {
             "ai_delete_session_history" => self.ai_delete_session_history(args),
             "ai_delete_all_session_histories" => self.ai_delete_all_session_histories(args),
             "ai_prune_session_histories" => self.ai_prune_session_histories(args),
+            "ai_get_history_storage" => self.ai_get_history_storage(args),
+            "ai_set_history_storage" => self.ai_set_history_storage(args),
+            "ai_save_chat_attachment" => self.ai_save_chat_attachment(args),
+            "ai_delete_chat_attachment" => self.ai_delete_chat_attachment(args),
             "ai_get_text_file_hash" => self.ai_get_text_file_hash(args),
             "ai_restore_text_file" => self.ai_restore_text_file(args),
             "ai_start_auth_terminal_session" => self.ai.start_auth_terminal_session(&args),
@@ -987,6 +995,14 @@ impl NativeBackend {
         Ok((root, state.vault.root.clone()))
     }
 
+    fn history_location(&self, vault_root: &Path) -> Result<HistoryLocation, String> {
+        resolve_history_location(&ai::app_data_dir(), vault_root)
+    }
+
+    fn history_persistence_root(&self, vault_root: &Path) -> Result<PathBuf, String> {
+        Ok(self.history_location(vault_root)?.persistence_root)
+    }
+
     fn ai_save_session_history(&self, args: Value) -> Result<Value, String> {
         let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
         let history: PersistedSessionHistory = serde_json::from_value(
@@ -995,7 +1011,7 @@ impl NativeBackend {
                 .ok_or_else(|| "Missing argument: history".to_string())?,
         )
         .map_err(|error| error.to_string())?;
-        persistence::save_session_history(&vault_root, &history)?;
+        persistence::save_session_history(&self.history_persistence_root(&vault_root)?, &history)?;
         Ok(json!(null))
     }
 
@@ -1004,8 +1020,10 @@ impl NativeBackend {
         let include_messages = bool_arg(&args, "includeMessages")
             .or_else(|| bool_arg(&args, "include_messages"))
             .unwrap_or(true);
-        let histories: Vec<PersistedSessionHistory> =
-            persistence::load_all_session_histories(&vault_root, include_messages)?;
+        let histories: Vec<PersistedSessionHistory> = persistence::load_all_session_histories(
+            &self.history_persistence_root(&vault_root)?,
+            include_messages,
+        )?;
         Ok(json!(histories))
     }
 
@@ -1014,16 +1032,22 @@ impl NativeBackend {
         let session_id = required_string(&args, &["sessionId", "session_id"])?;
         let start_index = required_usize(&args, &["startIndex", "start_index"])?;
         let limit = required_usize(&args, &["limit"])?;
-        let page: PersistedSessionHistoryPage =
-            persistence::load_session_history_page(&vault_root, &session_id, start_index, limit)?;
+        let page: PersistedSessionHistoryPage = persistence::load_session_history_page(
+            &self.history_persistence_root(&vault_root)?,
+            &session_id,
+            start_index,
+            limit,
+        )?;
         Ok(json!(page))
     }
 
     fn ai_search_session_content(&self, args: Value) -> Result<Value, String> {
         let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
         let query = required_string(&args, &["query"])?;
-        let results: Vec<SessionSearchResult> =
-            persistence::search_session_content(&vault_root, &query)?;
+        let results: Vec<SessionSearchResult> = persistence::search_session_content(
+            &self.history_persistence_root(&vault_root)?,
+            &query,
+        )?;
         Ok(json!(results))
     }
 
@@ -1031,7 +1055,7 @@ impl NativeBackend {
         let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
         let source_session_id = required_string(&args, &["sourceSessionId", "source_session_id"])?;
         Ok(json!(persistence::fork_session_history(
-            &vault_root,
+            &self.history_persistence_root(&vault_root)?,
             &source_session_id
         )?))
     }
@@ -1039,13 +1063,16 @@ impl NativeBackend {
     fn ai_delete_session_history(&self, args: Value) -> Result<Value, String> {
         let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
         let session_id = required_string(&args, &["sessionId", "session_id"])?;
-        persistence::delete_session_history(&vault_root, &session_id)?;
+        persistence::delete_session_history(
+            &self.history_persistence_root(&vault_root)?,
+            &session_id,
+        )?;
         Ok(json!(null))
     }
 
     fn ai_delete_all_session_histories(&self, args: Value) -> Result<Value, String> {
         let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
-        persistence::delete_all_session_histories(&vault_root)?;
+        persistence::delete_all_session_histories(&self.history_persistence_root(&vault_root)?)?;
         Ok(json!(null))
     }
 
@@ -1053,9 +1080,58 @@ impl NativeBackend {
         let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
         let max_age_days = required_u32(&args, &["maxAgeDays", "max_age_days"])?;
         Ok(json!(persistence::prune_expired_session_histories(
-            &vault_root,
+            &self.history_persistence_root(&vault_root)?,
             max_age_days
         )?))
+    }
+
+    fn ai_get_history_storage(&self, args: Value) -> Result<Value, String> {
+        let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
+        let status = history_storage_status(&ai::app_data_dir(), &vault_root)?;
+        Ok(json!(status))
+    }
+
+    fn ai_set_history_storage(&self, args: Value) -> Result<Value, String> {
+        let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
+        let store_in_vault = bool_arg(&args, "storeInVault")
+            .or_else(|| bool_arg(&args, "store_in_vault"))
+            .ok_or_else(|| "Missing argument: storeInVault".to_string())?;
+        let result = set_history_scope(&ai::app_data_dir(), &vault_root, store_in_vault)?;
+        Ok(json!(result))
+    }
+
+    fn ai_save_chat_attachment(&mut self, args: Value) -> Result<Value, String> {
+        let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
+        let file_name = required_string(&args, &["fileName", "file_name"])?;
+        let location = self.history_location(&vault_root)?;
+        if matches!(location.scope, neverwrite_ai::HistoryScope::Vault) {
+            let mut result = self.save_vault_binary_file(json!({
+                "vaultPath": vault_root,
+                "relativeDir": "assets/chat",
+                "fileName": file_name,
+                "bytes": args.get("bytes").cloned().unwrap_or(Value::Null),
+            }))?;
+            if let Some(object) = result.as_object_mut() {
+                object.insert("storedInVault".to_string(), json!(true));
+            }
+            return Ok(result);
+        }
+        let bytes = bytes_arg(&args, "bytes")?;
+        let saved = save_chat_attachment(&location.persistence_root, &file_name, &bytes)?;
+        Ok(json!({
+            "path": saved.path,
+            "relative_path": saved.relative_path,
+            "file_name": saved.file_name,
+            "mime_type": saved.mime_type,
+            "storedInVault": false,
+        }))
+    }
+
+    fn ai_delete_chat_attachment(&self, args: Value) -> Result<Value, String> {
+        let (_vault_key, vault_root) = self.required_open_vault_root(&args)?;
+        let target = required_string(&args, &["path", "relativePath", "relative_path"])?;
+        delete_chat_attachment(&self.history_persistence_root(&vault_root)?, &target)?;
+        Ok(json!(null))
     }
 
     fn ai_get_text_file_hash(&self, args: Value) -> Result<Value, String> {
@@ -3655,7 +3731,10 @@ mod tests {
             .find(|note| note.get("id").and_then(Value::as_str) == Some("Notes/A"))
             .expect("note A present");
         assert_eq!(note_a.get("status").and_then(Value::as_str), Some("draft"));
-        assert_eq!(note_a.get("okf_type").and_then(Value::as_str), Some("article"));
+        assert_eq!(
+            note_a.get("okf_type").and_then(Value::as_str),
+            Some("article")
+        );
 
         // Editing the status produces a change event carrying the new value,
         // and the save_note RESPONSE carries it too. The response matters
@@ -3680,8 +3759,14 @@ mod tests {
             Some("article")
         );
         let change = recv_vault_change(&event_rx);
-        assert_eq!(change.get("status").and_then(Value::as_str), Some("published"));
-        assert_eq!(change.get("okf_type").and_then(Value::as_str), Some("article"));
+        assert_eq!(
+            change.get("status").and_then(Value::as_str),
+            Some("published")
+        );
+        assert_eq!(
+            change.get("okf_type").and_then(Value::as_str),
+            Some("article")
+        );
         assert_eq!(
             change
                 .get("note")

@@ -40,11 +40,13 @@ refactors, dependency updates, CI changes, and code cleanup do not belong here.
 
 - Added workspace tab focus mode to hide side chrome and maximize the active editor pane, with keyboard shortcut, command palette entry, and Escape to exit.
 - Added a disposition dialog when opening a vault while another is already open: replace the current window, open in a new window, or cancel.
-- Added branch commit history to the Git panel, showing recent commits on the current branch with load-more pagination.
+- Added a per-vault **Store AI chats inside this vault** setting. New vaults keep transcripts and pasted chat screenshots in app data by default; existing vaults that already have `.neverwrite/sessions` stay on vault storage until moved.
 
 ### Changed
 
-- Changed the desktop auto-update feed and release links to the AgentDock fork (`wanwan2qq/AgentDock`) so fork releases can be published independently.
+- Settings → Shortcuts can now record a replacement for a global shortcut. Delete restores that one binding, and Restore all defaults clears every override. Editor formatting shortcuts take effect the next time a note is opened.
+- Settings → Appearance → Chat content width sets the chat message and composer column between 480 and 1100 pixels. The default stays 600.
+- Changed the bundled Claude ACP runtime from 0.59.0 to 0.66.0 so model switches no longer wait on a late context-window lookup, and tool heartbeats stay attached to the call that produced them.
 - Renamed public release artifacts and update metadata from NeverWrite to AgentDock.
 
 ## [0.5.0] - 2026-07-12

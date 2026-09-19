@@ -1,4 +1,5 @@
 import { getDesktopPlatform, type DesktopPlatform } from "../utils/platform";
+import { useShortcutOverrideStore } from "./shortcutOverrides";
 
 export type ShortcutModifier = "meta" | "ctrl" | "alt" | "shift";
 
@@ -536,6 +537,8 @@ export function getShortcutBindings(
     actionId: ShortcutActionId,
     platform: DesktopPlatform = getDesktopPlatform(),
 ): ShortcutBinding[] {
+    const override = useShortcutOverrideStore.getState().overrides[actionId];
+    if (override) return [override];
     return SHORTCUT_REGISTRY[actionId].bindings[
         resolveShortcutPlatform(platform)
     ];
@@ -545,6 +548,8 @@ export function getShortcutBindingsWithAliases(
     actionId: ShortcutActionId,
     platform: DesktopPlatform = getDesktopPlatform(),
 ): ShortcutBinding[] {
+    const override = useShortcutOverrideStore.getState().overrides[actionId];
+    if (override) return [override];
     const definition = SHORTCUT_REGISTRY[actionId];
     const shortcutPlatform = resolveShortcutPlatform(platform);
     return [
@@ -554,6 +559,37 @@ export function getShortcutBindingsWithAliases(
             ? []
             : (definition.aliases?.[platform] ?? [])),
     ];
+}
+
+export function shortcutBindingsEqual(
+    left: ShortcutBinding,
+    right: ShortcutBinding,
+): boolean {
+    if (normalizeShortcutKey(left.key) !== normalizeShortcutKey(right.key)) {
+        return false;
+    }
+    const leftModifiers = new Set(left.modifiers ?? []);
+    const rightModifiers = new Set(right.modifiers ?? []);
+    if (leftModifiers.size !== rightModifiers.size) return false;
+    for (const modifier of leftModifiers) {
+        if (!rightModifiers.has(modifier)) return false;
+    }
+    return true;
+}
+
+export function findShortcutConflict(
+    binding: ShortcutBinding,
+    exceptId: ShortcutActionId,
+    platform: DesktopPlatform = getDesktopPlatform(),
+): ShortcutActionId | null {
+    for (const actionId of SHORTCUT_SETTINGS_ORDER) {
+        if (actionId === exceptId) continue;
+        const taken = getShortcutBindingsWithAliases(actionId, platform).some(
+            (candidate) => shortcutBindingsEqual(candidate, binding),
+        );
+        if (taken) return actionId;
+    }
+    return null;
 }
 
 export function formatShortcutBinding(

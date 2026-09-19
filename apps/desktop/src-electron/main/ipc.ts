@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import {
     ELECTRON_IPC,
     type IpcAppLogEnvelope,
@@ -276,6 +276,15 @@ function generatedImageRootCandidates() {
     const codexHome = process.env.CODEX_HOME?.trim();
     if (codexHome) {
         roots.unshift(path.join(codexHome, "generated_images"));
+    }
+    try {
+        roots.push(path.join(app.getPath("userData"), "ai-history"));
+    } catch {
+        // Protocol registration can run before app is ready in tests.
+    }
+    const configured = process.env.NEVERWRITE_APP_DATA_DIR?.trim();
+    if (configured) {
+        roots.push(path.join(configured, "ai-history"));
     }
 
     return [...new Set(roots)];

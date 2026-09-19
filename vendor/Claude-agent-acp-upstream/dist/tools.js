@@ -362,9 +362,38 @@ function structuredResult(toolUseResult) {
  * matching rather than mangle the report.
  */
 function stripAgentTrailer(text) {
-    return text
-        .replace(/\n?<usage>[\s\S]*?<\/usage>\s*$/, "")
-        .replace(/\n?agentId: [\w-]+ \([^)]*\)\s*$/, "");
+    return stripAgentIdLine(stripUsageBlock(text));
+}
+const USAGE_OPEN = "<usage>";
+const USAGE_CLOSE = "</usage>";
+/** Remove a trailing `<usage>…</usage>` block, plus trailing whitespace and
+ *  one preceding newline. Matches from the *last* `<usage>` so a report that
+ *  merely mentions the marker earlier isn't truncated at the mention. */
+function stripUsageBlock(text) {
+    const body = text.trimEnd();
+    if (!body.endsWith(USAGE_CLOSE)) {
+        return text;
+    }
+    const open = body.lastIndexOf(USAGE_OPEN, body.length - USAGE_CLOSE.length - USAGE_OPEN.length);
+    if (open === -1) {
+        return text;
+    }
+    return body.slice(0, open > 0 && body[open - 1] === "\n" ? open - 1 : open);
+}
+/** The continuation line, anchored to a whole line so the regex has a single
+ *  start position and no ambiguous repetition (`[\w-]+` can't consume the
+ *  following space, `[^)]*` can't consume the closing paren) — it runs in
+ *  linear time on any input. */
+const AGENT_ID_LINE = /^agentId: [\w-]+ \([^)]*\)$/;
+/** Remove a final `agentId: <id> (…)` line, plus trailing whitespace and the
+ *  newline that preceded the line. */
+function stripAgentIdLine(text) {
+    const body = text.trimEnd();
+    const lineStart = body.lastIndexOf("\n") + 1;
+    if (!AGENT_ID_LINE.test(body.slice(lineStart))) {
+        return text;
+    }
+    return body.slice(0, Math.max(lineStart - 1, 0));
 }
 /** Apply {@link stripAgentTrailer} across a raw tool_result `content` (plain
  *  string or block array), leaving non-text blocks untouched. */
@@ -472,7 +501,17 @@ export function toolUpdateFromToolResult(toolResult, toolUse, supportsTerminalOu
         }
         case "Bash": {
             const result = toolResult.content;
-            const terminalId = "tool_use_id" in toolResult ? String(toolResult.tool_use_id) : "";
+            // The terminal was announced under the tool_use's own id (see
+            // `toolInfoFromToolUse`), so key the output/exit metas off that: it is the
+            // id the client actually created a terminal for. `toolResult.tool_use_id`
+            // is the same value whenever present — the caller looks the tool_use up by
+            // it — so preferring `toolUse.id` only adds a source for the case where the
+            // result block carries no id at all. Anything that isn't a non-empty
+            // string is no id at all: `""` matches no terminal, and stringifying a
+            // present-but-undefined field would invent the literal `"undefined"`.
+            const terminalIdOf = (id) => typeof id === "string" && id.length > 0 ? id : undefined;
+            const terminalId = terminalIdOf(toolUse?.id) ??
+                terminalIdOf("tool_use_id" in toolResult ? toolResult.tool_use_id : undefined);
             const isError = "is_error" in toolResult && toolResult.is_error;
             // Extract output and exit code from either format:
             // 1. The structured BashOutput (message-level tool_use_result): its
@@ -547,7 +586,14 @@ export function toolUpdateFromToolResult(toolResult, toolUse, supportsTerminalOu
                     return toAcpContentUpdate(result, isError);
                 }
             }
-            if (supportsTerminalOutput) {
+            // Without a terminal id there is nothing the client can reconcile these
+            // metas against, and emitting them anyway strands the output: a client that
+            // buffers output/exit for terminals it has not been told about (Zed keeps
+            // them in `pending_terminal_output`/`pending_terminal_exit`, drained only on
+            // a matching create) would hold them forever behind an id that never
+            // arrives, showing an empty terminal. Fall through to the code-block
+            // rendering below instead.
+            if (supportsTerminalOutput && terminalId !== undefined) {
                 return {
                     content: [{ type: "terminal", terminalId }],
                     _meta: {
@@ -898,7 +944,7 @@ export const registerHookCallback = (toolUseID, { onPostToolUseHook, }) => {
     };
 };
 /* A callback for Claude Code that is called when receiving a PostToolUse hook */
-export const createPostToolUseHook = (logger = console, options) => async (input, toolUseID) => {
+export const createPostToolUseHook = (options) => async (input, toolUseID) => {
     if (input.hook_event_name === "PostToolUse") {
         // Handle EnterPlanMode tool - notify client of mode change after successful execution
         if (input.tool_name === "EnterPlanMode" && options?.onEnterPlanMode) {
@@ -908,12 +954,8 @@ export const createPostToolUseHook = (logger = console, options) => async (input
             const onPostToolUseHook = toolUseCallbacks[toolUseID]?.onPostToolUseHook;
             if (onPostToolUseHook) {
                 await onPostToolUseHook(toolUseID, input.tool_input, input.tool_response);
-                delete toolUseCallbacks[toolUseID]; // Cleanup after execution
             }
-            else {
-                logger.error(`No onPostToolUseHook found for tool use ID: ${toolUseID}`);
-                delete toolUseCallbacks[toolUseID];
-            }
+            delete toolUseCallbacks[toolUseID]; // Cleanup after execution
         }
     }
     return { continue: true };

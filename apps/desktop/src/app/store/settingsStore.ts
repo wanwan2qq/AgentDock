@@ -42,6 +42,7 @@ export interface Settings {
     agentsSidebarScale: number; // 90–140
     fileTreeStickyFolders: boolean;
     tabOpenBehavior: TabOpenBehavior;
+    chatContentWidth: number; // 480–1100
 
     // Terminal
     terminalFontFamily: string;
@@ -71,6 +72,7 @@ const GLOBAL_SETTING_KEYS = [
     "vimRelativeLineNumbers",
     "hoverPreviewEnabled",
     "hoverPreviewDelayMs",
+    "chatContentWidth",
 ] as const;
 
 type GlobalSettingKey = (typeof GLOBAL_SETTING_KEYS)[number];
@@ -214,6 +216,7 @@ const defaults: Settings = {
     agentsSidebarScale: 100,
     fileTreeStickyFolders: true,
     tabOpenBehavior: "new_tab",
+    chatContentWidth: 600,
     terminalFontFamily: "",
     terminalFontSize: 13,
     claudeCodeOptimized: false,
@@ -539,6 +542,12 @@ function extractSettingsFromStorage(raw: string | null): Settings | null {
             tabOpenBehavior: normalizeTabOpenBehavior(
                 parsed.state.tabOpenBehavior,
             ),
+            chatContentWidth: normalizeIntInRange(
+                parsed.state.chatContentWidth,
+                defaults.chatContentWidth,
+                480,
+                1100,
+            ),
             terminalFontFamily:
                 typeof parsed.state.terminalFontFamily === "string"
                     ? parsed.state.terminalFontFamily
@@ -643,6 +652,7 @@ function pickSettings(state: SettingsStore): Settings {
         agentsSidebarScale: state.agentsSidebarScale,
         fileTreeStickyFolders: state.fileTreeStickyFolders,
         tabOpenBehavior: state.tabOpenBehavior,
+        chatContentWidth: state.chatContentWidth,
         terminalFontFamily: state.terminalFontFamily,
         terminalFontSize: state.terminalFontSize,
         claudeCodeOptimized: state.claudeCodeOptimized,
@@ -672,6 +682,7 @@ function pickGlobalSettings(
         vimRelativeLineNumbers: settings.vimRelativeLineNumbers,
         hoverPreviewEnabled: settings.hoverPreviewEnabled,
         hoverPreviewDelayMs: settings.hoverPreviewDelayMs,
+        chatContentWidth: settings.chatContentWidth,
     };
 }
 

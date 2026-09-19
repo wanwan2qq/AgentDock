@@ -64,11 +64,12 @@ That means the directory is intentionally reproducible, but not yet minimal.
     - `vendor/codex-acp/src/thread.rs`
     - `vendor/codex-acp/vendor/codex-utils-pty/`
 - `Claude-agent-acp-upstream/`
-  - vendored snapshot is currently based on `@agentclientprotocol/claude-agent-acp` `0.59.0`
-  - upstream tag: `v0.59.0`
-  - upstream commit: `30b7c06f7640fb6a0530ba18f85e26fe2bc08882`
-  - dependencies match the upstream `0.59.0` release (`@agentclientprotocol/sdk` `1.2.1`, `@anthropic-ai/claude-agent-sdk` `0.3.207`)
+  - vendored snapshot is currently based on `@agentclientprotocol/claude-agent-acp` `0.66.0`
+  - upstream tag: `v0.66.0`
+  - upstream commit: `6b405138fc82be947964612fac04e56654827b66`
+  - dependencies match the upstream `0.66.0` release (`@agentclientprotocol/sdk` `1.3.0`, `@anthropic-ai/claude-agent-sdk` `0.3.220`)
   - `dist/` is generated from the upstream source snapshot because the desktop packaging flow depends on it even though upstream does not track it in git
+  - selective pin: stop at `0.66.0` (model-switch stall, tool heartbeats, Bash metadata). Do not take Vertex onboarding or the later `0.77+` protocol breaks.
 - `acp12/`
   - local package names: `agent-client-protocol-legacy` and
     `agent-client-protocol-schema-legacy`

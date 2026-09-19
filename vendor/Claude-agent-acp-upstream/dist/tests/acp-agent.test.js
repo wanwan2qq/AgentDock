@@ -3,10 +3,11 @@ import { spawn, spawnSync } from "child_process";
 import { client as acpClient, CreateElicitationRequest, methods, ndJsonStream, } from "@agentclientprotocol/sdk";
 import { nodeToWebWritable, nodeToWebReadable } from "../utils.js";
 import { markdownEscape, toolInfoFromToolUse, toDisplayPath, toolUpdateFromToolResult, toolUpdateFromDiffToolResponse, } from "../tools.js";
-import { toAcpNotifications, promptToClaude, isLocalCommandMetadata, isSyntheticLoginMessage, stripLocalCommandMetadata, ClaudeAcpAgent, claudeCliPath, describeAlwaysAllow, streamEventToAcpNotifications, messageIdForGrouping, buildConfigOptions, createFastModeConfigOption, discoverCustomAgents, runPromptWithCancellation, } from "../acp-agent.js";
+import { toAcpNotifications, promptToClaude, isLocalCommandMetadata, isSyntheticLoginMessage, stripLocalCommandMetadata, ClaudeAcpAgent, claudeCliPath, streamEventToAcpNotifications, messageIdForGrouping, buildConfigOptions, createFastModeConfigOption, discoverCustomAgents, runPromptWithCancellation, } from "../acp-agent.js";
 import { Pushable } from "../utils.js";
 import { deleteSession, getSessionInfo, getSessionMessages, query, } from "@anthropic-ai/claude-agent-sdk";
 import { randomUUID } from "crypto";
+import { GOAL_CONTROL_METHOD, goalUpdateFromPrompt, parseGoalRequest, toGoalSnapshot, } from "../goal-extension.js";
 vi.mock("@anthropic-ai/claude-agent-sdk", async (importOriginal) => {
     const actual = await importOriginal();
     return {
@@ -95,7 +96,10 @@ function mockSessionState(overrides = {}) {
         currentAgent: "default",
         abortController: new AbortController(),
         emitRawSDKMessages: false,
+        forwardSubagentText: false,
         contextWindowSize: 200000,
+        contextWindowAuthoritative: false,
+        providerCacheKey: "default",
         taskState: new Map(),
         toolUseCache: {},
         emittedToolCalls: new Set(),
@@ -399,6 +403,20 @@ describe("tool conversions", () => {
             ],
         });
     });
+    it("should use the Bash command as the title when no description is provided", () => {
+        const tool_use = {
+            type: "tool_use",
+            id: "toolu_01VtsS2mxUFwpBJZYd7BmbC9",
+            name: "Bash",
+            input: {
+                command: "git diff",
+            },
+        };
+        expect(toolInfoFromToolUse(tool_use)).toMatchObject({
+            kind: "execute",
+            title: "git diff",
+        });
+    });
     it("should handle Glob nicely", () => {
         const tool_use = {
             type: "tool_use",
@@ -438,6 +456,40 @@ describe("tool conversions", () => {
                     type: "content",
                 },
             ],
+        });
+    });
+    it("marks Agent and legacy Task tool calls as subagent launches", () => {
+        for (const name of ["Agent", "Task"]) {
+            const notifications = toAcpNotifications([
+                {
+                    type: "tool_use",
+                    id: `toolu_${name}`,
+                    name,
+                    input: { description: "Explore", prompt: "Inspect the project" },
+                },
+            ], "assistant", "test-session", {}, {}, console);
+            expect(notifications[0]?.update).toMatchObject({
+                sessionUpdate: "tool_call",
+                _meta: { claudeCode: { toolName: name, subagent: true } },
+            });
+        }
+        const nestedAgent = toAcpNotifications([
+            {
+                type: "tool_use",
+                id: "nested-agent",
+                name: "Agent",
+                input: { description: "Review tests", prompt: "Inspect tests" },
+            },
+        ], "assistant", "test-session", {}, {}, console, { parentToolUseId: "outer-agent" });
+        expect(nestedAgent[0]?.update).toMatchObject({
+            sessionUpdate: "tool_call",
+            _meta: {
+                claudeCode: {
+                    toolName: "Agent",
+                    subagent: true,
+                    parentToolUseId: "outer-agent",
+                },
+            },
         });
     });
     it("should handle Grep tool calls", () => {
@@ -742,6 +794,7 @@ describe("tool conversions", () => {
                     inference_geo: null,
                     iterations: null,
                     output_tokens_details: null,
+                    fallback_credit: null,
                     speed: null,
                 },
                 context_management: null,
@@ -1298,6 +1351,77 @@ describe("synthetic login message (issue #863)", () => {
         expect(JSON.stringify(updates)).not.toContain("/login");
     });
 });
+describe("subagent transcript replay", () => {
+    const replayHistory = [
+        {
+            type: "assistant",
+            uuid: "subagent-message",
+            session_id: "s1",
+            parent_tool_use_id: "parent-agent-call",
+            parent_agent_id: "agent-1",
+            message: {
+                id: "api-subagent-message",
+                model: "claude-sonnet-4-5",
+                role: "assistant",
+                type: "message",
+                stop_reason: "tool_use",
+                content: [
+                    { type: "text", text: "nested report" },
+                    { type: "tool_use", id: "child-tool", name: "Bash", input: { command: "pwd" } },
+                ],
+            },
+        },
+    ];
+    async function replay(capable) {
+        const updates = [];
+        const client = {
+            sessionUpdate: async (update) => updates.push(update),
+        };
+        const agent = new ClaudeAcpAgent(client, { log: () => { }, error: () => { } });
+        agent.clientCapabilities = capable ? { _meta: { "subagent-transcript": true } } : {};
+        vi.mocked(getSessionMessages).mockResolvedValueOnce(replayHistory);
+        await agent.replaySessionHistory("s1");
+        return updates;
+    }
+    it("preserves nested text and child tool attribution for capable clients", async () => {
+        const updates = await replay(true);
+        expect(updates).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                update: expect.objectContaining({
+                    sessionUpdate: "agent_message_chunk",
+                    content: { type: "text", text: "nested report" },
+                    _meta: expect.objectContaining({
+                        claudeCode: expect.objectContaining({ parentToolUseId: "parent-agent-call" }),
+                    }),
+                }),
+            }),
+            expect.objectContaining({
+                update: expect.objectContaining({
+                    sessionUpdate: "tool_call",
+                    toolCallId: "child-tool",
+                    _meta: expect.objectContaining({
+                        claudeCode: expect.objectContaining({ parentToolUseId: "parent-agent-call" }),
+                    }),
+                }),
+            }),
+        ]));
+    });
+    it("keeps legacy text filtering without losing child tool attribution", async () => {
+        const updates = await replay(false);
+        expect(updates.some(({ update }) => update.sessionUpdate === "agent_message_chunk")).toBe(false);
+        expect(updates).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                update: expect.objectContaining({
+                    sessionUpdate: "tool_call",
+                    toolCallId: "child-tool",
+                    _meta: expect.objectContaining({
+                        claudeCode: expect.objectContaining({ parentToolUseId: "parent-agent-call" }),
+                    }),
+                }),
+            }),
+        ]));
+    });
+});
 describe("escape markdown", () => {
     it("should escape markdown characters", () => {
         let text = "Hello *world*!";
@@ -1554,64 +1678,6 @@ describe("permission requests", () => {
             expect(Array.isArray(requestStructure.toolCall.content)).toBe(true);
         }
     });
-    describe("describeAlwaysAllow", () => {
-        it("falls back to naming the whole tool when no suggestions are provided", () => {
-            expect(describeAlwaysAllow(undefined, "Bash")).toBe("Always Allow all Bash");
-            expect(describeAlwaysAllow([], "Read")).toBe("Always Allow all Read");
-        });
-        it("includes the scoped rule content from a suggestion", () => {
-            const label = describeAlwaysAllow([
-                {
-                    type: "addRules",
-                    rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
-                    behavior: "allow",
-                    destination: "session",
-                },
-            ], "Bash");
-            expect(label).toBe("Always Allow Bash(npm test:*)");
-        });
-        it("indicates a tool-wide rule when the suggestion has no ruleContent", () => {
-            const label = describeAlwaysAllow([
-                {
-                    type: "addRules",
-                    rules: [{ toolName: "Read" }],
-                    behavior: "allow",
-                    destination: "session",
-                },
-            ], "Read");
-            expect(label).toBe("Always Allow all Read");
-        });
-        it("joins multiple rules and directory suggestions", () => {
-            const label = describeAlwaysAllow([
-                {
-                    type: "addRules",
-                    rules: [
-                        { toolName: "Bash", ruleContent: "git status" },
-                        { toolName: "Bash", ruleContent: "git diff:*" },
-                    ],
-                    behavior: "allow",
-                    destination: "session",
-                },
-                {
-                    type: "addDirectories",
-                    directories: ["/tmp/work"],
-                    destination: "session",
-                },
-            ], "Bash");
-            expect(label).toBe("Always Allow Bash(git status), Bash(git diff:*) and access to /tmp/work");
-        });
-        it("ignores non-allow rules and falls back when nothing is left", () => {
-            const label = describeAlwaysAllow([
-                {
-                    type: "addRules",
-                    rules: [{ toolName: "Bash", ruleContent: "rm -rf:*" }],
-                    behavior: "deny",
-                    destination: "session",
-                },
-            ], "Bash");
-            expect(label).toBe("Always Allow all Bash");
-        });
-    });
 });
 describe("permission request cancellation", () => {
     function injectSession(agent, sessionId) {
@@ -1639,7 +1705,10 @@ describe("permission request cancellation", () => {
             fastModeEnabled: false,
             abortController: new AbortController(),
             emitRawSDKMessages: false,
+            forwardSubagentText: false,
             contextWindowSize: 200000,
+            contextWindowAuthoritative: false,
+            providerCacheKey: "default",
             taskState: new Map(),
             toolUseCache: {},
             emittedToolCalls: new Set(),
@@ -1697,6 +1766,190 @@ describe("permission request cancellation", () => {
             toolUseID: "tool-1",
         })).rejects.toThrow("Tool use aborted");
     });
+    it("offers the approval actions in deny, once, always order with human-readable labels", async () => {
+        let request;
+        const mockClient = {
+            sessionUpdate: async () => { },
+            requestPermission: async (params) => {
+                request = params;
+                return { outcome: { outcome: "selected", optionId: "reject" } };
+            },
+        };
+        const agent = new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+        injectSession(agent, "session-1");
+        await agent.canUseTool("session-1")("Bash", { command: "ls" }, {
+            signal: new AbortController().signal,
+            suggestions: [],
+            toolUseID: "tool-1",
+        });
+        expect(request?.options).toEqual([
+            { kind: "reject_once", name: "Deny", optionId: "reject" },
+            { kind: "allow_once", name: "Allow Once", optionId: "allow" },
+            {
+                kind: "allow_always",
+                name: "Always Allow",
+                optionId: "allow_always",
+                _meta: {
+                    permission: {
+                        version: 1,
+                        changes: [
+                            {
+                                type: "policy_rule",
+                                operation: "add",
+                                ruleBehavior: "allow",
+                                description: "Allow all Bash calls",
+                                lifetime: { scope: "session" },
+                                targets: [{ type: "tool", toolName: "Bash" }],
+                            },
+                        ],
+                    },
+                },
+            },
+        ]);
+    });
+    it("attaches structured permission changes to the always-allow ACP option", async () => {
+        let request;
+        const mockClient = {
+            sessionUpdate: async () => { },
+            requestPermission: async (params) => {
+                request = params;
+                return { outcome: { outcome: "selected", optionId: "reject" } };
+            },
+        };
+        const agent = new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+        injectSession(agent, "session-1");
+        await agent.canUseTool("session-1")("Bash", { command: "npm test" }, {
+            signal: new AbortController().signal,
+            suggestions: [
+                {
+                    type: "addRules",
+                    rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
+                    behavior: "allow",
+                    destination: "session",
+                },
+                {
+                    type: "addDirectories",
+                    directories: ["/tmp/work"],
+                    destination: "session",
+                },
+            ],
+            toolUseID: "tool-1",
+        });
+        expect(request?.options.find((option) => option.optionId === "allow_always")?._meta).toEqual({
+            permission: {
+                version: 1,
+                changes: [
+                    {
+                        type: "policy_rule",
+                        operation: "add",
+                        ruleBehavior: "allow",
+                        description: "Allow Bash calls matching npm test:*",
+                        lifetime: { scope: "session" },
+                        targets: [
+                            {
+                                type: "tool",
+                                toolName: "Bash",
+                                matcher: {
+                                    type: "provider_rule",
+                                    provider: "claudeCode",
+                                    value: "npm test:*",
+                                },
+                            },
+                        ],
+                    },
+                    {
+                        type: "policy_rule",
+                        operation: "add",
+                        ruleBehavior: "allow",
+                        description: "Allow filesystem access under /tmp/work",
+                        lifetime: { scope: "session" },
+                        targets: [
+                            {
+                                type: "filesystem",
+                                matcher: { type: "directory", path: "/tmp/work" },
+                            },
+                        ],
+                    },
+                ],
+            },
+        });
+    });
+    it("preserves replace, remove, deny, destination, and mode suggestion semantics", async () => {
+        let request;
+        const mockClient = {
+            sessionUpdate: async () => { },
+            requestPermission: async (params) => {
+                request = params;
+                return { outcome: { outcome: "selected", optionId: "reject" } };
+            },
+        };
+        const agent = new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+        injectSession(agent, "session-1");
+        await agent.canUseTool("session-1")("Bash", { command: "rm generated.txt" }, {
+            signal: new AbortController().signal,
+            suggestions: [
+                {
+                    type: "replaceRules",
+                    rules: [{ toolName: "Bash", ruleContent: "rm generated.txt" }],
+                    behavior: "deny",
+                    destination: "projectSettings",
+                },
+                {
+                    type: "removeDirectories",
+                    directories: ["/tmp/old"],
+                    destination: "localSettings",
+                },
+                {
+                    type: "setMode",
+                    mode: "default",
+                    destination: "session",
+                },
+            ],
+            toolUseID: "tool-1",
+        });
+        expect(request?.options.find((option) => option.optionId === "allow_always")?._meta
+            ?.permission.changes).toEqual([
+            {
+                type: "policy_rule",
+                operation: "replace",
+                ruleBehavior: "deny",
+                description: "Replace deny rules with Bash calls matching rm generated.txt",
+                lifetime: { scope: "persistent", storage: "project" },
+                targets: [
+                    {
+                        type: "tool",
+                        toolName: "Bash",
+                        matcher: {
+                            type: "provider_rule",
+                            provider: "claudeCode",
+                            value: "rm generated.txt",
+                        },
+                    },
+                ],
+            },
+            {
+                type: "policy_rule",
+                operation: "remove",
+                ruleBehavior: "allow",
+                description: "Remove additional filesystem access under /tmp/old",
+                lifetime: { scope: "persistent", storage: "project_local" },
+                targets: [
+                    {
+                        type: "filesystem",
+                        matcher: { type: "directory", path: "/tmp/old" },
+                    },
+                ],
+            },
+            {
+                type: "permission_mode",
+                operation: "set",
+                provider: "claudeCode",
+                mode: "default",
+                description: "Set Claude Code permission mode to default",
+                lifetime: { scope: "session" },
+            },
+        ]);
+    });
 });
 describe("tool_call emitted before permission request", () => {
     // The SDK can invoke canUseTool before the assistant message's tool_use block
@@ -1723,7 +1976,7 @@ describe("tool_call emitted before permission request", () => {
     }
     it("emits the tool_call (then asks permission) when the stream hasn't yet", async () => {
         const { agent, events, updates, session } = setup();
-        const result = await agent.canUseTool("session-1")("Bash", { command: "ls" }, {
+        const result = await agent.canUseTool("session-1")("Bash", { command: "git diff", description: "Show current diff" }, {
             signal: new AbortController().signal,
             suggestions: [],
             toolUseID: "tool-1",
@@ -1734,6 +1987,10 @@ describe("tool_call emitted before permission request", () => {
             sessionUpdate: "tool_call",
             toolCallId: "tool-1",
             status: "pending",
+            title: "git diff",
+            _meta: {
+                claudeCode: { toolName: "Bash", title: "Show current diff" },
+            },
         });
         expect(session.emittedToolCalls.has("tool-1")).toBe(true);
         expect(result).toMatchObject({ behavior: "allow" });
@@ -1888,6 +2145,56 @@ describe("tool_call emitted before permission request", () => {
         const { session } = setup();
         const notifications = toAcpNotifications([{ type: "tool_result", tool_use_id: "tool-1", content: [{ type: "text", text: "x" }] }], "user", "session-1", session.toolUseCache, {}, { log: () => { }, error: () => { } }, { emittedToolCalls: session.emittedToolCalls });
         expect(notifications).toHaveLength(0);
+    });
+});
+describe("canUseTool in bypassPermissions mode", () => {
+    function setup() {
+        const events = [];
+        const mockClient = {
+            sessionUpdate: async () => { },
+            requestPermission: async () => {
+                events.push("permission");
+                return { outcome: { outcome: "selected", optionId: "allow" } };
+            },
+        };
+        const agent = new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+        agent.sessions["session-1"] = mockSessionState({
+            modes: { currentModeId: "bypassPermissions", availableModes: [] },
+        });
+        // The tool_call was already surfaced by the streamed tool_use chunk, so
+        // the permission flow (when taken) goes straight to requestPermission.
+        agent.sessions["session-1"].emittedToolCalls.add("tool-1");
+        return { agent, events };
+    }
+    it("auto-allows asks that carry no matchedAskRule", async () => {
+        const { agent, events } = setup();
+        const result = await agent.canUseTool("session-1")("Bash", { command: "ls" }, {
+            signal: new AbortController().signal,
+            suggestions: [],
+            toolUseID: "tool-1",
+        });
+        expect(events).toEqual([]);
+        expect(result).toMatchObject({ behavior: "allow" });
+    });
+    // The asks that still reach canUseTool in bypass mode are the ones the CLI
+    // insists on prompting for even under --dangerously-skip-permissions. When
+    // one was forced by the user's own permissions.ask rule (matchedAskRule),
+    // honoring that rule beats bypass: it must go to the client instead of
+    // being silently auto-allowed.
+    it("prompts the client when the ask was forced by a permissions.ask rule", async () => {
+        const { agent, events } = setup();
+        const result = await agent.canUseTool("session-1")("Bash", { command: "terraform destroy" }, {
+            signal: new AbortController().signal,
+            suggestions: [],
+            toolUseID: "tool-1",
+            matchedAskRule: {
+                source: "projectSettings",
+                toolName: "Bash",
+                ruleContent: "Bash(terraform:*)",
+            },
+        });
+        expect(events).toEqual(["permission"]);
+        expect(result).toMatchObject({ behavior: "allow" });
     });
 });
 describe("subagent permission attribution (issue #851)", () => {
@@ -2429,6 +2736,183 @@ describe("stop reason propagation", () => {
         });
         expect(response.stopReason).toBe("end_turn");
         expect(errors.filter((e) => e.includes("Unexpected case"))).toEqual([]);
+    });
+    it("publishes active_goal as provider-neutral session state without changing turn settlement", async () => {
+        const updates = [];
+        const mockClient = {
+            sessionUpdate: async (notification) => updates.push(notification),
+        };
+        const agent = new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const { value: userMessage } = await iter.next();
+                yield userEcho(userMessage);
+                yield {
+                    type: "active_goal",
+                    value: {
+                        condition: "  Finish the migration  ",
+                        iterations: 3,
+                        set_at: 1710000000123,
+                        tokens_at_start: 42,
+                        last_reason: "Tests still need work",
+                    },
+                    uuid: randomUUID(),
+                    session_id: "test-session",
+                };
+                yield createResultMessage({ subtype: "success", stop_reason: "end_turn", is_error: false });
+                yield {
+                    type: "active_goal",
+                    value: null,
+                    uuid: randomUUID(),
+                    session_id: "test-session",
+                };
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        });
+        await expect(agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "test" }] })).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+        expect(updates).toContainEqual({
+            sessionId: "test-session",
+            update: {
+                sessionUpdate: "session_info_update",
+                _meta: {
+                    goal: {
+                        objective: "Finish the migration",
+                        status: "active",
+                        iterations: 3,
+                        lastReason: "Tests still need work",
+                        createdAt: 1710000000123,
+                        controlMethod: GOAL_CONTROL_METHOD,
+                    },
+                },
+            },
+        });
+        expect(updates).toContainEqual({
+            sessionId: "test-session",
+            update: { sessionUpdate: "session_info_update", _meta: { goal: null } },
+        });
+        expect(updates.some((notification) => notification.update?._meta?.claudeCode?.goal)).toBe(false);
+    });
+    it("publishes a submitted goal before a long-running command returns without active_goal", async () => {
+        const updates = [];
+        let releaseResult;
+        const resultGate = new Promise((resolve) => (releaseResult = resolve));
+        const mockClient = {
+            sessionUpdate: async (notification) => updates.push(notification),
+        };
+        const agent = new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const { value: userMessage } = await iter.next();
+                yield userEcho(userMessage);
+                await resultGate;
+                yield createResultMessage({ subtype: "success", stop_reason: "end_turn", is_error: false });
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        });
+        const response = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal   Finish the migration  " }],
+        });
+        await vi.waitFor(() => {
+            expect(updates).toContainEqual({
+                sessionId: "test-session",
+                update: {
+                    sessionUpdate: "session_info_update",
+                    _meta: {
+                        goal: {
+                            objective: "Finish the migration",
+                            status: "active",
+                            controlMethod: GOAL_CONTROL_METHOD,
+                        },
+                    },
+                },
+            });
+        });
+        releaseResult();
+        await expect(response).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+    });
+    it("rolls back an optimistic goal update when the goal command fails", async () => {
+        const updates = [];
+        const agent = new ClaudeAcpAgent({
+            sessionUpdate: async (notification) => updates.push(notification),
+        }, { log: () => { }, error: () => { } });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const { value: original } = await iter.next();
+                yield userEcho(original);
+                yield {
+                    type: "active_goal",
+                    value: {
+                        condition: "Original",
+                        iterations: 2,
+                        set_at: 1710000000000,
+                        tokens_at_start: 0,
+                    },
+                    uuid: randomUUID(),
+                    session_id: "test-session",
+                };
+                yield createResultMessage({
+                    subtype: "success",
+                    stop_reason: "end_turn",
+                    is_error: false,
+                });
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+                const { value: replacement } = await iter.next();
+                yield userEcho(replacement);
+                yield createResultMessage({
+                    subtype: "success",
+                    stop_reason: null,
+                    is_error: true,
+                    result: "goal rejected",
+                });
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        });
+        await expect(agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Original" }],
+        })).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+        await expect(agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Replacement" }],
+        })).rejects.toBeDefined();
+        const goalUpdates = updates
+            .map(({ update }) => update._meta?.goal)
+            .filter((goal) => goal !== undefined);
+        expect(goalUpdates.at(-2)).toEqual(expect.objectContaining({ objective: "Replacement", status: "active" }));
+        expect(goalUpdates.at(-1)).toEqual(expect.objectContaining({ objective: "Original", iterations: 2 }));
+    });
+    it("derives only state-changing goal slash commands", () => {
+        expect(goalUpdateFromPrompt("/goal clear")).toBeNull();
+        expect(goalUpdateFromPrompt("/goal")).toBeUndefined();
+        expect(goalUpdateFromPrompt("explain /goal clear")).toBeUndefined();
+        expect(goalUpdateFromPrompt(" /goal Finish the migration")).toBeUndefined();
+    });
+    it("maps the SDK goal shape without exposing provider fields", () => {
+        expect(toGoalSnapshot({
+            type: "active_goal",
+            value: {
+                condition: "Goal",
+                iterations: 1,
+                set_at: 1710000000000,
+                tokens_at_start: 99,
+            },
+            uuid: randomUUID(),
+            session_id: "test-session",
+        })).toEqual({
+            objective: "Goal",
+            status: "active",
+            iterations: 1,
+            lastReason: null,
+            createdAt: 1710000000000,
+            controlMethod: GOAL_CONTROL_METHOD,
+        });
     });
     it("settles a no-echo command result (e.g. /compact) by promoting the head turn", async () => {
         // Regression: /compact never echoes a user message carrying the prompt's
@@ -3068,7 +3552,10 @@ describe("session/close", () => {
             fastModeEnabled: false,
             abortController: new AbortController(),
             emitRawSDKMessages: false,
+            forwardSubagentText: false,
             contextWindowSize: 200000,
+            contextWindowAuthoritative: false,
+            providerCacheKey: "default",
             taskState: new Map(),
             toolUseCache: {},
             emittedToolCalls: new Set(),
@@ -3141,7 +3628,10 @@ describe("session/delete", () => {
             fastModeEnabled: false,
             abortController: new AbortController(),
             emitRawSDKMessages: false,
+            forwardSubagentText: false,
             contextWindowSize: 200000,
+            contextWindowAuthoritative: false,
+            providerCacheKey: "default",
             taskState: new Map(),
             toolUseCache: {},
             emittedToolCalls: new Set(),
@@ -3228,7 +3718,10 @@ describe("getOrCreateSession param change detection", () => {
             fastModeEnabled: false,
             abortController: new AbortController(),
             emitRawSDKMessages: false,
+            forwardSubagentText: false,
             contextWindowSize: 200000,
+            contextWindowAuthoritative: false,
+            providerCacheKey: "default",
             taskState: new Map(),
             toolUseCache: {},
             emittedToolCalls: new Set(),
@@ -4206,6 +4699,333 @@ describe("usage_update computation", () => {
         expect(usageUpdate.update.size).toBe(200000);
         expect(session.contextWindowSize).toBe(200000);
     });
+    it("caches the turn's authoritative window under the resolved id and serves it on a later switch, with no getContextUsage IPC", async () => {
+        // End-to-end for the cross-session context-window cache:
+        //  - WRITE: a turn's result.modelUsage is the only authoritative window. The
+        //    assistant message reports the BARE model id ("…-9") while modelUsage is
+        //    keyed by the RESOLVED id ("…-9[1m]"); the cache must be written under the
+        //    resolved key (matched by getMatchingModelUsage), the same spelling as
+        //    ModelInfo.resolvedModel — otherwise a later read never hits.
+        //  - READ: switching to a picker value whose resolvedModel is that key seeds
+        //    the window synchronously from the cache, with NO getContextUsage.
+        // 777_000 is chosen so it can only come from the cache: text inference on the
+        // resolved id "…-9[1m]" would yield 1_000_000 (the "1m" token), the default
+        // is 200_000, and the pre-switch sentinel is 123_456.
+        //
+        // The `contextWindowCache` is module-global and this file does not
+        // vi.resetModules() per test, so it persists across tests. This test stays
+        // isolated by using a unique resolved id ("claude-cachehit-probe-9[1m]") that
+        // no other test writes or reads — the convention here, since a statically
+        // imported module's cache can't be cleared from a test.
+        const RESOLVED_ID = "claude-cachehit-probe-9[1m]";
+        const { agent } = createMockAgentWithCapture();
+        injectSession(agent, [
+            createAssistantMessage({ model: "claude-cachehit-probe-9" }),
+            createResultMessageWithModel({
+                modelUsage: {
+                    [RESOLVED_ID]: {
+                        inputTokens: 1,
+                        outputTokens: 1,
+                        cacheReadInputTokens: 0,
+                        cacheCreationInputTokens: 0,
+                        webSearchRequests: 0,
+                        costUSD: 0,
+                        contextWindow: 777_000,
+                        maxOutputTokens: 16384,
+                    },
+                },
+            }),
+            { type: "system", subtype: "session_state_changed", state: "idle" },
+        ]);
+        await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "go" }] });
+        const session = agent.sessions["test-session"];
+        // The turn learned the window from modelUsage even though the assistant
+        // message carried the bare id — confirms the write matched on the resolved key.
+        expect(session.contextWindowSize).toBe(777_000);
+        // Now switch to a picker value that resolves to the cached id. Seed a
+        // sentinel and a getContextUsage spy first: a cache miss would surface as
+        // 1_000_000 (inference on the "1m" id), and any IPC as a spy call.
+        const getContextUsage = vi.fn(async () => ({ rawMaxTokens: 200000 }));
+        session.query.getContextUsage = getContextUsage;
+        session.contextWindowSize = 123_456;
+        session.models = { currentModelId: "default", availableModels: [] };
+        session.modelInfos = [
+            {
+                value: "probe-alias",
+                displayName: "Probe",
+                description: "probe model",
+                resolvedModel: RESOLVED_ID,
+            },
+        ];
+        session.configOptions = [
+            {
+                id: "model",
+                name: "Model",
+                type: "select",
+                category: "model",
+                currentValue: "default",
+                options: [{ value: "probe-alias", name: "Probe" }],
+            },
+        ];
+        await agent.setSessionConfigOption({
+            sessionId: "test-session",
+            configId: "model",
+            value: "probe-alias",
+        });
+        expect(getContextUsage).not.toHaveBeenCalled();
+        expect(session.contextWindowSize).toBe(777_000);
+    });
+    it("scopes the window cache per provider: a switch on a different provider does not read another provider's window", async () => {
+        // The window is a property of (model id, provider). A turn on provider-A
+        // learns 500_000 for RESOLVED_ID; a switch to the SAME resolved id on
+        // provider-B must NOT read it (falls to inference → 1_000_000 for the "1m"
+        // id), while a switch on provider-A DOES read it (500_000). All three
+        // outcomes are distinct: cached 500_000 vs inference 1_000_000 vs default.
+        // Uses a unique resolved id ("claude-provkey-probe[1m]") so the module-global
+        // cache (not reset per test in this file) can't cross this test with others.
+        const RESOLVED_ID = "claude-provkey-probe[1m]";
+        const { agent } = createMockAgentWithCapture();
+        // Provider-A session learns the authoritative window on a turn.
+        injectSession(agent, [
+            createAssistantMessage({ model: "claude-provkey-probe" }),
+            createResultMessageWithModel({
+                modelUsage: {
+                    [RESOLVED_ID]: {
+                        inputTokens: 1,
+                        outputTokens: 1,
+                        cacheReadInputTokens: 0,
+                        cacheCreationInputTokens: 0,
+                        webSearchRequests: 0,
+                        costUSD: 0,
+                        contextWindow: 500_000,
+                        maxOutputTokens: 16384,
+                    },
+                },
+            }),
+            { type: "system", subtype: "session_state_changed", state: "idle" },
+        ]);
+        const sessionA = agent.sessions["test-session"];
+        sessionA.providerCacheKey = "apiType-A https://a.example";
+        await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "go" }] });
+        expect(sessionA.contextWindowSize).toBe(500_000);
+        const modelInfos = [
+            {
+                value: "alias",
+                displayName: "Alias",
+                description: "probe model",
+                resolvedModel: RESOLVED_ID,
+            },
+        ];
+        const configOptions = [
+            {
+                id: "model",
+                name: "Model",
+                type: "select",
+                category: "model",
+                currentValue: "default",
+                options: [{ value: "alias", name: "Alias" }],
+            },
+        ];
+        // A DIFFERENT provider seeing the same resolved id must not inherit A's
+        // window — it falls to inference (1_000_000), not the cached 500_000.
+        agent.sessions["session-B"] = mockSessionState({
+            providerCacheKey: "apiType-B https://b.example",
+            models: { currentModelId: "default", availableModels: [] },
+            modelInfos,
+            configOptions,
+            query: {
+                setModel: vi.fn(async () => { }),
+                setPermissionMode: vi.fn(async () => { }),
+                applyFlagSettings: vi.fn(async () => { }),
+                getContextUsage: vi.fn(async () => ({ rawMaxTokens: 200000 })),
+                supportedCommands: vi.fn(async () => []),
+            },
+        });
+        await agent.setSessionConfigOption({
+            sessionId: "session-B",
+            configId: "model",
+            value: "alias",
+        });
+        expect(agent.sessions["session-B"].contextWindowSize).toBe(1_000_000);
+        // The SAME provider (A) switching to that id DOES read the cached window.
+        sessionA.contextWindowSize = 123_456; // sentinel
+        sessionA.models = { currentModelId: "default", availableModels: [] };
+        sessionA.modelInfos = modelInfos;
+        sessionA.configOptions = configOptions;
+        await agent.setSessionConfigOption({
+            sessionId: "test-session",
+            configId: "model",
+            value: "alias",
+        });
+        expect(sessionA.contextWindowSize).toBe(500_000);
+    });
+    it("ignores a nonsensical (non-positive) reported window: keeps the prior window and doesn't poison the cache", async () => {
+        // A result.modelUsage that reports a non-positive contextWindow (observed
+        // from third-party backends) must not overwrite the window learned earlier,
+        // nor be written to the cross-session cache. Unique id keeps this isolated
+        // from other tests sharing the module-global cache (no resetModules here).
+        const RESOLVED_ID = "claude-nonpositive-probe[1m]";
+        const { agent } = createMockAgentWithCapture();
+        injectSession(agent, [
+            createAssistantMessage({ model: "claude-nonpositive-probe" }),
+            createResultMessageWithModel({
+                modelUsage: {
+                    [RESOLVED_ID]: {
+                        inputTokens: 1,
+                        outputTokens: 1,
+                        cacheReadInputTokens: 0,
+                        cacheCreationInputTokens: 0,
+                        webSearchRequests: 0,
+                        costUSD: 0,
+                        contextWindow: 0, // nonsensical
+                        maxOutputTokens: 16384,
+                    },
+                },
+            }),
+            { type: "system", subtype: "session_state_changed", state: "idle" },
+        ]);
+        const session = agent.sessions["test-session"];
+        session.contextWindowSize = 900_000; // a window learned on a prior turn
+        await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "go" }] });
+        // The bad window was ignored — the prior window is preserved.
+        expect(session.contextWindowSize).toBe(900_000);
+        // And it never reached the cache: a switch to that id falls to inference
+        // (1_000_000 for the "1m" id), not the bad 0.
+        session.contextWindowSize = 123_456; // sentinel
+        session.models = { currentModelId: "default", availableModels: [] };
+        session.modelInfos = [
+            { value: "alias", displayName: "Alias", description: "probe", resolvedModel: RESOLVED_ID },
+        ];
+        session.configOptions = [
+            {
+                id: "model",
+                name: "Model",
+                type: "select",
+                category: "model",
+                currentValue: "default",
+                options: [{ value: "alias", name: "Alias" }],
+            },
+        ];
+        await agent.setSessionConfigOption({
+            sessionId: "test-session",
+            configId: "model",
+            value: "alias",
+        });
+        expect(session.contextWindowSize).toBe(1_000_000);
+    });
+    it("does not let the message_start heuristic clobber an authoritative 200k window", async () => {
+        // An authoritative window can legitimately equal DEFAULT_CONTEXT_WINDOW
+        // (e.g. a third-party backend serving a 200k lane under a "[1m]"-spelled
+        // id). The message_start upgrade must key off the authoritative flag, not
+        // the value — otherwise the "1m" text match overwrites the cache-seeded
+        // 200k with 1M mid-stream on every turn.
+        const { agent, updates } = createMockAgentWithCapture();
+        injectSession(agent, [
+            createStreamEvent("message_start", {
+                model: "claude-authprobe-1[1m]",
+                usage: {
+                    input_tokens: 100,
+                    output_tokens: 10,
+                    cache_read_input_tokens: 0,
+                    cache_creation_input_tokens: 0,
+                },
+            }),
+            // Empty modelUsage: the result settles the turn without supplying a
+            // window of its own, so the assertion isolates the message_start path.
+            createResultMessageWithModel({ modelUsage: {} }),
+            { type: "system", subtype: "session_state_changed", state: "idle" },
+        ]);
+        const session = agent.sessions["test-session"];
+        // Simulate a cache-seeded authoritative window that equals the default.
+        session.contextWindowSize = 200000;
+        session.contextWindowAuthoritative = true;
+        await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "go" }] });
+        expect(session.contextWindowSize).toBe(200000);
+        const usageUpdates = updates.filter((u) => u.update?.sessionUpdate === "usage_update");
+        for (const u of usageUpdates) {
+            expect(u.update.size).toBe(200000);
+        }
+    });
+    it("still upgrades a heuristic default window from the message_start model id", async () => {
+        // Companion to the authoritative-200k test: with no authoritative seed the
+        // old behavior stands — a "1m"-carrying live model id upgrades the default
+        // mid-stream so usage_update reports the right size before the result.
+        const { agent } = createMockAgentWithCapture();
+        injectSession(agent, [
+            createStreamEvent("message_start", {
+                model: "claude-authprobe-2[1m]",
+                usage: {
+                    input_tokens: 100,
+                    output_tokens: 10,
+                    cache_read_input_tokens: 0,
+                    cache_creation_input_tokens: 0,
+                },
+            }),
+            // Empty modelUsage: settles the turn without a window of its own.
+            createResultMessageWithModel({ modelUsage: {} }),
+            { type: "system", subtype: "session_state_changed", state: "idle" },
+        ]);
+        const session = agent.sessions["test-session"];
+        expect(session.contextWindowAuthoritative).toBe(false);
+        await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "go" }] });
+        expect(session.contextWindowSize).toBe(1_000_000);
+    });
+    it("caches the turn's window under the bare assistant-message id too, so resolvedModel-less rows can hit", async () => {
+        // Seed-time reads fall back to the picker value / verbatim live id when a
+        // model row carries no resolvedModel (the synthesized out-of-allowlist
+        // resume row sets it undefined on purpose). Those spellings match the
+        // assistant message's bare `.model`, not the "[1m]"-decorated modelUsage
+        // key, so the result handler must write both spellings — otherwise such
+        // rows silently never hit the cache. 555_000 can only come from the cache:
+        // inference on the bare id (no "1m" token) yields the 200_000 default, and
+        // the pre-switch sentinel is 123_456.
+        const BARE_ID = "claude-bareprobe-7";
+        const { agent } = createMockAgentWithCapture();
+        injectSession(agent, [
+            createAssistantMessage({ model: BARE_ID }),
+            createResultMessageWithModel({
+                modelUsage: {
+                    [`${BARE_ID}[1m]`]: {
+                        inputTokens: 1,
+                        outputTokens: 1,
+                        cacheReadInputTokens: 0,
+                        cacheCreationInputTokens: 0,
+                        webSearchRequests: 0,
+                        costUSD: 0,
+                        contextWindow: 555_000,
+                        maxOutputTokens: 16384,
+                    },
+                },
+            }),
+            { type: "system", subtype: "session_state_changed", state: "idle" },
+        ]);
+        const session = agent.sessions["test-session"];
+        await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "go" }] });
+        expect(session.contextWindowSize).toBe(555_000);
+        // Switch to a row registered under the bare id with NO resolvedModel —
+        // the shape of the out-of-allowlist resume row.
+        session.contextWindowSize = 123_456; // sentinel
+        session.contextWindowAuthoritative = false;
+        session.models = { currentModelId: "default", availableModels: [] };
+        session.modelInfos = [{ value: BARE_ID, displayName: "Bare", description: "probe" }];
+        session.configOptions = [
+            {
+                id: "model",
+                name: "Model",
+                type: "select",
+                category: "model",
+                currentValue: "default",
+                options: [{ value: BARE_ID, name: "Bare" }],
+            },
+        ];
+        await agent.setSessionConfigOption({
+            sessionId: "test-session",
+            configId: "model",
+            value: BARE_ID,
+        });
+        expect(session.contextWindowSize).toBe(555_000);
+        expect(session.contextWindowAuthoritative).toBe(true);
+    });
 });
 describe("assembled assistant text fallback", () => {
     const ZERO_USAGE = {
@@ -4596,6 +5416,29 @@ describe("assembled assistant text fallback", () => {
         await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "hi" }] });
         expect(messageChunkTexts(updates)).toEqual([]);
         expect(thoughtChunkTexts(updates)).toEqual([]);
+    });
+    it("forwards subagent text and thinking as nested chunks for capable clients", async () => {
+        const { agent, updates } = createMockAgentWithCapture();
+        agent.clientCapabilities = { _meta: { "subagent-transcript": true } };
+        injectSession(agent, [
+            assistantMessage("msg-subagent", [
+                { type: "thinking", thinking: "checking" },
+                { type: "text", text: "nested report" },
+            ], "tool_use_1"),
+            result(),
+            idle,
+        ]);
+        await agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "hi" }] });
+        const nestedUpdates = updates.filter(({ update }) => update.sessionUpdate === "agent_message_chunk" ||
+            update.sessionUpdate === "agent_thought_chunk");
+        expect(nestedUpdates).toHaveLength(2);
+        for (const { update } of nestedUpdates) {
+            expect(update._meta).toMatchObject({
+                claudeCode: { parentToolUseId: "tool_use_1" },
+            });
+        }
+        expect(messageChunkTexts(updates)).toContain("nested report");
+        expect(thoughtChunkTexts(updates)).toContain("checking");
     });
     it("forwards distinct blocks that a gateway splits across same-id messages", async () => {
         const { agent, updates } = createMockAgentWithCapture();
@@ -5353,7 +6196,10 @@ describe("post-error recovery", () => {
             fastModeEnabled: false,
             abortController: new AbortController(),
             emitRawSDKMessages: false,
+            forwardSubagentText: false,
             contextWindowSize: 200000,
+            contextWindowAuthoritative: false,
+            providerCacheKey: "default",
             taskState: new Map(),
             toolUseCache: {},
             emittedToolCalls: new Set(),
@@ -7742,6 +8588,848 @@ describe("deferred settlement for live background subagents (issues #864/#866)",
         await agent.sessions["test-session"]?.consumer;
     });
 });
+describe("turn steering (_session/steering)", () => {
+    function createMockAgent() {
+        const mockClient = {
+            sessionUpdate: async () => { },
+        };
+        return new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+    }
+    function createResultMessage() {
+        return {
+            type: "result",
+            subtype: "success",
+            stop_reason: "end_turn",
+            is_error: false,
+            result: "",
+            errors: [],
+            duration_ms: 0,
+            duration_api_ms: 0,
+            num_turns: 1,
+            total_cost_usd: 0,
+            usage: {
+                input_tokens: 10,
+                output_tokens: 5,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0,
+            },
+            modelUsage: {},
+            permission_denials: [],
+            uuid: randomUUID(),
+            session_id: "test-session",
+        };
+    }
+    // A minimal SDK assistant message carrying a single text block. Used by the
+    // promptRequired retry test to model the continuation turn's streamed reply.
+    function createAssistantText(text) {
+        return {
+            type: "assistant",
+            parent_tool_use_id: null,
+            uuid: randomUUID(),
+            session_id: "test-session",
+            message: {
+                role: "assistant",
+                model: "claude-sonnet-4-5",
+                stop_reason: "end_turn",
+                usage: {
+                    input_tokens: 1,
+                    output_tokens: 1,
+                    cache_read_input_tokens: 0,
+                    cache_creation_input_tokens: 0,
+                },
+                content: [{ type: "text", text }],
+            },
+        };
+    }
+    /** The `result` the CLI emits for the cycle a priority:'now' steer aborted, as
+     *  observed on CLI 2.1.220: `origin.kind` "human" (not autonomous, so it
+     *  reaches the user-turn lifecycle) and `stop_reason` "tool_use" — the abort
+     *  landed on a pending tool call. No test here depends on either: every
+     *  non-error combination maps to the `end_turn` clients observe. */
+    function interruptedCycleResult() {
+        return { ...createResultMessage(), stop_reason: "tool_use", origin: { kind: "human" } };
+    }
+    /** The SDK's authoritative turn-over signal. */
+    function idleMessage() {
+        return { type: "system", subtype: "session_state_changed", state: "idle" };
+    }
+    /** Records every `agent_message_chunk` the client observes. */
+    function timelineClient(timeline) {
+        return {
+            sessionUpdate: async (notification) => {
+                if (notification.update?.sessionUpdate === "agent_message_chunk") {
+                    timeline.push(notification.update.content?.text);
+                }
+            },
+        };
+    }
+    const waitFor = async (cond) => {
+        for (let i = 0; i < 200; i++) {
+            if (cond())
+                return;
+            await new Promise((r) => setTimeout(r, 0));
+        }
+        throw new Error("waitFor timed out");
+    };
+    it("rejects when the session is unknown", async () => {
+        const agent = createMockAgent();
+        await expect(agent.steer({ sessionId: "missing", prompt: [{ type: "text", text: "hi" }] })).rejects.toThrow("Session not found");
+    });
+    it("rejects when the query stream has already closed", async () => {
+        const agent = createMockAgent();
+        agent.sessions["test-session"] = mockSessionState({
+            input: new Pushable(),
+            queryClosed: true,
+            turnQueue: [
+                {
+                    promptUuid: "x",
+                    isLocalOnlyCommand: false,
+                    settled: false,
+                    resolve: () => { },
+                    reject: () => { },
+                },
+            ],
+        });
+        await expect(agent.steer({ sessionId: "test-session", prompt: [{ type: "text", text: "hi" }] })).rejects.toThrow();
+    });
+    it("preserves the existing steering capability declaration", async () => {
+        const agent = createMockAgent();
+        const response = await agent.initialize({
+            protocolVersion: 1,
+            clientCapabilities: {},
+        });
+        // Top-level _meta (sibling of agentCapabilities), per the existing steering
+        // extension contract. Idle behavior is selected per steering request.
+        expect(response._meta?.steering).toEqual({
+            supported: true,
+        });
+        expect(response._meta?.goal).toEqual({
+            version: 1,
+            controlMethod: GOAL_CONTROL_METHOD,
+            actions: ["set", "clear"],
+        });
+    });
+    it("submits set and clear through the session prompt queue when the session is idle", async () => {
+        const agent = createMockAgent();
+        const prompt = vi.spyOn(agent, "prompt").mockResolvedValue({ stopReason: "end_turn" });
+        agent.sessions["test-session"] = mockSessionState({
+            input: new Pushable(),
+            turnQueue: [],
+        });
+        await expect(agent.goal({ sessionId: "test-session", action: "set", objective: "Replacement" })).resolves.toEqual({});
+        await expect(agent.goal({ sessionId: "test-session", action: "clear" })).resolves.toEqual({});
+        expect(prompt).toHaveBeenNthCalledWith(1, {
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Replacement" }],
+        });
+        expect(prompt).toHaveBeenNthCalledWith(2, {
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal clear" }],
+        });
+    });
+    it("injects clear into a running goal at priority 'now' and publishes removal", async () => {
+        const updates = [];
+        const captured = [];
+        const agent = new ClaudeAcpAgent({
+            sessionUpdate: async (notification) => updates.push(notification),
+        }, { log: () => { }, error: () => { } });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const goal = await iter.next();
+                yield userEcho(goal.value);
+                const clear = await iter.next();
+                captured.push(clear.value);
+                yield {
+                    type: "active_goal",
+                    value: {
+                        condition: "Keep working",
+                        iterations: 2,
+                        set_at: 1710000000000,
+                        tokens_at_start: 0,
+                    },
+                    uuid: randomUUID(),
+                    session_id: "test-session",
+                };
+                yield createResultMessage();
+                yield userEcho(clear.value);
+                yield createResultMessage();
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        });
+        const runningGoal = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Keep working" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await expect(agent.goal({ sessionId: "test-session", action: "clear" })).resolves.toEqual({});
+        expect(captured).toHaveLength(1);
+        expect(captured[0].priority).toBe("now");
+        expect(JSON.stringify(captured[0].message.content)).toContain("/goal clear");
+        expect(updates).toContainEqual({
+            sessionId: "test-session",
+            update: {
+                sessionUpdate: "session_info_update",
+                _meta: { goal: null },
+            },
+        });
+        await expect(runningGoal).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+        const goalUpdates = updates
+            .map(({ update }) => update._meta?.goal)
+            .filter((goal) => goal !== undefined);
+        const clearIndex = goalUpdates.findIndex((goal) => goal === null);
+        expect(clearIndex).toBeGreaterThanOrEqual(0);
+        expect(goalUpdates.slice(clearIndex + 1)).not.toContainEqual(expect.objectContaining({ objective: "Keep working" }));
+    });
+    it("replaces a running goal through the goal extension and publishes it immediately", async () => {
+        const updates = [];
+        const captured = [];
+        const agent = new ClaudeAcpAgent({
+            sessionUpdate: async (notification) => updates.push(notification),
+        }, { log: () => { }, error: () => { } });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const goal = await iter.next();
+                yield userEcho(goal.value);
+                const replacement = await iter.next();
+                captured.push(replacement.value);
+                yield createResultMessage();
+                yield userEcho(replacement.value);
+                yield createResultMessage();
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        });
+        const runningGoal = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Keep working" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await expect(agent.goal({ sessionId: "test-session", action: "set", objective: "Replacement" })).resolves.toEqual({});
+        expect(captured).toHaveLength(1);
+        expect(captured[0].priority).toBe("now");
+        expect(JSON.stringify(captured[0].message.content)).toContain("/goal Replacement");
+        expect(updates).toContainEqual({
+            sessionId: "test-session",
+            update: {
+                sessionUpdate: "session_info_update",
+                _meta: {
+                    goal: {
+                        objective: "Replacement",
+                        status: "active",
+                        controlMethod: GOAL_CONTROL_METHOD,
+                    },
+                },
+            },
+        });
+        await expect(runningGoal).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+    });
+    it("does not let a stale runtime update overwrite an optimistic goal replacement", async () => {
+        const updates = [];
+        let staleUpdateEmitted;
+        const staleUpdate = new Promise((resolve) => (staleUpdateEmitted = resolve));
+        let releaseReplacement;
+        const replacementGate = new Promise((resolve) => (releaseReplacement = resolve));
+        const agent = new ClaudeAcpAgent({
+            sessionUpdate: async (notification) => updates.push(notification),
+        }, { log: () => { }, error: () => { } });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const original = await iter.next();
+                yield userEcho(original.value);
+                yield {
+                    type: "active_goal",
+                    value: {
+                        condition: "Original",
+                        iterations: 1,
+                        set_at: 1710000000000,
+                        tokens_at_start: 0,
+                    },
+                    uuid: randomUUID(),
+                    session_id: "test-session",
+                };
+                const replacement = await iter.next();
+                yield {
+                    type: "active_goal",
+                    value: {
+                        condition: "Original",
+                        iterations: 2,
+                        set_at: 1710000000000,
+                        tokens_at_start: 0,
+                    },
+                    uuid: randomUUID(),
+                    session_id: "test-session",
+                };
+                staleUpdateEmitted();
+                await replacementGate;
+                yield userEcho(replacement.value);
+                yield {
+                    type: "active_goal",
+                    value: {
+                        condition: "Replacement",
+                        iterations: 1,
+                        set_at: 1710000001000,
+                        tokens_at_start: 0,
+                    },
+                    uuid: randomUUID(),
+                    session_id: "test-session",
+                };
+                yield createResultMessage();
+                yield idleMessage();
+            }
+            return messageGenerator();
+        });
+        const runningGoal = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Original" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await agent.goal({ sessionId: "test-session", action: "set", objective: "Replacement" });
+        await staleUpdate;
+        const goalUpdates = updates
+            .map(({ update }) => update._meta?.goal)
+            .filter((goal) => goal !== undefined);
+        const replacementIndex = goalUpdates.findIndex((goal) => goal?.objective === "Replacement");
+        expect(replacementIndex).toBeGreaterThanOrEqual(0);
+        expect(goalUpdates.slice(replacementIndex + 1)).not.toContainEqual(expect.objectContaining({ objective: "Original" }));
+        releaseReplacement();
+        await expect(runningGoal).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+        expect(goalUpdates).not.toContainEqual(expect.objectContaining({ objective: "Replacement", iterations: 1 }));
+        await vi.waitFor(() => {
+            expect(updates).toContainEqual({
+                sessionId: "test-session",
+                update: {
+                    sessionUpdate: "session_info_update",
+                    _meta: {
+                        goal: expect.objectContaining({ objective: "Replacement", iterations: 1 }),
+                    },
+                },
+            });
+        });
+    });
+    it("cancels the running turn without clearing the persistent goal", async () => {
+        const updates = [];
+        let releaseAfterCancel;
+        const afterCancel = new Promise((resolve) => (releaseAfterCancel = resolve));
+        const agent = new ClaudeAcpAgent({
+            sessionUpdate: async (notification) => updates.push(notification),
+        }, { log: () => { }, error: () => { } });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const goal = await iter.next();
+                yield userEcho(goal.value);
+                await afterCancel;
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        });
+        const runningGoal = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Keep working" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await agent.cancel({ sessionId: "test-session" });
+        releaseAfterCancel();
+        await expect(runningGoal).resolves.toEqual(expect.objectContaining({ stopReason: "cancelled" }));
+        expect(updates.some(({ update }) => update.sessionUpdate === "session_info_update" && update._meta?.goal === null)).toBe(false);
+    });
+    it("validates goal control requests", () => {
+        expect(parseGoalRequest({ sessionId: "test-session", action: "clear" })).toEqual({
+            sessionId: "test-session",
+            action: "clear",
+        });
+        expect(parseGoalRequest({ sessionId: "test-session", action: "set", objective: "  Replacement  " })).toEqual({ sessionId: "test-session", action: "set", objective: "Replacement" });
+        expect(() => parseGoalRequest({ sessionId: "test-session", action: "set" })).toThrow('goal action "set" requires a non-empty objective');
+        expect(() => parseGoalRequest({ sessionId: "test-session", action: "set", objective: "   " })).toThrow('goal action "set" requires a non-empty objective');
+        expect(() => parseGoalRequest({ sessionId: "test-session", action: "pause" })).toThrow('goal action must be "set" or "clear"');
+        expect(() => parseGoalRequest({ sessionId: "test-session", action: "resume" })).toThrow('goal action must be "set" or "clear"');
+        expect(goalUpdateFromPrompt("/goal pause")).toMatchObject({
+            objective: "pause",
+            status: "active",
+        });
+    });
+    it("preserves startedNewTurn by default when no turn is in flight", async () => {
+        const agent = createMockAgent();
+        const prompt = vi.spyOn(agent, "prompt").mockResolvedValue({ stopReason: "end_turn" });
+        agent.sessions["test-session"] = mockSessionState({
+            input: new Pushable(),
+            turnQueue: [],
+        });
+        const request = {
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "late follow-up" }],
+        };
+        await expect(agent.steer(request)).resolves.toEqual({ outcome: "startedNewTurn" });
+        expect(prompt).toHaveBeenCalledWith(request);
+    });
+    it("returns promptRequired without consuming an opted-in prompt", async () => {
+        const agent = createMockAgent();
+        const input = new Pushable();
+        const inputPush = vi.spyOn(input, "push");
+        const prompt = vi.spyOn(agent, "prompt").mockResolvedValue({ stopReason: "end_turn" });
+        // Idle session: turnQueue is empty, so the turn we meant to steer has (from
+        // the agent's view) already finished. The content must stay Host-owned.
+        agent.sessions["test-session"] = mockSessionState({
+            input,
+            turnQueue: [],
+        });
+        const response = await agent.steer({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "late follow-up" }],
+            _meta: { steering: { idleBehavior: "promptRequired" } },
+        });
+        expect(response).toEqual({
+            outcome: "promptRequired",
+            reason: "noRunningTurn",
+        });
+        // The idle branch must not start a detached turn, push SDK input, or mutate
+        // the queue — the Host retries the exact same content via session/prompt.
+        expect(prompt).not.toHaveBeenCalled();
+        expect(inputPush).not.toHaveBeenCalled();
+        expect(agent.sessions["test-session"].turnQueue).toEqual([]);
+    });
+    it("lets the host retry promptRequired content through session/prompt exactly once", async () => {
+        const updates = [];
+        const client = {
+            sessionUpdate: async (notification) => {
+                if (notification.update?.sessionUpdate === "agent_message_chunk") {
+                    updates.push(notification.update.content?.text);
+                }
+            },
+        };
+        const agent = new ClaudeAcpAgent(client, { log: () => { }, error: () => { } });
+        const captured = [];
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const continuation = await iter.next();
+                captured.push(continuation.value);
+                yield userEcho(continuation.value);
+                yield createAssistantText("continuation response");
+                yield createResultMessage();
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        }, { turnQueue: [] });
+        const request = {
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "late follow-up" }],
+            _meta: { steering: { idleBehavior: "promptRequired" } },
+        };
+        // Steering an idle session leaves the content unconsumed...
+        await expect(agent.steer(request)).resolves.toEqual({
+            outcome: "promptRequired",
+            reason: "noRunningTurn",
+        });
+        await Promise.resolve();
+        expect(captured).toHaveLength(0);
+        // ...so the Host can submit the same content through a normal session/prompt,
+        // which owns the continuation's updates and terminal response.
+        await expect(agent.prompt(request)).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+        expect(captured).toHaveLength(1);
+        expect(captured[0].priority).toBeUndefined();
+        expect(JSON.stringify(captured[0].message.content)).toContain("late follow-up");
+        expect(updates).toContain("continuation response");
+        expect(agent.sessions["test-session"].turnQueue).toHaveLength(0);
+        await agent.sessions["test-session"]?.consumer;
+    });
+    it("injects (outcome 'injected') a priority:'now' message into the running turn without spawning a new turn", async () => {
+        const agent = createMockAgent();
+        const captured = [];
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const u1 = await iter.next();
+                yield userEcho(u1.value); // turn becomes active
+                // The steered message is pushed next; capture it, replay its echo
+                // (which matches no queued turn and must be dropped), then finish.
+                const steered = await iter.next();
+                captured.push(steered.value);
+                yield userEcho(steered.value); // unrelated replay — must NOT settle a turn
+                yield createResultMessage();
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        });
+        const turn = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "start" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        const steerRes = await agent.steer({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "also handle X" }],
+        });
+        // Steering into a live turn reports the 'injected' outcome.
+        expect(steerRes.outcome).toBe("injected");
+        // The original turn resolves as a single, normal end_turn — the injected
+        // message steered it rather than producing a second PromptResponse.
+        await expect(turn).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+        expect(agent.sessions["test-session"].turnQueue).toHaveLength(0);
+        // The pushed message carried priority:'now' and a fresh uuid (matching no
+        // queued turn, so its echo is dropped rather than settling anything).
+        expect(captured).toHaveLength(1);
+        const injected = captured[0];
+        expect(injected.priority).toBe("now");
+        expect(typeof injected.uuid).toBe("string");
+        expect(JSON.stringify(injected.message.content)).toContain("also handle X");
+    });
+    it("publishes an optimistic goal update for a steered goal replacement", async () => {
+        const updates = [];
+        const agent = new ClaudeAcpAgent({
+            sessionUpdate: async (notification) => updates.push(notification),
+        }, { log: () => { }, error: () => { } });
+        const input = new Pushable();
+        agent.sessions["test-session"] = mockSessionState({
+            input,
+            turnQueue: [
+                {
+                    promptUuid: "running",
+                    isLocalOnlyCommand: false,
+                    settled: false,
+                    resolve: () => { },
+                    reject: () => { },
+                },
+            ],
+        });
+        await agent.steer({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Replace the objective" }],
+        });
+        expect(updates).toContainEqual({
+            sessionId: "test-session",
+            update: {
+                sessionUpdate: "session_info_update",
+                _meta: {
+                    goal: {
+                        objective: "Replace the objective",
+                        status: "active",
+                        controlMethod: GOAL_CONTROL_METHOD,
+                    },
+                },
+            },
+        });
+    });
+    it("does not attribute a cancelled pending steer result to the next prompt", async () => {
+        const agent = createMockAgent();
+        let releaseCancel;
+        const cancelGate = new Promise((resolve) => (releaseCancel = resolve));
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const original = await iter.next();
+                yield userEcho(original.value);
+                const staleSteer = await iter.next();
+                await cancelGate;
+                yield idleMessage();
+                const replacement = await iter.next();
+                yield userEcho(staleSteer.value);
+                yield { ...createResultMessage(), stop_reason: "max_tokens" };
+                yield userEcho(replacement.value);
+                yield createResultMessage();
+                yield idleMessage();
+            }
+            return messageGenerator();
+        });
+        const first = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Original" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await agent.goal({ sessionId: "test-session", action: "clear" });
+        await agent.cancel({ sessionId: "test-session" });
+        releaseCancel();
+        await expect(first).resolves.toEqual(expect.objectContaining({ stopReason: "cancelled" }));
+        await expect(agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal Replacement" }],
+        })).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+    });
+    // A steer does not join the running cycle — it ABORTS it: the CLI interrupts
+    // the in-flight query as soon as a queued message carries priority 'now'. The
+    // interrupted cycle ends with an ordinary human-origin `result` and the
+    // steered message runs as a SECOND cycle. Treating that first result as
+    // terminal answers session/prompt mid-work: the client is told `end_turn`,
+    // then keeps receiving the turn's remaining tool calls and its actual answer
+    // as updates belonging to no turn.
+    it("keeps the turn open across the interrupt its own steer caused", async () => {
+        const timeline = [];
+        const agent = new ClaudeAcpAgent(timelineClient(timeline), {
+            log: () => { },
+            error: () => { },
+        });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const u1 = await iter.next();
+                yield userEcho(u1.value); // turn becomes active
+                yield createAssistantText("working on it");
+                // The steered message is pushed at priority 'now'...
+                const steered = await iter.next();
+                // ...so the CLI aborts the query, ending the interrupted cycle with a
+                // result of its own. No idle follows it: one comes at the very end, for
+                // the whole interrupted + steered sequence.
+                yield interruptedCycleResult();
+                // Only now does the steered message run, as a second cycle. Its echo
+                // matches no queued turn (dropped as an unrelated replay), its output is
+                // the answer the user is waiting for, and its result has the last word
+                // on the turn's stop reason.
+                yield userEcho(steered.value);
+                yield createAssistantText("STEERED-OK");
+                yield createResultMessage();
+                yield idleMessage();
+            }
+            return messageGenerator();
+        });
+        const turn = agent
+            .prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "start" }] })
+            .then((response) => {
+            timeline.push(`prompt:${response.stopReason}`);
+            return response;
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await expect(agent.steer({ sessionId: "test-session", prompt: [{ type: "text", text: "also handle X" }] })).resolves.toEqual({ outcome: "injected" });
+        const response = await turn;
+        // Drain the rest of the stream so the timeline is complete either way — on
+        // an early settle the steered output arrives after `response`.
+        await agent.sessions["test-session"]?.consumer;
+        // The steered continuation belongs to the turn the client is waiting on, so
+        // all of it precedes that turn's response. A `prompt:` entry anywhere but
+        // last is the bug: updates outlived the stopReason.
+        expect(timeline).toEqual(["working on it", "STEERED-OK", "prompt:end_turn"]);
+        // Both cycles ran for this one prompt, so its usage covers both (2 × the
+        // mock result's 10 in / 5 out) rather than stopping at the interrupt.
+        expect(response.usage).toEqual({
+            inputTokens: 20,
+            outputTokens: 10,
+            cachedReadTokens: 0,
+            cachedWriteTokens: 0,
+            totalTokens: 30,
+        });
+        // Still exactly one response for one prompt, and nothing left behind.
+        expect(agent.sessions["test-session"].turnQueue).toHaveLength(0);
+    });
+    it("does not fail the turn on the SDK diagnostic result emitted before a steered echo", async () => {
+        const agent = createMockAgent();
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const original = await iter.next();
+                yield userEcho(original.value);
+                const steered = await iter.next();
+                yield {
+                    ...createResultMessage(),
+                    subtype: "success",
+                    is_error: true,
+                    result: "[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=null",
+                };
+                yield userEcho(steered.value);
+                yield createResultMessage();
+                yield idleMessage();
+            }
+            return messageGenerator();
+        });
+        const turn = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "start" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await agent.steer({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "/goal clear" }],
+        });
+        await expect(turn).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+    });
+    // The other steer ordering: the cycle had already finished when the steer
+    // landed, so nothing was aborted and its result is a natural one — followed by
+    // its own idle, before the steered message is picked up. Settling on that idle
+    // would answer the prompt with the steered work still ahead, so the turn waits
+    // for the steered message's echo (Turn.steeredEchoes).
+    it("does not settle a steered turn at an idle that precedes the steered echo", async () => {
+        const timeline = [];
+        const agent = new ClaudeAcpAgent(timelineClient(timeline), {
+            log: () => { },
+            error: () => { },
+        });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const u1 = await iter.next();
+                yield userEcho(u1.value);
+                yield createAssistantText("working on it");
+                const steered = await iter.next();
+                // The cycle ends and goes idle before the steered message is dequeued.
+                yield interruptedCycleResult();
+                yield idleMessage();
+                // Then the steered message runs as its own cycle.
+                yield userEcho(steered.value);
+                yield createAssistantText("STEERED-OK");
+                yield createResultMessage();
+                yield idleMessage();
+            }
+            return messageGenerator();
+        });
+        const turn = agent
+            .prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "start" }] })
+            .then((response) => {
+            timeline.push(`prompt:${response.stopReason}`);
+            return response;
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await agent.steer({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "also handle X" }],
+        });
+        await turn;
+        await agent.sessions["test-session"]?.consumer;
+        expect(timeline).toEqual(["working on it", "STEERED-OK", "prompt:end_turn"]);
+        // The swallowed idle must not leave a phantom debt that would absorb a later
+        // turn's trailing idle (and blind the issue-#825 detector).
+        expect(agent.sessions["test-session"].owedTrailingIdles).toBe(0);
+    });
+    // A steer must not hold a prompt hostage: the next prompt's echo hands the
+    // steered turn off, reporting — like the subagent hold — the stop reason its
+    // last result recorded rather than a guessed one.
+    it("hands a steered turn off to the next prompt with its recorded outcome", async () => {
+        const timeline = [];
+        const agent = new ClaudeAcpAgent(timelineClient(timeline), {
+            log: () => { },
+            error: () => { },
+        });
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const u1 = await iter.next();
+                yield userEcho(u1.value);
+                yield createAssistantText("working on it");
+                await iter.next(); // the steered message, which this CLI never replays
+                yield interruptedCycleResult();
+                // The user moves on: the second prompt's echo arrives while the steered
+                // turn is still open.
+                const second = await iter.next();
+                yield userEcho(second.value);
+                yield createAssistantText("second turn");
+                yield createResultMessage();
+                yield idleMessage();
+            }
+            return messageGenerator();
+        });
+        const first = agent
+            .prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "start" }] })
+            .then((response) => {
+            timeline.push(`first:${response.stopReason}`);
+            return response;
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await agent.steer({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "also handle X" }],
+        });
+        const second = agent
+            .prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "next" }] })
+            .then((response) => {
+            timeline.push(`second:${response.stopReason}`);
+            return response;
+        });
+        const firstResponse = await first;
+        await second;
+        await agent.sessions["test-session"]?.consumer;
+        // The steered turn ends at the hand-off — before the new turn's output — and
+        // carries the interrupted cycle's own usage, not the next turn's.
+        expect(timeline).toEqual(["working on it", "first:end_turn", "second turn", "second:end_turn"]);
+        expect(firstResponse.usage).toEqual({
+            inputTokens: 10,
+            outputTokens: 5,
+            cachedReadTokens: 0,
+            cachedWriteTokens: 0,
+            totalTokens: 15,
+        });
+        expect(agent.sessions["test-session"].turnQueue).toHaveLength(0);
+    });
+    // Cancelling a steered turn answers "cancelled" through the normal lane, but
+    // its last result's trailing idle went uncounted (the steer lane pays for its
+    // idles by settling on them, which the cancel pre-empted). That idle can lag
+    // past the next prompt's echo, where an un-owed idle reads as "the SDK went
+    // idle without a result" and false-fails a healthy prompt (#825).
+    it("cancels a steered turn without false-failing the next prompt", async () => {
+        const agent = createMockAgent();
+        let releaseAfterCancel = () => { };
+        const afterCancel = new Promise((resolve) => (releaseAfterCancel = resolve));
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const u1 = await iter.next();
+                yield userEcho(u1.value);
+                yield createAssistantText("working on it");
+                await iter.next(); // the steered message
+                yield interruptedCycleResult();
+                await afterCancel;
+                yield idleMessage(); // the interrupt's trailer: settles the turn "cancelled"
+                const second = await iter.next();
+                yield userEcho(second.value); // activates the next turn, clears `cancelled`
+                yield idleMessage(); // the steered result's lagged trailer — must be absorbed
+                yield createAssistantText("second turn");
+                yield createResultMessage();
+                yield idleMessage();
+            }
+            return messageGenerator();
+        });
+        const first = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "start" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        await agent.steer({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "also handle X" }],
+        });
+        // The interrupted cycle's result has been recorded on the turn (not settled).
+        await waitFor(() => agent.sessions["test-session"]?.activeTurn?.steeredSettle !== undefined);
+        await agent.cancel({ sessionId: "test-session" });
+        releaseAfterCancel();
+        await expect(first).resolves.toEqual(expect.objectContaining({ stopReason: "cancelled" }));
+        // The next prompt runs to completion instead of being rejected by the #825
+        // detector when the steered turn's lagged idle lands.
+        await expect(agent.prompt({ sessionId: "test-session", prompt: [{ type: "text", text: "next" }] })).resolves.toEqual(expect.objectContaining({ stopReason: "end_turn" }));
+        expect(agent.sessions["test-session"].owedTrailingIdles).toBe(0);
+    });
+    it("always injects at 'now' priority, ignoring any client-supplied priority", async () => {
+        const agent = createMockAgent();
+        const captured = [];
+        injectGeneratorSession(agent, (input) => {
+            async function* messageGenerator() {
+                const iter = input[Symbol.asyncIterator]();
+                const u1 = await iter.next();
+                yield userEcho(u1.value);
+                const steered = await iter.next();
+                captured.push(steered.value);
+                yield createResultMessage();
+                yield { type: "system", subtype: "session_state_changed", state: "idle" };
+            }
+            return messageGenerator();
+        });
+        const turn = agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "start" }],
+        });
+        await waitFor(() => !!agent.sessions["test-session"]?.activeTurn);
+        // Delivery priority is an internal detail, not part of the wire contract.
+        // Even if a client sneaks a `priority` field into the params, it's ignored
+        // and the message is always delivered at 'now'.
+        const res = await agent.steer({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "queue this after" }],
+            priority: "next",
+        });
+        await turn;
+        expect(res.outcome).toBe("injected");
+        expect(captured[0]?.priority).toBe("now");
+    });
+});
 describe("session/cancel wedge recovery (issue #680)", () => {
     function createMockAgent() {
         const mockClient = {
@@ -7809,7 +9497,10 @@ describe("session/cancel wedge recovery (issue #680)", () => {
             fastModeEnabled: false,
             abortController: new AbortController(),
             emitRawSDKMessages: false,
+            forwardSubagentText: false,
             contextWindowSize: 200000,
+            contextWindowAuthoritative: false,
+            providerCacheKey: "default",
             taskState: new Map(),
             toolUseCache: {},
             emittedToolCalls: new Set(),
@@ -8281,6 +9972,14 @@ describe("streamEventToAcpNotifications", () => {
                 rawInput: { description: "Research dependencies" },
             },
             {
+                case: "Bash description",
+                name: "Bash",
+                partialJson: '{"command":"git diff","description":"Show current diff","timeout":',
+                title: "git diff",
+                metaTitle: "Show current diff",
+                rawInput: { command: "git diff", description: "Show current diff" },
+            },
+            {
                 case: "Bash command with comma and escaped quotes",
                 name: "Bash",
                 partialJson: `{"command":${JSON.stringify('sleep 900, then echo "done"')},"timeout":`,
@@ -8392,6 +10091,11 @@ describe("streamEventToAcpNotifications", () => {
                 title: testCase.title,
                 rawInput: testCase.rawInput,
             });
+            if ("metaTitle" in testCase) {
+                expect(refined[0].update._meta).toMatchObject({
+                    claudeCode: { title: testCase.metaTitle },
+                });
+            }
             // Refinements never carry `content`: content built from partial input is
             // misleading (an Edit missing new_string renders as a deletion) or
             // invalid (a Write diff without content lacks the required newText).
@@ -8812,7 +10516,10 @@ describe("agent selection config option", () => {
                 fastModeEnabled: false,
                 abortController: new AbortController(),
                 emitRawSDKMessages: false,
+                forwardSubagentText: false,
                 contextWindowSize: 200000,
+                contextWindowAuthoritative: false,
+                providerCacheKey: "default",
                 taskState: new Map(),
                 toolUseCache: {},
                 emittedToolCalls: new Set(),
@@ -8867,5 +10574,336 @@ describe("agent selection config option", () => {
             const agentOption = session.configOptions.find((o) => o.id === "agent");
             expect(agentOption?.currentValue).toBe("default");
         });
+    });
+});
+describe("tool_progress heartbeats", () => {
+    /** Run a turn carrying `messages`, with `inFlight` tool calls already emitted,
+     *  and return the tool_call_updates it produced. */
+    async function run(messages, inFlight) {
+        const updates = [];
+        const mockClient = {
+            sessionUpdate: async (n) => {
+                updates.push(n);
+            },
+        };
+        const agent = new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+        const input = new Pushable();
+        async function* messageGenerator() {
+            const { value, done } = await input[Symbol.asyncIterator]().next();
+            if (!done && value) {
+                yield {
+                    type: "user",
+                    message: value.message,
+                    parent_tool_use_id: null,
+                    uuid: value.uuid,
+                    session_id: "test-session",
+                    isReplay: true,
+                };
+            }
+            yield* messages;
+            yield {
+                type: "result",
+                subtype: "success",
+                stop_reason: null,
+                is_error: false,
+                result: "",
+                usage: {},
+                uuid: randomUUID(),
+                session_id: "test-session",
+            };
+            yield { type: "system", subtype: "session_state_changed", state: "idle" };
+        }
+        agent.sessions["test-session"] = mockSessionState({
+            query: wrapQuery(messageGenerator()),
+            input,
+            emittedToolCalls: new Set(inFlight),
+        });
+        await agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "test" }],
+        });
+        return updates
+            .map((n) => n.update)
+            .filter((u) => u.sessionUpdate === "tool_call_update");
+    }
+    /** A heartbeat as the SDK emits it: a derived `tool_use_id`, with
+     *  `parent_tool_use_id` stamped with the real id of the executing tool. */
+    function beat(toolUseId, parentToolUseId, extra = {}) {
+        return {
+            type: "tool_progress",
+            tool_use_id: toolUseId,
+            tool_name: "Bash",
+            parent_tool_use_id: parentToolUseId,
+            elapsed_time_seconds: 30,
+            heartbeat: true,
+            uuid: randomUUID(),
+            session_id: "test-session",
+            ...extra,
+        };
+    }
+    it("reports every beat against the tool call it describes", async () => {
+        const sent = await run([beat("toolu_abc-heartbeat-0", "toolu_abc"), beat("toolu_abc-heartbeat-1", "toolu_abc")], ["toolu_abc"]);
+        expect(sent.map((u) => u.toolCallId)).toEqual(["toolu_abc", "toolu_abc"]);
+        expect(sent[0].status).toBe("in_progress");
+    });
+    // Covers a call that was never emitted and one whose tool_result already
+    // removed it, so a straggling beat can't reopen a call seen to finish.
+    it("drops a beat for a tool call that is not in flight", async () => {
+        expect(await run([beat("toolu_ghost-heartbeat-0", "toolu_ghost")], [])).toHaveLength(0);
+    });
+    it("preserves the elapsed time", async () => {
+        const sent = await run([beat("toolu_abc-heartbeat-2", "toolu_abc", { elapsed_time_seconds: 90 })], ["toolu_abc"]);
+        expect(sent[0].toolCallId).toBe("toolu_abc");
+        expect(sent[0]._meta.claudeCode).toMatchObject({
+            toolName: "Bash",
+            toolResponse: { elapsedTimeSeconds: 90 },
+        });
+    });
+    // `agent_api_retry` beats — the only source of `subagentType`/`subagentRetry`
+    // — are not heartbeats and don't use the `-heartbeat-<n>` id shape: they
+    // report under `agent_<assistant_message_id>`, with the retrying Agent call's
+    // real id in `parent_tool_use_id`. Resolving via the suffix alone dropped
+    // them, leaving a stalled spawn with no explanation.
+    it("reports a subagent retry beat against the Agent call that is retrying", async () => {
+        const sent = await run([
+            {
+                type: "tool_progress",
+                tool_use_id: "agent_msg_01xyz",
+                tool_name: "Task",
+                parent_tool_use_id: "toolu_task",
+                elapsed_time_seconds: 0,
+                subagent_type: "code-reviewer",
+                subagent_retry: {
+                    agent_id: "agent-1",
+                    attempt: 2,
+                    max_retries: 5,
+                    retry_delay_ms: 4000,
+                    error_status: 529,
+                    error_category: "overloaded",
+                },
+                uuid: randomUUID(),
+                session_id: "test-session",
+            },
+        ], ["toolu_task"]);
+        expect(sent[0].toolCallId).toBe("toolu_task");
+        expect(sent[0]._meta.claudeCode).toMatchObject({
+            toolName: "Task",
+            toolResponse: {
+                subagentType: "code-reviewer",
+                subagentRetry: { attempt: 2, max_retries: 5, error_status: 529 },
+            },
+        });
+    });
+    // A subagent's own `bash_progress` reports the inner tool's real id, with the
+    // spawning Agent call as its parent. The real id wins so the beat lands on the
+    // nested call rather than being hoisted onto the Agent card.
+    it("leaves a beat that reports a real tool call alone", async () => {
+        const sent = await run([beat("toolu_inner", "toolu_task", { heartbeat: undefined })], ["toolu_task", "toolu_inner"]);
+        expect(sent.map((u) => u.toolCallId)).toEqual(["toolu_inner"]);
+    });
+});
+describe("permission_denied", () => {
+    /** Run a turn carrying `messages` and return the updates it produced. */
+    async function run(messages, overrides = {}) {
+        const updates = [];
+        const mockClient = {
+            sessionUpdate: async (n) => {
+                updates.push(n.update);
+            },
+        };
+        const agent = new ClaudeAcpAgent(mockClient, { log: () => { }, error: () => { } });
+        const input = new Pushable();
+        async function* messageGenerator() {
+            const { value, done } = await input[Symbol.asyncIterator]().next();
+            if (!done && value) {
+                yield {
+                    type: "user",
+                    message: value.message,
+                    parent_tool_use_id: null,
+                    uuid: value.uuid,
+                    session_id: "test-session",
+                    isReplay: true,
+                };
+            }
+            yield* messages;
+            yield {
+                type: "result",
+                subtype: "success",
+                stop_reason: null,
+                is_error: false,
+                result: "",
+                usage: {},
+                uuid: randomUUID(),
+                session_id: "test-session",
+            };
+            yield { type: "system", subtype: "session_state_changed", state: "idle" };
+        }
+        agent.sessions["test-session"] = mockSessionState({
+            query: wrapQuery(messageGenerator()),
+            input,
+            ...overrides,
+        });
+        await agent.prompt({
+            sessionId: "test-session",
+            prompt: [{ type: "text", text: "test" }],
+        });
+        return updates;
+    }
+    /** The assistant message announcing `toolUseId`, as the streamed tool_use
+     *  arrives when partial messages are off. */
+    function toolUse(toolUseId, parentToolUseId = null) {
+        return {
+            type: "assistant",
+            message: {
+                role: "assistant",
+                content: [
+                    {
+                        type: "tool_use",
+                        id: toolUseId,
+                        name: "Write",
+                        input: { file_path: "/tmp/denied.txt", content: "hi" },
+                    },
+                ],
+                usage: {},
+            },
+            parent_tool_use_id: parentToolUseId,
+            uuid: randomUUID(),
+            session_id: "test-session",
+        };
+    }
+    /** The rejection the model sees, which follows the denial frame. */
+    function toolResult(toolUseId, parentToolUseId = null) {
+        return {
+            type: "user",
+            message: {
+                role: "user",
+                content: [
+                    {
+                        type: "tool_result",
+                        tool_use_id: toolUseId,
+                        content: "Permission to use Write has been denied.",
+                        is_error: true,
+                    },
+                ],
+            },
+            parent_tool_use_id: parentToolUseId,
+            uuid: randomUUID(),
+            session_id: "test-session",
+        };
+    }
+    function denial(toolUseId, extra = {}) {
+        return {
+            type: "system",
+            subtype: "permission_denied",
+            tool_name: "Write",
+            tool_use_id: toolUseId,
+            decision_reason_type: "mode",
+            decision_reason: "dontAsk mode denies tools that require approval",
+            message: "Permission to use Write has been denied.",
+            uuid: randomUUID(),
+            session_id: "test-session",
+            ...extra,
+        };
+    }
+    const denials = (updates) => updates.filter((u) => u.sessionUpdate === "tool_call_update" &&
+        JSON.stringify(u.content ?? "").includes("Permission denied"));
+    it("marks the announced tool call failed with the denial reason", async () => {
+        const updates = await run([
+            toolUse("toolu_denied"),
+            denial("toolu_denied"),
+            toolResult("toolu_denied"),
+        ]);
+        // The denial resolves the call the preceding tool_call announced, before the
+        // tool_result's own failed update lands.
+        expect(updates[0]).toMatchObject({ sessionUpdate: "tool_call", toolCallId: "toolu_denied" });
+        const sent = denials(updates);
+        expect(sent).toHaveLength(1);
+        expect(sent[0]).toMatchObject({
+            toolCallId: "toolu_denied",
+            status: "failed",
+            content: [
+                {
+                    type: "content",
+                    content: {
+                        type: "text",
+                        text: "Permission denied: dontAsk mode denies tools that require approval",
+                    },
+                },
+            ],
+        });
+        expect(sent[0]._meta.claudeCode).toMatchObject({
+            toolName: "Write",
+            toolResponse: { decisionReasonType: "mode" },
+        });
+        // Top-level denial: nothing to attribute it to.
+        expect(sent[0]._meta.claudeCode).not.toHaveProperty("parentToolUseId");
+    });
+    it("falls back to the SDK's rejection message when there is no decision reason", async () => {
+        const updates = await run([
+            toolUse("toolu_denied"),
+            denial("toolu_denied", { decision_reason: undefined }),
+        ]);
+        expect(denials(updates)[0].content).toEqual([
+            {
+                type: "content",
+                content: {
+                    type: "text",
+                    text: "Permission denied: Permission to use Write has been denied.",
+                },
+            },
+        ]);
+    });
+    // A cancel drops the assistant message carrying the tool_use, so no tool_call
+    // is emitted; a denial for it still arrives. Forwarding that left the client
+    // resolving an id it was never given — the case the tool_result fallback in
+    // `toAcpNotifications` already gates on `wasEmitted` for.
+    it("drops a denial for a tool call that was never announced", async () => {
+        expect(denials(await run([denial("toolu_ghost")]))).toHaveLength(0);
+    });
+    // Ids leave `emittedToolCalls` at `tool_result`, so a denial that somehow
+    // trails its own result can't flip a call the client has seen finish back to
+    // failed.
+    it("drops a denial for a tool call that already resolved", async () => {
+        const updates = await run([
+            toolUse("toolu_denied"),
+            toolResult("toolu_denied"),
+            denial("toolu_denied"),
+        ]);
+        expect(denials(updates)).toHaveLength(0);
+    });
+    // A subagent's denial names the subagent (`agent_id`), never the Agent/Task
+    // call that spawned it, so without the `liveBackgroundTasks` lookup the update
+    // lands at the top level while the tool_call it resolves sits in the
+    // subagent's transcript.
+    it("attributes a subagent denial to the Agent call that spawned it", async () => {
+        const updates = await run([
+            {
+                type: "system",
+                subtype: "task_started",
+                task_id: "agent-1",
+                tool_use_id: "toolu_agent",
+                subagent_type: "general-purpose",
+                uuid: randomUUID(),
+                session_id: "test-session",
+            },
+            toolUse("toolu_inner", "toolu_agent"),
+            denial("toolu_inner", { agent_id: "agent-1" }),
+        ]);
+        expect(denials(updates)[0]._meta.claudeCode).toMatchObject({
+            toolName: "Write",
+            parentToolUseId: "toolu_agent",
+        });
+    });
+    // The attribution rests on `task_started` having been seen for the agent id.
+    // If it wasn't, the denial still resolves the call — unattributed beats
+    // dropped.
+    it("still resolves a subagent denial when the parent is unknown", async () => {
+        const updates = await run([
+            toolUse("toolu_inner", "toolu_agent"),
+            denial("toolu_inner", { agent_id: "agent-unknown" }),
+        ]);
+        const sent = denials(updates);
+        expect(sent).toHaveLength(1);
+        expect(sent[0]._meta.claudeCode).not.toHaveProperty("parentToolUseId");
     });
 });

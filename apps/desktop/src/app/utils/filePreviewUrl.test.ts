@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    buildAiHistoryAttachmentPreviewUrl,
     buildCodexGeneratedImagePreviewUrl,
     buildVaultPreviewUrl,
     buildVaultPreviewUrlFromAbsolutePath,
@@ -50,6 +51,17 @@ describe("filePreviewUrl", () => {
                 "/Users/test/.codex/generated_images/session/ig_1.png",
             ),
         ).toContain("neverwrite-file://localhost/codex-image/");
+    });
+
+    it("builds an app-data preview URL for device-local chat attachments", () => {
+        expect(
+            buildAiHistoryAttachmentPreviewUrl(
+                "/Users/test/Library/Application Support/AgentDock/ai-history/v1/vaults/abc/assets/chat/pasted-image-1.png",
+            ),
+        ).toContain("neverwrite-file://localhost/codex-image/");
+        expect(
+            buildAiHistoryAttachmentPreviewUrl("/vault/assets/chat/pasted-image-1.png"),
+        ).toBeNull();
     });
 
     it("detects Codex generated image paths", () => {

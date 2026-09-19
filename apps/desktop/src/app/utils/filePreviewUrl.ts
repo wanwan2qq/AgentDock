@@ -78,6 +78,21 @@ export function isGeneratedImagePath(path: string) {
     return path.includes("/.codex/generated_images/");
 }
 
+export function isAiHistoryAttachmentPath(path: string) {
+    return (
+        path.includes("/ai-history/") || path.includes("\\ai-history\\")
+    );
+}
+
+export function buildAiHistoryAttachmentPreviewUrl(absolutePath: string) {
+    const { pathname, suffix } = splitPathSuffix(absolutePath);
+    if (!pathname.trim() || !isAiHistoryAttachmentPath(pathname)) {
+        return null;
+    }
+
+    return `${FILE_PREVIEW_SCHEME}/codex-image/${encodeBase64Url(pathname)}${suffix}`;
+}
+
 export function isAuthorizedVaultPreviewPath(
     absolutePath: string,
     vaultPath: string | null,

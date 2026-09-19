@@ -29,11 +29,8 @@ import {
 } from "../../../app/store/editorStore";
 import { useSettingsStore } from "../../../app/store/settingsStore";
 import { useVaultStore } from "../../../app/store/vaultStore";
-import {
-    isTextLikeVaultEntry,
-    moveVaultEntryToTrash,
-} from "../../../app/utils/vaultEntries";
-import { vaultInvoke } from "../../../app/utils/vaultInvoke";
+import { isTextLikeVaultEntry } from "../../../app/utils/vaultEntries";
+import { aiDeleteChatAttachment, aiSaveChatAttachment } from "../api";
 import {
     type AIComposerPart,
     type AIChatMessage,
@@ -56,7 +53,7 @@ import { formatShortcutAction } from "../../../app/shortcuts/format";
 import { getDesktopPlatform } from "../../../app/utils/platform";
 import { AIDiscardedRootsBanner } from "./AIDiscardedRootsBanner";
 import { useInlineRename } from "./useInlineRename";
-import { AI_CHAT_CONTENT_COLUMN_STYLE } from "./chatContentLayout";
+import { useChatContentColumnStyle } from "./chatContentLayout";
 import { useChatFindShortcut } from "./find/useChatFindShortcut";
 import {
     appendFileAttachmentPart,
@@ -113,11 +110,12 @@ function ChatContentColumn({
 }: {
     children: ReactNode;
 }) {
+    const chatColumnStyle = useChatContentColumnStyle();
     return (
         <div
             className="min-w-0"
             data-testid="chat-content-column"
-            style={AI_CHAT_CONTENT_COLUMN_STYLE}
+            style={chatColumnStyle}
         >
             {children}
         </div>
@@ -154,6 +152,7 @@ export function AIChatSessionView({ paneId, tabId }: AIChatSessionViewProps) {
     // Actions ref — avoids subscribing to every action
     const chatActions = useRef(useChatStore.getState()).current;
     const refreshEntries = useVaultStore((state) => state.refreshEntries);
+    const vaultPath = useVaultStore((state) => state.vaultPath);
     const aiReviewEnabled = useSettingsStore((state) => state.aiReviewEnabled);
 
     // Session data
@@ -396,16 +395,14 @@ export function AIChatSessionView({ paneId, tabId }: AIChatSessionViewProps) {
                     String(now.getSeconds()).padStart(2, "0"),
                 ].join("");
                 const fileName = `pasted-image-${ts}.${ext}`;
-                const saved = await vaultInvoke<{
-                    path: string;
-                    relative_path: string;
-                    file_name: string;
-                    mime_type: string | null;
-                }>("save_vault_binary_file", {
-                    relativeDir: "assets/chat",
+                if (!vaultPath) {
+                    throw new Error("Open a vault before attaching images.");
+                }
+                const saved = await aiSaveChatAttachment(
+                    vaultPath,
                     fileName,
                     bytes,
-                });
+                );
                 const timeLabel = `Screenshot ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} hrs`;
                 const latestParts =
                     useChatStore.getState().composerPartsBySessionId[
@@ -417,14 +414,17 @@ export function AIChatSessionView({ paneId, tabId }: AIChatSessionViewProps) {
                     runtimeId,
                 );
                 if (!latestValidation.ok) {
-                    await moveVaultEntryToTrash(saved.relative_path).catch(
-                        (cleanupError) => {
-                            console.error(
-                                "[chat] Failed to remove rejected pasted image:",
-                                cleanupError,
-                            );
-                        },
-                    );
+                    await aiDeleteChatAttachment(
+                        vaultPath,
+                        saved.storedInVault === false
+                            ? saved.path
+                            : saved.relative_path,
+                    ).catch((cleanupError) => {
+                        console.error(
+                            "[chat] Failed to remove rejected pasted image:",
+                            cleanupError,
+                        );
+                    });
                     await refreshEntries();
                     setImageAttachmentNotice(
                         imageAttachmentValidationMessage(
@@ -450,7 +450,7 @@ export function AIChatSessionView({ paneId, tabId }: AIChatSessionViewProps) {
                 setImageAttachmentNotice("Image could not be attached");
             }
         },
-        [chatActions, refreshEntries, session?.runtimeId, sessionId],
+        [chatActions, refreshEntries, session?.runtimeId, sessionId, vaultPath],
     );
 
     useEffect(() => {

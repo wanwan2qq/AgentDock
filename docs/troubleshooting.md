@@ -341,9 +341,11 @@ If a vault appears corrupt or a file cannot be opened/saved:
 
 ## AI Session History And Recovery
 
-AI chat history is local to the currently open vault:
+AI chat history is local to the currently open vault, in either app data or
+`.neverwrite/sessions/` depending on **Store AI chats inside this vault**:
 
 ```text
+<app-data>/ai-history/v1/vaults/<sha256(canonical-vault-path)>/.neverwrite/sessions/session-<sha256(session_id)>/
 <vault>/.neverwrite/sessions/session-<sha256(session_id)>/
 ```
 
@@ -356,7 +358,8 @@ If a session does not recover:
 - Reopen the same vault first. Session history is per-vault.
 - Open `Chat History`, select the saved conversation, and click `Restore`.
 - Check whether retention settings or manual deletion removed the conversation.
-- Confirm `.neverwrite/sessions/` exists and is readable.
+- Confirm the active history scope still contains the session. Device-local
+  chats live under app data, not `.neverwrite/sessions/`.
 - If the UI shows `The AI runtime lost its connection. Reconnecting with saved
   context...`, wait for the reconnect attempt before sending a new message.
 - If reconnecting fails with `Could not reconnect this chat. Start a new session

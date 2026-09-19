@@ -1,12 +1,24 @@
 # AI Session History And Crash Recovery
 
-NeverWrite stores AI chat history inside the currently open vault. This keeps
-conversation recovery local-first and lets the app reconnect or reconstruct a
-saved chat after a renderer reload, runtime crash, or full app restart.
+AgentDock stores AI chat history locally. Each vault has one backend-owned
+canonical scope: `device` or `vault`. The renderer asks the backend for that
+scope; it never chooses a history root.
+
+New vaults use device-local storage. Existing vaults that already contain
+`.neverwrite/sessions` history are adopted as vault storage. In Settings, enable
+**Store AI chats inside this vault** to move all history and pasted
+`pasted-image-*` attachments into the vault. Moving back to device storage uses
+the same copy-then-verify-then-delete flow.
 
 ## Disk Layout
 
-Session history is stored under:
+Device-local sessions are stored under:
+
+```text
+<app-data>/ai-history/v1/vaults/<sha256(canonical-vault-path)>/.neverwrite/sessions/session-<sha256(session_id)>/
+```
+
+Vault-scoped sessions stay under:
 
 ```text
 <vault>/.neverwrite/sessions/session-<sha256(session_id)>/
@@ -18,13 +30,17 @@ Each modern session directory contains:
 - `index.json`: transcript offsets, lengths, and message hashes used for windowed transcript loading.
 - `transcript.jsonl`: newline-delimited JSON transcript entries.
 
-The `.neverwrite` directory is NeverWrite's internal hidden-state directory.
-It is hidden by dotfile convention on macOS and Linux, and may be filtered by
-file managers or search tools. Show hidden files in your file manager, or
-inspect it from a terminal, if you need to audit the stored history directly.
+Pasted chat screenshots follow the active scope:
 
-NeverWrite may also have `.neverwrite-cache/` in the vault for derived cache
-data. Chat recovery uses `.neverwrite/sessions/`.
+```text
+<app-data>/ai-history/v1/vaults/<vault-key>/assets/chat/pasted-image-*
+# or, when vault storage is active:
+<vault>/assets/chat/pasted-image-*
+```
+
+The `.neverwrite` directory is AgentDock's internal hidden-state directory.
+Vault-scoped chat recovery uses `.neverwrite/sessions/`; device-scoped chat
+recovery uses the app-data namespace shown above.
 
 ## Sessions, Sidebar Entries, And Workspace Views
 
@@ -86,9 +102,14 @@ send a new message so NeverWrite can continue with the stored transcript.
 
 ## Retention And Privacy Notes
 
-- Session history is local to the vault and follows the chat history retention setting in `Chat History`.
+- Session history follows the chat history retention setting in `Chat History`.
+- Device-local history lives only in this app-data installation. Vault history
+  is copied when the vault itself is synchronized or backed up.
 - `transcript.jsonl` is stored as local plaintext JSONL while retained.
-- Deleting a conversation from `Chat History` deletes its saved history from `.neverwrite/sessions/`.
-- If a recovered chat is missing, confirm you reopened the same vault and that the retention window did not prune the conversation.
+- Deleting a conversation from `Chat History` deletes its saved history from
+  the active scope.
+- If a recovered chat is missing, confirm you reopened the same vault, that the
+  storage setting still points at the same scope, and that the retention window
+  did not prune the conversation.
 
 Last updated: July 11, 2026.

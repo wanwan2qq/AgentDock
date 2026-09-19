@@ -62,7 +62,7 @@ import {
     shouldIncludeVaultEntryInFileScope,
     isTextLikeVaultEntry,
 } from "../../../app/utils/vaultEntries";
-import { AI_CHAT_CONTENT_COLUMN_STYLE } from "./chatContentLayout";
+import { useChatContentColumnStyle } from "./chatContentLayout";
 import { getComposerPrimaryAction } from "./chatComposerPrimaryAction";
 import {
     type ImageAttachmentValidationFailure,
@@ -959,6 +959,7 @@ export function AIChatComposer({
         (s) => s.fileTreeExtensionFilter,
     );
     const fallbackEntries = useVaultStore((state) => state.entries);
+    const chatColumnStyle = useChatContentColumnStyle();
     const composerRef = useRef<HTMLDivElement>(null);
     const shellRef = useRef<HTMLDivElement>(null);
     const fileSizeByPathRef = useRef<Map<string, number>>(new Map());
@@ -1665,7 +1666,7 @@ export function AIChatComposer({
                 <div className={expanded ? "px-2 pb-1.5" : "px-3 pb-1.5"}>
                     <div
                         className="min-w-0"
-                        style={AI_CHAT_CONTENT_COLUMN_STYLE}
+                        style={chatColumnStyle}
                     >
                         {contextBar}
                     </div>
@@ -1696,7 +1697,7 @@ export function AIChatComposer({
                     ref={bindContentColumnRef}
                     className={contentColumnClassName}
                     data-testid="chat-composer-content-column"
-                    style={AI_CHAT_CONTENT_COLUMN_STYLE}
+                    style={chatColumnStyle}
                 >
                     {!expanded && (
                         <div

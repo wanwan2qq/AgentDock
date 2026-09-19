@@ -1,5 +1,6 @@
-import { AuthenticateRequest, CancelNotification, ClientCapabilities, CompleteElicitationNotification, CreateElicitationRequest, CreateElicitationResponse, ForkSessionRequest, ForkSessionResponse, InitializeRequest, InitializeResponse, ListSessionsRequest, ListSessionsResponse, LoadSessionRequest, LoadSessionResponse, LogoutRequest, NewSessionRequest, NewSessionResponse, PromptRequest, PromptResponse, ReadTextFileRequest, ReadTextFileResponse, RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest, ResumeSessionResponse, SessionConfigOption, SessionModeState, SessionNotification, SetSessionConfigOptionRequest, SetSessionConfigOptionResponse, SetSessionModeRequest, SetSessionModeResponse, CloseSessionRequest, CloseSessionResponse, DeleteSessionRequest, DeleteSessionResponse, WriteTextFileRequest, WriteTextFileResponse } from "@agentclientprotocol/sdk";
-import { AgentInfo, CanUseTool, FastModeState, ModelInfo, Options, PermissionMode, PermissionUpdate, Query, SDKMessageOrigin, SDKPartialAssistantMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { AuthenticateRequest, CancelNotification, ClientCapabilities, CompleteElicitationNotification, CreateElicitationRequest, CreateElicitationResponse, DisableProviderRequest, DisableProviderResponse, ForkSessionRequest, ForkSessionResponse, InitializeRequest, InitializeResponse, ListProvidersRequest, ListProvidersResponse, LlmProtocol, ListSessionsRequest, ListSessionsResponse, LoadSessionRequest, LoadSessionResponse, LogoutRequest, NewSessionRequest, NewSessionResponse, PromptRequest, PromptResponse, ReadTextFileRequest, ReadTextFileResponse, SetProviderRequest, SetProviderResponse, RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest, ResumeSessionResponse, SessionConfigOption, SessionModeState, SessionNotification, SetSessionConfigOptionRequest, SetSessionConfigOptionResponse, SetSessionModeRequest, SetSessionModeResponse, CloseSessionRequest, CloseSessionResponse, DeleteSessionRequest, DeleteSessionResponse, WriteTextFileRequest, WriteTextFileResponse } from "@agentclientprotocol/sdk";
+import { AgentInfo, CanUseTool, FastModeDisabledReason, FastModeState, ModelInfo, Options, PermissionMode, Query, SDKMessageOrigin, SDKPartialAssistantMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { GoalRequest, GoalControlResponse, GoalSnapshot } from "./goal-extension.js";
 import { ContentBlockParam } from "@anthropic-ai/sdk/resources";
 import { BetaContentBlock, BetaRawContentBlockDelta } from "@anthropic-ai/sdk/resources/beta.mjs";
 import { SettingsManager } from "./settings.js";
@@ -18,6 +19,34 @@ type AccumulatedUsage = {
     outputTokens: number;
     cachedReadTokens: number;
     cachedWriteTokens: number;
+};
+/** Request-level steering options. `promptRequired` is opt-in so existing Hosts
+ *  keep the established idle fallback behavior. */
+type SteerMeta = {
+    [key: string]: unknown;
+    steering?: {
+        idleBehavior?: "promptRequired";
+    };
+};
+/** Params of a {@link STEER_METHOD} request. Shaped like the relevant subset of
+ *  a `PromptRequest` so the same `promptToClaude` conversion applies. Delivery
+ *  priority is deliberately NOT exposed here — it's an internal detail the agent
+ *  chooses (see {@link STEER_PRIORITY}). */
+export type SteerRequest = {
+    sessionId: string;
+    prompt: PromptRequest["prompt"];
+    _meta?: SteerMeta | null;
+};
+/** Result of a {@link STEER_METHOD} request. The legacy `startedNewTurn` result
+ *  remains the default idle behavior; `promptRequired` is returned only when the
+ *  Host explicitly opts into the host-owned fallback in request `_meta`. */
+export type SteerResponse = {
+    outcome: "injected";
+} | {
+    outcome: "startedNewTurn";
+} | {
+    outcome: "promptRequired";
+    reason: "noRunningTurn";
 };
 /** Internal model-selection state. Mirrors the shape the ACP SDK exposed as
  *  `SessionModelState` before model selection moved entirely into
@@ -118,6 +147,26 @@ type Turn = {
      *  pre-hold behavior (pending wakes are not countable: notifications can
      *  batch into one followup). */
     deferredSettle?: PromptResponse;
+    /** Uuids of `steer()`-injected messages the SDK has not replayed back yet.
+     *
+     *  A steer is delivered at {@link STEER_PRIORITY} (`now`), so the CLI ABORTS
+     *  the running cycle: it emits its own human-origin `result` —
+     *  indistinguishable from a turn's terminal one — and the steered message runs
+     *  as a SECOND cycle. Settling at that result would answer `session/prompt`
+     *  mid-work, so a steered turn's results only RECORD their outcome
+     *  (`steeredSettle`) and it settles at the SDK's `idle`, the only signal
+     *  spanning both cycles (CLI 2.1.220).
+     *
+     *  A non-empty set at an idle means the steered cycle hasn't started — the CLI
+     *  replays a message only when it picks it up, always after the interrupted
+     *  cycle's result — so that idle is swallowed. Drained by the replay handler.
+     *
+     *  Residual: a message the CLI drops unreplayed parks the turn until
+     *  `session/cancel` or the next prompt (both settle it). */
+    steeredEchoes?: Set<string>;
+    /** What a steered turn settles with once its steered work has run: the outcome
+     *  of its latest result, so its usage covers every cycle the turn ran. */
+    steeredSettle?: PromptResponse;
     resolve: (response: PromptResponse) => void;
     reject: (error: unknown) => void;
 };
@@ -131,6 +180,20 @@ type Session = {
     /** The turn whose messages the consumer is currently attributing output to
      *  (the head of `turnQueue` once its user message has been echoed). */
     activeTurn?: Turn | null;
+    /** Optimistic goal state published for a submitted `/goal` command whose
+     *  matching runtime update has not arrived yet. Runtime updates for the old
+     *  goal are suppressed until this command is echoed or completes, otherwise
+     *  a late old-goal update can overwrite a replacement that the runtime never
+     *  announces (the compatibility case the optimistic update exists for). */
+    pendingGoalUpdate?: {
+        commandUuid: string;
+        expected: GoalSnapshot | null;
+        previous: GoalSnapshot | null | undefined;
+        started: boolean;
+    };
+    /** Last goal snapshot sent to the ACP client, used to roll back an
+     *  optimistic `/goal` update when the command itself fails. */
+    lastPublishedGoal?: GoalSnapshot | null;
     /** Count of result messages the consumer should treat as orphans and skip
      *  (not promote/attribute to the current head). When cancel() settles+removes
      *  a queued turn, that turn's user message was already pushed to the SDK, so
@@ -207,6 +270,13 @@ type Session = {
      *  user's intent so it persists across model switches; the Fast mode config
      *  option is only surfaced while the selected model supports it. */
     fastModeEnabled: boolean;
+    /** Why the SDK currently can't serve Fast mode, when the reason is one worth
+     *  telling the user about (see {@link FAST_MODE_UNAVAILABLE_EXPLANATIONS} —
+     *  routine states like the SDK's own opt-in requirement normalize to
+     *  `undefined`). Refreshed from every `fast_mode_disabled_reason` the SDK
+     *  reports on `system`/init and user-turn `result`s; surfaced in the Fast mode
+     *  option's description so a toggle that snaps back off explains itself. */
+    fastModeDisabledReason?: FastModeDisabledReason;
     abortController: AbortController;
     /** Signal the consumer races `query.next()` against. Aborted by cancel()
      *  (after a grace period) to force the active turn to settle "cancelled" when
@@ -220,13 +290,37 @@ type Session = {
      *  cancel. */
     forceCancelTimer?: ReturnType<typeof setTimeout>;
     emitRawSDKMessages: boolean | SDKMessageFilter[];
+    /** Whether nested subagent text/thinking is forwarded to the ACP client.
+     *  Enabled by either the ACP capability or the pre-existing SDK option. */
+    forwardSubagentText: boolean;
     /** Context window size of the session's current model, carried across
      *  prompts so mid-stream usage_update notifications report a correct `size`
-     *  before the turn's first result message arrives. Seeded from the SDK's
-     *  getContextUsage report at session creation (DEFAULT_CONTEXT_WINDOW when
-     *  that and the text heuristic both fail), refreshed the same way on model
-     *  switches, and confirmed by each result's modelUsage. */
+     *  before the turn's first result message arrives. Seeded synchronously at
+     *  session creation and on model switches from the per-model cache or the
+     *  text heuristic (DEFAULT_CONTEXT_WINDOW when both miss; on session/load the
+     *  resumed session's own `getContextUsage` report wins, see
+     *  `readResumedLiveModel`), then confirmed — and the cache populated — by each
+     *  result's modelUsage. No extra `getContextUsage` IPC is on these paths: on a
+     *  fresh session it stalls until the first turn runs (see the seeding call
+     *  sites and `contextWindowCache`). */
     contextWindowSize: number;
+    /** Whether `contextWindowSize` came from an authoritative source (the
+     *  cross-session cache, a resumed session's `getContextUsage` report, or a
+     *  `result.modelUsage`) rather than the text heuristic / default. Guards the
+     *  mid-stream `message_start` heuristic upgrade: an authoritative window that
+     *  happens to equal DEFAULT_CONTEXT_WINDOW must not be mistaken for "unseeded"
+     *  and clobbered by a "1m" text match. */
+    contextWindowAuthoritative: boolean;
+    /** Stable identifier of the LLM backend this session's query was created
+     *  against, derived from the routing-relevant vars of the exact `env` handed
+     *  to the SDK at query creation (see {@link providerCacheKeyFor}). The context
+     *  window is a property of (model id, backend) — the same resolved model id
+     *  can name different windows behind different base URLs, routing headers, or
+     *  credentials — so this scopes the module-global `contextWindowCache` per
+     *  backend. Captured from the query's own env (not re-resolved later) because
+     *  the process-wide provider config can change while a session is being
+     *  created, while the query stays baked to the env it was created with. */
+    providerCacheKey: string;
     /** Accumulated task list for the session, keyed by task ID. Task IDs are
      *  per-session, so this state must not be shared across sessions. */
     taskState: TaskState;
@@ -432,13 +526,33 @@ type GatewayAuthRequest = AuthenticateRequest & {
     _meta?: GatewayAuthMeta;
 };
 /**
+ * Resolved, non-secret + secret routing config for the `main` provider. This is
+ * the shared shape produced by both `providers/set` and the legacy gateway auth
+ * path, and consumed by {@link createEnvForProvider}. `null` means the provider
+ * is unconfigured (no client-managed routing in effect).
+ */
+type ProviderConfig = {
+    apiType: LlmProtocol;
+    baseUrl: string;
+    headers: Record<string, string>;
+    /** Present only for `apiType === "vertex"`. */
+    vertex?: {
+        projectId: string;
+        region: string;
+    };
+};
+/**
  * Extra metadata that the agent provides for each tool_call / tool_update update.
  */
 export type ToolUpdateMeta = {
     claudeCode?: {
         toolName: string;
+        title?: string;
         toolResponse?: unknown;
         parentToolUseId?: string;
+        nonExecutionKind?: string;
+        userFeedback?: string;
+        subagent?: true;
     };
     terminal_info?: {
         terminal_id: string;
@@ -508,13 +622,6 @@ export declare function isLocalCommandMetadata(content: unknown): boolean;
 export declare function isSyntheticLoginMessage(apiMessage: unknown): boolean;
 export declare function resolvePermissionMode(defaultMode?: unknown, logger?: Logger): PermissionMode;
 /**
- * Builds the label for the "Always Allow" permission option so the user can see
- * the exact scope they are committing to. Uses the SDK-provided suggestions
- * when available (e.g. `Bash(npm test:*)`) and falls back to naming the whole
- * tool so "Always Allow" is never a blank check without disclosure.
- */
-export declare function describeAlwaysAllow(suggestions: PermissionUpdate[] | undefined, toolName: string): string;
-/**
  * Client-facing surface the agent calls back into. This is the subset of ACP
  * client methods the agent actually uses, expressed as a narrow interface so
  * tests can supply lightweight mocks. In production it is backed by
@@ -543,6 +650,10 @@ export declare class ClaudeAcpAgent {
     clientCapabilities?: ClientCapabilities;
     logger: Logger;
     gatewayAuthRequest?: GatewayAuthRequest;
+    /** Client-managed LLM routing set via `providers/set`. Process-scoped and
+     *  never persisted to disk (see the Configurable LLM Providers RFD). When
+     *  set, it takes precedence over {@link gatewayAuthRequest}. */
+    providerConfig?: ProviderConfig;
     /** Grace period before a `session/cancel` forces a wedged prompt loop to
      *  return "cancelled". See {@link DEFAULT_FORCE_CANCEL_GRACE_MS}. Mutable so
      *  tests can shrink it. */
@@ -561,8 +672,68 @@ export declare class ClaudeAcpAgent {
      *  the title is best-effort and another turn will retry. */
     private maybeUpdateSessionTitle;
     authenticate(_params: AuthenticateRequest): Promise<void>;
+    /**
+     * `providers/list` — returns the single client-configurable custom gateway
+     * provider (`main`). `current` carries only non-secret routing (never headers,
+     * which may hold secrets); only `apiType`/`baseUrl` are surfaced for UI
+     * display, and is `null` when the provider is not configured/disabled. The
+     * provider is optional (`required: false`): while disabled/unconfigured the
+     * agent falls back to its own default routing (normal Claude login).
+     */
+    unstable_listProviders(_params: ListProvidersRequest): Promise<ListProvidersResponse>;
+    /**
+     * `providers/set` — replace the full configuration for the `main` provider.
+     * Rejects unknown IDs, unsupported protocols, and empty/invalid base URLs with
+     * `invalid_params`. Config is process-scoped and applies to sessions created or
+     * loaded after this call.
+     */
+    unstable_setProvider(params: SetProviderRequest): Promise<SetProviderResponse>;
+    /**
+     * `providers/disable` — disabling the `main` provider clears any client-managed
+     * routing (both a `providers/set` config and the legacy gateway auth request),
+     * so the agent reverts to its own default routing and `providers/list` reports
+     * `current: null`. Disabling any other (unknown) ID is treated as a successful
+     * no-op per the RFD's idempotency rule.
+     */
+    unstable_disableProvider(params: DisableProviderRequest): Promise<DisableProviderResponse>;
+    /**
+     * Resolve the effective client-managed routing config. `providers/set` takes
+     * precedence; otherwise fall back to the legacy gateway auth request. Returns
+     * `null` when neither is configured.
+     */
+    resolveProviderConfig(): ProviderConfig | null;
     logout(_params: LogoutRequest): Promise<void>;
     prompt(params: PromptRequest): Promise<PromptResponse>;
+    goal(params: GoalRequest): Promise<GoalControlResponse>;
+    private publishGoal;
+    private publishGoalFromPrompt;
+    private publishRuntimeGoal;
+    /** Steer the session per the ACP steering wire protocol: inject a follow-up
+     *  message into the turn that is currently running. If that turn already
+     *  settled, the established default starts a new detached turn; Hosts may opt
+     *  into the host-owned `promptRequired` fallback through request `_meta`.
+     *
+     *  When a turn is in flight this injects (returns `injected`): unlike
+     *  `prompt()`, it does NOT create a Turn or enqueue on `turnQueue`; it pushes
+     *  an `SDKUserMessage` onto the same streaming input, which the SDK routes
+     *  into the in-flight turn. The injected message's echo carries a uuid that
+     *  matches no queued turn, so the consumer drops it as an unrelated replay
+     *  without promoting/settling anything. It is delivered at {@link
+     *  STEER_PRIORITY} (`now`) so it pre-empts the current generation (interrupting
+     *  a single-shot response, or slotting in between a multi-step turn's tool
+     *  calls). The steered message's own output streams via `session/update`, not
+     *  this response.
+     *
+     *  Pre-empting means ABORTING: the interrupted cycle emits a `result` of its
+     *  own and the steered message runs as a second one, so the turn is marked
+     *  (`Turn.steeredEchoes`) to settle at the SDK's `idle` instead of that result.
+     *
+     *  When the session is idle, the opt-in path returns `promptRequired` WITHOUT
+     *  calling `prompt()`, pushing SDK input, or mutating `turnQueue`: the content
+     *  stays Host-owned so the Host can submit it through a standard
+     *  `session/prompt`. Without the opt-in, the existing detached `prompt()` and
+     *  `startedNewTurn` result are preserved for compatibility. */
+    steer(params: SteerRequest): Promise<SteerResponse>;
     /** Lazily start the per-session consumer that drains the SDK query stream for
      *  the session's whole life. Idempotent: only the first `prompt()` starts it. */
     private ensureConsumer;
@@ -700,7 +871,14 @@ export declare class ClaudeAcpAgent {
      *     here).
      *   - `cooldown`: a transient suspension of an already-enabled fast mode.
      *     Leave the toggle as-is rather than flapping it — and never let a stray
-     *     cooldown spuriously enable a toggle the user has off. */
+     *     cooldown spuriously enable a toggle the user has off.
+     *
+     *  `reason` is the SDK's `fast_mode_disabled_reason`, reported alongside the
+     *  state. Only explainable reasons are retained (see
+     *  {@link normalizeFastModeDisabledReason}), so the comparison below tracks
+     *  exactly what the user can see: a routine `sdk_opt_in_required` report on
+     *  every turn's result can't churn the option, while a real blocker updates
+     *  the description even when the toggle's own value is unchanged. */
     private syncFastModeState;
     private getOrCreateSession;
     /**
@@ -737,6 +915,12 @@ export declare const FAST_MODE_OFF = "off";
  *  docs) keeps the toggle on so it reflects the user's intent — only an
  *  explicit `off` clears it. */
 export declare function fastModeStateEnabled(state: FastModeState): boolean;
+/** Normalize an SDK-reported `fast_mode_disabled_reason` to the one we retain:
+ *  a reason we have an explanation for, else `undefined`. Keeping only
+ *  explainable reasons means state comparisons (see `syncFastModeState`) track
+ *  exactly what the user can see, so routine reports like
+ *  `sdk_opt_in_required` never churn the config option. */
+export declare function normalizeFastModeDisabledReason(reason: FastModeDisabledReason | undefined): FastModeDisabledReason | undefined;
 /** Whether the Client advertised support for boolean session config options
  *  (`session.configOptions.boolean`). Agents MUST only send `type: "boolean"`
  *  config options to Clients that opt in; otherwise we fall back to a `select`.
@@ -745,8 +929,14 @@ export declare function clientSupportsBooleanConfigOptions(clientCapabilities?: 
 /** Build the Fast mode config option. When the Client supports boolean config
  *  options we expose a native `type: "boolean"` toggle; otherwise we degrade to
  *  a two-value `select` ("on"/"off") so older Clients still get a usable
- *  control. */
-export declare function createFastModeConfigOption(enabled: boolean, useBooleanOption: boolean): SessionConfigOption;
+ *  control.
+ *
+ *  `disabledReason` (the SDK's `fast_mode_disabled_reason`) is folded into the
+ *  description while the toggle reads off, so a user whose account or provider
+ *  can't serve Fast mode sees why instead of a switch that silently refuses to
+ *  stay on. Ignored while enabled: a reason reported alongside an `on`/`cooldown`
+ *  state isn't blocking anything right now. */
+export declare function createFastModeConfigOption(enabled: boolean, useBooleanOption: boolean, disabledReason?: FastModeDisabledReason): SessionConfigOption;
 /** Resolve the requested Fast mode value from a `session/set_config_option`
  *  request. Accepts a native boolean (boolean-capable Clients) or the
  *  "on"/"off" select-fallback strings. */
@@ -758,6 +948,9 @@ export type FastModeOptionState = {
     enabled: boolean;
     /** Whether the Client opted into boolean config options. */
     useBooleanOption: boolean;
+    /** Latest explainable `fast_mode_disabled_reason`, folded into the option's
+     *  description while the toggle reads off. */
+    disabledReason?: FastModeDisabledReason;
 };
 export declare function buildConfigOptions(modes: SessionModeState, models: SessionModelState, modelInfos: ModelInfo[], currentEffortLevel?: string, agents?: AgentInfo[], currentAgent?: string, fastMode?: FastModeOptionState): SessionConfigOption[];
 export declare function resolveModelPreference(models: ModelInfo[], preference: string): ModelInfo | null;
@@ -829,6 +1022,7 @@ export declare function toAcpNotifications(content: string | ContentBlockParam[]
     emittedToolCalls?: Set<string>;
     messageId?: string;
     toolUseResult?: unknown;
+    toolResultMeta?: unknown;
 }): SessionNotification[];
 export declare function streamEventToAcpNotifications(message: SDKPartialAssistantMessage, sessionId: string, toolUseCache: ToolUseCache, client: AcpClient, logger: Logger, options?: {
     clientCapabilities?: ClientCapabilities;

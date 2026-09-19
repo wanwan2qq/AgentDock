@@ -89,6 +89,7 @@ import { useLayoutStore } from "./app/store/layoutStore";
 import { toggleWorkspaceFocusMode } from "./app/workspaceFocus";
 import { useSettingsStore } from "./app/store/settingsStore";
 import { formatShortcutAction } from "./app/shortcuts/format";
+import { useShortcutOverrideStore } from "./app/shortcuts/shortcutOverrides";
 import {
     matchesShortcutAction,
     getShortcutDefinition,
@@ -557,6 +558,7 @@ function useRegisterCommands(
     const register = useCommandStore((s) => s.register);
     const openCommandPalette = useCommandStore((s) => s.openCommandPalette);
     const openQuickSwitcher = useCommandStore((s) => s.openQuickSwitcher);
+    const shortcutRevision = useShortcutOverrideStore((state) => state.revision);
 
     useEffect(() => {
         const platform = getDesktopPlatform();
@@ -964,6 +966,7 @@ function useRegisterCommands(
         openQuickSwitcher,
         openSettings,
         developerCommandsEnabled,
+        shortcutRevision,
     ]);
 }
 

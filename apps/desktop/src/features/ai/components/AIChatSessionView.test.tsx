@@ -570,7 +570,7 @@ describe("AIChatSessionView", () => {
             "Codex supports images up to 10 MB",
         );
         expect(invokeMock).not.toHaveBeenCalledWith(
-            "save_vault_binary_file",
+            "ai_save_chat_attachment",
             expect.anything(),
         );
     });
@@ -637,7 +637,7 @@ describe("AIChatSessionView", () => {
     it("removes a pasted image file when the final attachment validation loses a race", async () => {
         setupWorkspaceSession();
         invokeMock.mockImplementation(async (command) => {
-            if (command === "save_vault_binary_file") {
+            if (command === "ai_save_chat_attachment") {
                 useChatStore.setState((state) => ({
                     ...state,
                     composerPartsBySessionId: {
@@ -658,9 +658,10 @@ describe("AIChatSessionView", () => {
                     relative_path: "assets/chat/pasted-image.png",
                     file_name: "pasted-image.png",
                     mime_type: "image/png",
+                    storedInVault: true,
                 };
             }
-            if (command === "move_vault_entry_to_trash") {
+            if (command === "ai_delete_chat_attachment") {
                 return undefined;
             }
             if (command === "list_vault_entries") {
@@ -684,9 +685,10 @@ describe("AIChatSessionView", () => {
         });
 
         expect(invokeMock).toHaveBeenCalledWith(
-            "move_vault_entry_to_trash",
+            "ai_delete_chat_attachment",
             expect.objectContaining({
-                relativePath: "assets/chat/pasted-image.png",
+                vaultPath: "/vault",
+                path: "assets/chat/pasted-image.png",
             }),
         );
         expect(screen.getByRole("status")).toHaveTextContent(

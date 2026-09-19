@@ -38,6 +38,7 @@ The main settings store uses these keys:
 | `neverwrite:settings` | Global fallback | Legacy fallback data plus the explicitly global Vim settings. |
 | `neverwrite:settings:<vault-path>` | Per-vault | Main `Settings` values for the vault, excluding explicitly global keys. |
 | `neverwrite:lastVaultPath` | Global app state | Initial vault path lookup for hydration, not a user-facing setting itself. |
+| `neverwrite:shortcutOverrides` | Global | Replacement bindings for global shortcuts. An override replaces that action's primary binding and aliases. |
 
 `GLOBAL_SETTING_KEYS` currently contains:
 
@@ -47,6 +48,7 @@ The main settings store uses these keys:
 | `vimRelativeLineNumbers` | Global |
 | `hoverPreviewEnabled` | Global |
 | `hoverPreviewDelayMs` | Global |
+| `chatContentWidth` | Global |
 
 When a vault is open, `settingsStore` writes all other `Settings` values to
 `neverwrite:settings:<vault-path>` and writes the global keys back to
@@ -82,6 +84,7 @@ the same Settings stores.
 | Editor / Preview | `hoverPreviewEnabled` | Global | `true` | `neverwrite:settings` | Toggles the wikilink hover preview across all vaults. |
 | Editor / Preview | `hoverPreviewDelayMs` | Global | `300` | `neverwrite:settings` | Open delay for the hover preview; clamped to `0..2000`. |
 | Editor / Layout | `editorContentWidth` | Per-vault | `940` | `neverwrite:settings:<vault-path>` | Clamped to `600..1200`. |
+| Appearance / Chat | `chatContentWidth` | Global | `600` | `neverwrite:settings` | Maximum width of chat messages and the composer. Clamped to `480..1100`. |
 | PDF toolbar | `pdfFilter` | Per-vault | `none` | `neverwrite:settings:<vault-path>` | Cycled from the PDF tab toolbar. Valid values are `none`, `dark`, `sepia`, and `grayscale`. |
 | AI / Context | `aiReviewEnabled` | Per-vault | `true` | `neverwrite:settings:<vault-path>` | Tracks AI changes for Edits, Review tabs, and inline controls. Disabling it accepts and clears pending review state; chat diff updates remain visible. |
 | AI / Context | `inlineReviewEnabled` | Per-vault | `true` | `neverwrite:settings:<vault-path>` | Gates inline review in source mode when AI change review is enabled. This is a review-system correctness setting. |
@@ -89,7 +92,8 @@ the same Settings stores.
 | AI / Chat | `chatFontFamily` | Global | `system` | `neverwrite.ai.preferences` | Validated with editor font-family normalization. |
 | AI / Chat | `chatFontSize` | Global | `14` | `neverwrite.ai.preferences` | Chat transcript font size. |
 | AI / Chat | `toolActivityDisplayMode` | Global | `collapsed` | `neverwrite.ai.preferences` | Controls whether tool activity is expanded, collapsed, or hidden. Hidden activity is temporarily revealed for search results and explicit message navigation. |
-| AI / Chat | `historyRetentionDays` | Global preference, applied to current vault histories | `0` | `neverwrite.ai.preferences` | `0` means forever; pruning operates on the currently open vault's `.neverwrite/sessions/`. |
+| AI / Chat | History storage scope | Per-vault, backend-owned | `device` for new vaults; `vault` when `.neverwrite/sessions` already has history | `<app-data>/ai-history/v1/vaults/<sha256>/scope.json` | Renderer asks the backend; it does not pick a filesystem root. |
+| AI / Chat | `historyRetentionDays` | Global preference, applied to the active history scope | `0` | `neverwrite.ai.preferences` | `0` means forever; pruning operates on device-local or vault sessions for the currently open vault. |
 | AI / Composer | `requireCmdEnterToSend` | Global | `false` | `neverwrite.ai.preferences` | Changes Enter behavior in the AI composer. |
 | AI / Composer | `contextUsageBarEnabled` | Global | `true` | `neverwrite.ai.preferences` | Shows or hides composer context usage. |
 | AI / Composer | `screenshotRetentionSeconds` | Global | `1800` | `neverwrite.ai.preferences` | `1800` means 30 minutes. `0` means forever. This draft-only cleanup removes expired pasted screenshots from the composer, not image attachments already copied onto sent timeline messages. |

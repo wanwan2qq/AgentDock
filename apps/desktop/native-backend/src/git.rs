@@ -178,7 +178,12 @@ fn get_status(vault_path: &str) -> Result<Value, String> {
 
     let output = run_git(
         &root,
-        &["status", "--porcelain=v2", "--branch", "--untracked-files=all"],
+        &[
+            "status",
+            "--porcelain=v2",
+            "--branch",
+            "--untracked-files=all",
+        ],
     )?;
     if !output.status.success() {
         return Err(format_command_failure("git status", &output));
@@ -356,7 +361,10 @@ fn run_network_op(vault_path: &str, git_args: &[&str]) -> Result<Value, String> 
     require_git_repo(&root)?;
     let output = run_git(&root, git_args)?;
     if !output.status.success() {
-        return Err(format_command_failure(&format!("git {}", git_args.join(" ")), &output));
+        return Err(format_command_failure(
+            &format!("git {}", git_args.join(" ")),
+            &output,
+        ));
     }
     Ok(json!({
         "ok": true,
@@ -393,9 +401,14 @@ fn list_branches(vault_path: &str) -> Result<Value, String> {
         }
     };
 
-    let local = list_ref_names(&root, &["for-each-ref", "--format=%(refname:short)", "refs/heads/"])?;
-    let remote_raw =
-        list_ref_names(&root, &["for-each-ref", "--format=%(refname:short)", "refs/remotes/"])?;
+    let local = list_ref_names(
+        &root,
+        &["for-each-ref", "--format=%(refname:short)", "refs/heads/"],
+    )?;
+    let remote_raw = list_ref_names(
+        &root,
+        &["for-each-ref", "--format=%(refname:short)", "refs/remotes/"],
+    )?;
     // Drop remote HEAD aliases like origin/HEAD
     let remote: Vec<String> = remote_raw
         .into_iter()
@@ -453,8 +466,12 @@ fn list_log(
         }
         let mut parts = line.splitn(5, '\t');
         let Some(hash) = parts.next() else { continue };
-        let Some(short_hash) = parts.next() else { continue };
-        let Some(subject) = parts.next() else { continue };
+        let Some(short_hash) = parts.next() else {
+            continue;
+        };
+        let Some(subject) = parts.next() else {
+            continue;
+        };
         let Some(author) = parts.next() else { continue };
         let Some(date) = parts.next() else { continue };
         commits.push(json!({
@@ -475,7 +492,10 @@ fn list_log(
 fn list_ref_names(root: &Path, args: &[&str]) -> Result<Vec<String>, String> {
     let output = run_git(root, args)?;
     if !output.status.success() {
-        return Err(format_command_failure(&format!("git {}", args.join(" ")), &output));
+        return Err(format_command_failure(
+            &format!("git {}", args.join(" ")),
+            &output,
+        ));
     }
     let mut names: Vec<String> = String::from_utf8_lossy(&output.stdout)
         .lines()
@@ -493,9 +513,14 @@ fn checkout_branch(vault_path: &str, branch: &str, create_tracking: bool) -> Res
     require_git_repo(&root)?;
     let branch = sanitize_branch_name(branch)?;
 
-    let local = list_ref_names(&root, &["for-each-ref", "--format=%(refname:short)", "refs/heads/"])?;
-    let remote =
-        list_ref_names(&root, &["for-each-ref", "--format=%(refname:short)", "refs/remotes/"])?;
+    let local = list_ref_names(
+        &root,
+        &["for-each-ref", "--format=%(refname:short)", "refs/heads/"],
+    )?;
+    let remote = list_ref_names(
+        &root,
+        &["for-each-ref", "--format=%(refname:short)", "refs/remotes/"],
+    )?;
 
     let output = if local.iter().any(|name| name == &branch) {
         run_git(&root, &["switch", &branch])?
@@ -537,7 +562,10 @@ fn resolve_remote_branch(branch: &str, remote: &[String]) -> Option<String> {
     }
     remote
         .iter()
-        .find(|name| name.rsplit_once('/').is_some_and(|(_, short)| short == branch))
+        .find(|name| {
+            name.rsplit_once('/')
+                .is_some_and(|(_, short)| short == branch)
+        })
         .cloned()
 }
 
@@ -547,7 +575,10 @@ fn branch_after_switch(requested: &str, remote: &[String]) -> String {
             .rsplit_once('/')
             .map(|(_, short)| short.to_string())
             .unwrap_or_else(|| requested.to_string())
-    } else if remote.iter().any(|name| name.ends_with(&format!("/{requested}"))) {
+    } else if remote
+        .iter()
+        .any(|name| name.ends_with(&format!("/{requested}")))
+    {
         requested.to_string()
     } else {
         requested.to_string()
@@ -649,10 +680,7 @@ fn parse_porcelain_v2_entry(line: &str) -> Option<GitFileEntry> {
 
 fn xy_chars(xy: &str) -> (char, char) {
     let mut chars = xy.chars();
-    (
-        chars.next().unwrap_or('.'),
-        chars.next().unwrap_or('.'),
-    )
+    (chars.next().unwrap_or('.'), chars.next().unwrap_or('.'))
 }
 
 fn unescape_path(path: &str) -> String {
@@ -837,7 +865,10 @@ fn sanitize_relative_path(path: &str) -> Result<String, String> {
 }
 
 fn sanitize_relative_paths(paths: &[String]) -> Result<Vec<String>, String> {
-    paths.iter().map(|path| sanitize_relative_path(path)).collect()
+    paths
+        .iter()
+        .map(|path| sanitize_relative_path(path))
+        .collect()
 }
 
 fn run_git(root: &Path, args: &[&str]) -> Result<Output, String> {
@@ -857,9 +888,7 @@ fn run_git(root: &Path, args: &[&str]) -> Result<Output, String> {
 
 fn git_binary() -> Result<PathBuf, String> {
     static GIT_PATH: OnceLock<Result<PathBuf, String>> = OnceLock::new();
-    GIT_PATH
-        .get_or_init(resolve_git_binary)
-        .clone()
+    GIT_PATH.get_or_init(resolve_git_binary).clone()
 }
 
 fn resolve_git_binary() -> Result<PathBuf, String> {
@@ -933,10 +962,8 @@ mod tests {
         assert!(untracked.untracked);
         assert_eq!(untracked.path, "notes/a.md");
 
-        let modified = parse_porcelain_v2_entry(
-            "1 .M N... 100644 100644 100644 aaa bbb notes/b.md",
-        )
-        .unwrap();
+        let modified =
+            parse_porcelain_v2_entry("1 .M N... 100644 100644 100644 aaa bbb notes/b.md").unwrap();
         assert!(modified.unstaged);
         assert!(!modified.staged);
         assert_eq!(modified.path, "notes/b.md");
@@ -1009,38 +1036,34 @@ mod tests {
     fn status_roundtrip_on_temp_repo() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path();
-        assert!(
-            Command::new("git")
-                .args(["init"])
-                .current_dir(root)
-                .status()
-                .expect("git init")
-                .success()
-        );
-        assert!(
-            Command::new("git")
-                .args(["config", "user.email", "test@example.com"])
-                .current_dir(root)
-                .status()
-                .unwrap()
-                .success()
-        );
-        assert!(
-            Command::new("git")
-                .args(["config", "user.name", "Test"])
-                .current_dir(root)
-                .status()
-                .unwrap()
-                .success()
-        );
+        assert!(Command::new("git")
+            .args(["init"])
+            .current_dir(root)
+            .status()
+            .expect("git init")
+            .success());
+        assert!(Command::new("git")
+            .args(["config", "user.email", "test@example.com"])
+            .current_dir(root)
+            .status()
+            .unwrap()
+            .success());
+        assert!(Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(root)
+            .status()
+            .unwrap()
+            .success());
 
         fs::write(root.join("hello.md"), "hello\n").unwrap();
         let status = get_status(root.to_str().unwrap()).expect("status");
         assert_eq!(status["isRepo"], true);
         assert_eq!(status["dirty"], true);
-        assert!(status["files"].as_array().unwrap().iter().any(|file| {
-            file["path"] == "hello.md" && file["untracked"] == true
-        }));
+        assert!(status["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|file| { file["path"] == "hello.md" && file["untracked"] == true }));
 
         stage_paths(root.to_str().unwrap(), &["hello.md".to_string()]).unwrap();
         commit(root.to_str().unwrap(), "add hello", &[]).unwrap();
@@ -1052,21 +1075,29 @@ mod tests {
         fs::write(root.join(".neverwrite/sessions/a.json"), "{}\n").unwrap();
         let before_ignore = get_status(root.to_str().unwrap()).unwrap();
         assert_eq!(before_ignore["neverwriteIgnored"], false);
-        assert!(before_ignore["files"].as_array().unwrap().iter().any(|file| {
-            file["path"]
-                .as_str()
-                .unwrap_or("")
-                .starts_with(".neverwrite/")
-        }));
+        assert!(before_ignore["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|file| {
+                file["path"]
+                    .as_str()
+                    .unwrap_or("")
+                    .starts_with(".neverwrite/")
+            }));
 
         let after_ignore = ignore_neverwrite(root.to_str().unwrap()).unwrap();
         assert_eq!(after_ignore["neverwriteIgnored"], true);
-        assert!(!after_ignore["files"].as_array().unwrap().iter().any(|file| {
-            file["path"]
-                .as_str()
-                .unwrap_or("")
-                .starts_with(".neverwrite/")
-        }));
+        assert!(!after_ignore["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|file| {
+                file["path"]
+                    .as_str()
+                    .unwrap_or("")
+                    .starts_with(".neverwrite/")
+            }));
         let gitignore = fs::read_to_string(root.join(".gitignore")).unwrap();
         assert!(gitignore.lines().any(|line| line.trim() == ".neverwrite/"));
 
@@ -1086,60 +1117,48 @@ mod tests {
     fn log_lists_commits_on_branch() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path();
-        assert!(
-            Command::new("git")
-                .args(["init", "-b", "main"])
+        assert!(Command::new("git")
+            .args(["init", "-b", "main"])
+            .current_dir(root)
+            .status()
+            .expect("git init")
+            .success());
+        for (key, value) in [("user.email", "test@example.com"), ("user.name", "Test")] {
+            assert!(Command::new("git")
+                .args(["config", key, value])
                 .current_dir(root)
                 .status()
-                .expect("git init")
-                .success()
-        );
-        for (key, value) in [("user.email", "test@example.com"), ("user.name", "Test")] {
-            assert!(
-                Command::new("git")
-                    .args(["config", key, value])
-                    .current_dir(root)
-                    .status()
-                    .unwrap()
-                    .success()
-            );
+                .unwrap()
+                .success());
         }
 
         fs::write(root.join("a.md"), "a\n").unwrap();
-        assert!(
-            Command::new("git")
-                .args(["add", "a.md"])
-                .current_dir(root)
-                .status()
-                .unwrap()
-                .success()
-        );
-        assert!(
-            Command::new("git")
-                .args(["commit", "-m", "first commit"])
-                .current_dir(root)
-                .status()
-                .unwrap()
-                .success()
-        );
+        assert!(Command::new("git")
+            .args(["add", "a.md"])
+            .current_dir(root)
+            .status()
+            .unwrap()
+            .success());
+        assert!(Command::new("git")
+            .args(["commit", "-m", "first commit"])
+            .current_dir(root)
+            .status()
+            .unwrap()
+            .success());
 
         fs::write(root.join("b.md"), "b\n").unwrap();
-        assert!(
-            Command::new("git")
-                .args(["add", "b.md"])
-                .current_dir(root)
-                .status()
-                .unwrap()
-                .success()
-        );
-        assert!(
-            Command::new("git")
-                .args(["commit", "-m", "second commit"])
-                .current_dir(root)
-                .status()
-                .unwrap()
-                .success()
-        );
+        assert!(Command::new("git")
+            .args(["add", "b.md"])
+            .current_dir(root)
+            .status()
+            .unwrap()
+            .success());
+        assert!(Command::new("git")
+            .args(["commit", "-m", "second commit"])
+            .current_dir(root)
+            .status()
+            .unwrap()
+            .success());
 
         let root_str = root.to_str().unwrap();
         let log = list_log(root_str, Some("main"), 10, 0).expect("log");

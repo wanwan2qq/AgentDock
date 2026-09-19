@@ -125,12 +125,12 @@ dictionary licenses.
 
 | Package                                 | Version | License / Terms                 |
 | --------------------------------------- | ------- | ------------------------------- |
-| @agentclientprotocol/claude-agent-acp   | 0.59.0  | Apache-2.0                      |
-| @agentclientprotocol/sdk                | 1.2.1   | Apache-2.0                      |
-| @anthropic-ai/claude-agent-sdk          | 0.3.207 | Anthropic SDK terms in LICENSE.md |
-| @anthropic-ai/claude-agent-sdk-*        | 0.3.207 | Anthropic SDK terms in LICENSE.md |
-| @anthropic-ai/sdk                       | 0.110.0 | MIT                             |
-| @modelcontextprotocol/sdk               | 1.29.0  | MIT                             |
+| @agentclientprotocol/claude-agent-acp   | 0.66.0  | Apache-2.0                      |
+| @agentclientprotocol/sdk                | 1.3.0   | Apache-2.0                      |
+| @anthropic-ai/claude-agent-sdk          | 0.3.220 | Anthropic SDK terms in LICENSE.md |
+| @anthropic-ai/claude-agent-sdk-*        | 0.3.220 | Anthropic SDK terms in LICENSE.md |
+| @anthropic-ai/sdk                       | 0.115.0 | MIT                             |
+| @modelcontextprotocol/sdk               | 1.30.0  | MIT                             |
 | zod                                     | 4.4.3   | MIT                             |
 
 The packaged desktop app stages the Claude ACP adapter as vendored JavaScript
@@ -285,7 +285,7 @@ Original source: https://github.com/zed-industries/codex
 
 | File                  | Nature of changes                                              |
 | --------------------- | -------------------------------------------------------------- |
-| Vendored snapshot     | Based on upstream `@agentclientprotocol/claude-agent-acp` `0.59.0` (`30b7c06f7640fb6a0530ba18f85e26fe2bc08882`) with generated `dist/` runtime files required by desktop packaging |
+| Vendored snapshot     | Based on upstream `@agentclientprotocol/claude-agent-acp` `0.66.0` (`6b405138fc82be947964612fac04e56654827b66`) with generated `dist/` runtime files required by desktop packaging |
 | `.gitignore`          | Keeps generated `dist/` files visible to Git so new runtime outputs are tracked for packaging |
 
 > All original copyright notices and license headers have been preserved.

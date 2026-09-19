@@ -2594,13 +2594,7 @@ impl NativeAcpClient {
         };
         self.emit(
             AI_TOOL_ACTIVITY_EVENT,
-            map_tool_call(
-                session_id,
-                tool_call,
-                action,
-                summary,
-                diffs,
-            ),
+            map_tool_call(session_id, tool_call, action, summary, diffs),
         );
     }
 
@@ -3851,9 +3845,7 @@ fn run_acp_auth_command(spec: AcpProcessSpec, auth_command: AcpAuthCommand) -> R
             }
         };
         let result = match flavor {
-            AcpProtocolFlavor::Current => {
-                runtime.block_on(run_acp_auth_inner(spec, auth_command))
-            }
+            AcpProtocolFlavor::Current => runtime.block_on(run_acp_auth_inner(spec, auth_command)),
             AcpProtocolFlavor::Legacy12 => {
                 runtime.block_on(run_acp12_auth_inner(spec, auth_command))
             }
@@ -4393,9 +4385,7 @@ async fn run_acp12_actor_inner(
                     runtime_id: disconnect_runtime_id,
                     status: "error".to_string(),
                     message: Some(append_acp_stderr_diagnostics(
-                        format!(
-                            "The AI runtime process disconnected unexpectedly: {error}"
-                        ),
+                        format!("The AI runtime process disconnected unexpectedly: {error}"),
                         &snapshot_acp_stderr(stderr_tail),
                     )),
                 }),
@@ -4612,9 +4602,7 @@ async fn run_acp_actor_inner(
                     runtime_id: disconnect_runtime_id,
                     status: "error".to_string(),
                     message: Some(append_acp_stderr_diagnostics(
-                        format!(
-                            "The AI runtime process disconnected unexpectedly: {error}"
-                        ),
+                        format!("The AI runtime process disconnected unexpectedly: {error}"),
                         &snapshot_acp_stderr(stderr_tail),
                     )),
                 }),
@@ -5255,13 +5243,13 @@ fn acp_child_exit_message_with_stderr(
     status: std::process::ExitStatus,
     stderr_tail: &Arc<Mutex<String>>,
 ) -> String {
-    append_acp_stderr_diagnostics(acp_child_exit_message(status), &snapshot_acp_stderr(stderr_tail))
+    append_acp_stderr_diagnostics(
+        acp_child_exit_message(status),
+        &snapshot_acp_stderr(stderr_tail),
+    )
 }
 
-fn spawn_acp_stderr_collector(
-    mut stderr: tokio::process::ChildStderr,
-    buffer: Arc<Mutex<String>>,
-) {
+fn spawn_acp_stderr_collector(mut stderr: tokio::process::ChildStderr, buffer: Arc<Mutex<String>>) {
     tokio::spawn(async move {
         use tokio::io::AsyncReadExt;
         let mut chunk = [0_u8; 1024];
@@ -5288,9 +5276,7 @@ fn spawn_acp_stderr_collector(
 
 #[cfg(test)]
 mod acp_stderr_diagnostics_tests {
-    use super::{
-        append_acp_stderr_diagnostics, redact_acp_diagnostic_text, trim_acp_stderr_tail,
-    };
+    use super::{append_acp_stderr_diagnostics, redact_acp_diagnostic_text, trim_acp_stderr_tail};
 
     #[test]
     fn redacts_api_key_lines_and_sk_tokens() {
@@ -7031,9 +7017,7 @@ fn setup_status_for_with_inherited_auth(
     let inherited_auth_method = inherited_auth_method
         .filter(|method| inherited_auth_method_applies_to_setup(&setup, method));
     let auth_ready = binary_ready
-        && (setup.auth_ready
-            || inherited_auth_method.is_some()
-            || runtime_id == CUSTOM_RUNTIME_ID);
+        && (setup.auth_ready || inherited_auth_method.is_some() || runtime_id == CUSTOM_RUNTIME_ID);
     let auth_method = setup.auth_method.or(inherited_auth_method);
     let message = if !binary_ready {
         setup.message
@@ -7218,9 +7202,7 @@ fn effective_auth_method_for_acp_process_spec(
         .or(inherited_auth_method)
         // Cursor CLI login is ambient once `agent login` has succeeded; default
         // the ACP handshake to cursor_login even before the setup UI is used.
-        .or_else(|| {
-            (runtime_id == CURSOR_RUNTIME_ID).then(|| "cursor-login".to_string())
-        })
+        .or_else(|| (runtime_id == CURSOR_RUNTIME_ID).then(|| "cursor-login".to_string()))
 }
 
 fn acp_auth_handshake_for_runtime(runtime_id: &str) -> Option<AcpAuthHandshake> {
@@ -7574,7 +7556,7 @@ fn home_dir() -> Option<PathBuf> {
     }
 }
 
-fn app_data_dir() -> PathBuf {
+pub(crate) fn app_data_dir() -> PathBuf {
     if let Ok(path) = std::env::var("NEVERWRITE_APP_DATA_DIR") {
         let trimmed = path.trim();
         if !trimmed.is_empty() {
@@ -8348,8 +8330,9 @@ fn auth_methods(runtime_id: &str) -> Vec<AiAuthMethod> {
         CURSOR_RUNTIME_ID => vec![AiAuthMethod {
             id: "cursor-login".to_string(),
             name: "Cursor login".to_string(),
-            description: "Open the Cursor CLI sign-in flow (`agent login`) in an integrated terminal."
-                .to_string(),
+            description:
+                "Open the Cursor CLI sign-in flow (`agent login`) in an integrated terminal."
+                    .to_string(),
         }],
         CUSTOM_RUNTIME_ID => vec![AiAuthMethod {
             id: "custom-cli".to_string(),
@@ -9804,8 +9787,8 @@ mod tests {
         ElicitationSessionScope, ElicitationUrlMode, EnumOption, Meta, MultiSelectPropertySchema,
         PermissionOptionKind, PlanEntry, PromptCapabilities, SessionConfigOption,
         SessionConfigOptionCategory, SessionConfigSelectOption, SessionInfoUpdate,
-        SessionNotification, SessionUpdate, StringPropertySchema, ToolCallContent, ToolCallId,
-        Terminal, ToolCallUpdate, ToolCallUpdateFields, ToolKind, UnstructuredCommandInput,
+        SessionNotification, SessionUpdate, StringPropertySchema, Terminal, ToolCallContent,
+        ToolCallId, ToolCallUpdate, ToolCallUpdateFields, ToolKind, UnstructuredCommandInput,
         UsageUpdate,
     };
     use std::fs;
@@ -10553,12 +10536,8 @@ mod tests {
         };
         apply_custom_acp_binary_auth(&mut setup, CUSTOM_RUNTIME_ID);
         let status = setup_status_for(CUSTOM_RUNTIME_ID, setup.clone()).unwrap();
-        let spec = acp_process_spec(
-            CUSTOM_RUNTIME_ID,
-            &setup,
-            std::env::current_dir().unwrap(),
-        )
-        .expect("custom ACP spec should resolve");
+        let spec = acp_process_spec(CUSTOM_RUNTIME_ID, &setup, std::env::current_dir().unwrap())
+            .expect("custom ACP spec should resolve");
 
         match previous {
             Some(value) => std::env::set_var("NEVERWRITE_CUSTOM_ACP_BIN", value),
@@ -12879,10 +12858,7 @@ mod tests {
             OPENCODE_RUNTIME_ID,
             CURSOR_RUNTIME_ID,
         ] {
-            assert_eq!(
-                acp_protocol_flavor(runtime_id),
-                AcpProtocolFlavor::Current
-            );
+            assert_eq!(acp_protocol_flavor(runtime_id), AcpProtocolFlavor::Current);
         }
     }
 
@@ -13278,7 +13254,10 @@ mod tests {
 
         assert_eq!(option.label, "Grid layout");
         assert_eq!(option.value, "Grid layout");
-        assert_eq!(option.description.as_deref(), Some("Structured description"));
+        assert_eq!(
+            option.description.as_deref(),
+            Some("Structured description")
+        );
     }
 
     #[test]
@@ -14849,7 +14828,10 @@ mod tests {
             panic!("expected event");
         };
         assert_eq!(event_name, AI_TOOL_ACTIVITY_EVENT);
-        assert_eq!(payload.get("status").and_then(Value::as_str), Some("failed"));
+        assert_eq!(
+            payload.get("status").and_then(Value::as_str),
+            Some("failed")
+        );
         assert_eq!(
             payload.get("summary").and_then(Value::as_str),
             Some(REJECTION_REASON)
@@ -17242,12 +17224,8 @@ mod tests {
             ..RuntimeSetupState::default()
         };
 
-        let spec = acp_process_spec(
-            CURSOR_RUNTIME_ID,
-            &setup,
-            std::env::current_dir().unwrap(),
-        )
-        .expect("Cursor ACP process spec should resolve");
+        let spec = acp_process_spec(CURSOR_RUNTIME_ID, &setup, std::env::current_dir().unwrap())
+            .expect("Cursor ACP process spec should resolve");
 
         assert_eq!(spec.args, vec!["acp".to_string()]);
         assert_eq!(spec.runtime_id, CURSOR_RUNTIME_ID);
@@ -17291,12 +17269,8 @@ mod tests {
             auth_ready: true,
             ..RuntimeSetupState::default()
         };
-        let spec = acp_process_spec(
-            CURSOR_RUNTIME_ID,
-            &setup,
-            std::env::current_dir().unwrap(),
-        )
-        .expect("Cursor ACP process spec should resolve with a custom or PATH binary");
+        let spec = acp_process_spec(CURSOR_RUNTIME_ID, &setup, std::env::current_dir().unwrap())
+            .expect("Cursor ACP process spec should resolve with a custom or PATH binary");
 
         // Prefer asserting handshake mapping even when binary resolution varies.
         let handshake_spec = AcpProcessSpec {

@@ -75,9 +75,11 @@ without reviewing them first.
 
 ## AI Session History
 
-AI chat history is stored inside the currently open vault:
+AI chat history uses one backend-owned scope per vault: device-local app data
+(the default for new vaults) or the vault itself.
 
 ```text
+<app-data>/ai-history/v1/vaults/<sha256(canonical-vault-path)>/.neverwrite/sessions/session-<sha256(session_id)>/
 <vault>/.neverwrite/sessions/session-<sha256(session_id)>/
 ```
 
@@ -95,8 +97,8 @@ prompts, AI responses, tool activity, permission requests, plans, diffs, file
 paths, snippets, and metadata from attached vault files. Session directory names
 hash the logical session id, but the transcript content itself is not encrypted.
 
-Deleting a conversation from Chat History deletes its saved history from
-`.neverwrite/sessions/`. Retention pruning also operates on this directory.
+Deleting a conversation from Chat History deletes its saved history from the
+active scope. Retention pruning also operates on that directory.
 
 ## App Logs
 

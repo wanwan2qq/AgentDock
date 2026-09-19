@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { getAllWebviewWindows, listen, openUrl } from "@neverwrite/runtime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSettingsStore } from "../../app/store/settingsStore";
+import { useVaultStore } from "../../app/store/vaultStore";
 import { useChatStore } from "../ai/store/chatStore";
 import { SettingsPanel } from "./SettingsPanel";
 import { mockInvoke, renderComponent } from "../../test/test-utils";
@@ -87,7 +88,14 @@ const aiApiMocks = vi.hoisted(() => ({
                   onboardingRequired: false,
               },
     ),
-    aiUpdateSetup: vi.fn(),
+    aiGetHistoryStorage: vi.fn(async () => ({
+        scope: "device" as const,
+        storeInVault: false,
+        sessionCount: 0,
+        deviceSessionCount: 0,
+        vaultSessionCount: 0,
+    })),
+    aiSetHistoryStorage: vi.fn(),
     aiLogout: vi.fn(),
     aiStartAuth: vi.fn(),
     aiStartAuthTerminalSession: vi.fn(),
@@ -164,6 +172,9 @@ afterEach(() => {
     mockInvoke().mockReset();
     vi.mocked(getAllWebviewWindows).mockResolvedValue([] as never[]);
     useAppUpdateStore.getState().reset();
+    useVaultStore.setState({ vaultPath: null });
+    aiApiMocks.aiGetHistoryStorage.mockClear();
+    aiApiMocks.aiSetHistoryStorage.mockClear();
 });
 
 describe("SettingsPanel", () => {
@@ -395,6 +406,18 @@ describe("SettingsPanel", () => {
 
         expect(screen.getByText("System theme")).toBeInTheDocument();
         expect(screen.getByText("App zoom")).toBeInTheDocument();
+    });
+
+    it("finds chat content width from settings search", () => {
+        renderComponent(<SettingsPanel onClose={() => {}} />);
+
+        fireEvent.change(
+            screen.getByRole("textbox", { name: "Search settings" }),
+            { target: { value: "Chat content width" } },
+        );
+
+        expect(screen.getByText("Chat content width")).toBeInTheDocument();
+        expect(screen.queryByText("No settings found.")).not.toBeInTheDocument();
     });
 
     it("shows an empty state when no settings match search", () => {
@@ -701,6 +724,71 @@ describe("SettingsPanel", () => {
         expect(reviewToggle).toHaveAttribute("aria-checked", "false");
         expect(toggle).toBeDisabled();
         expect(useSettingsStore.getState().inlineReviewEnabled).toBe(false);
+    });
+
+    it("moves vault-backed AI chats onto the device when storage is turned off", async () => {
+        useVaultStore.setState({ vaultPath: "/vault" });
+        aiApiMocks.aiGetHistoryStorage.mockResolvedValue({
+            scope: "vault",
+            storeInVault: true,
+            sessionCount: 2,
+            deviceSessionCount: 0,
+            vaultSessionCount: 2,
+        });
+        aiApiMocks.aiSetHistoryStorage.mockResolvedValue({
+            scope: "device",
+            storeInVault: false,
+            movedSessions: 2,
+            movedAttachments: 0,
+        });
+
+        renderComponent(<SettingsPanel onClose={() => {}} />);
+        fireEvent.click(screen.getByRole("button", { name: "AI" }));
+
+        const label = await screen.findByText("Store AI chats inside this vault");
+        const row = label.parentElement?.parentElement;
+        expect(row).not.toBeNull();
+        const toggle = within(row as HTMLElement).getByRole("switch");
+        await waitFor(() =>
+            expect(toggle).toHaveAttribute("aria-checked", "true"),
+        );
+
+        fireEvent.click(toggle);
+
+        await waitFor(() => {
+            expect(aiApiMocks.aiSetHistoryStorage).toHaveBeenCalledWith(
+                "/vault",
+                false,
+            );
+        });
+        expect(toggle).toHaveAttribute("aria-checked", "false");
+    });
+
+    it("enables vault chat storage from the settings window vault param", async () => {
+        window.history.pushState({}, "", "/?window=settings&vault=%2Fold-vault");
+        useVaultStore.setState({ vaultPath: null });
+        aiApiMocks.aiGetHistoryStorage.mockResolvedValue({
+            scope: "vault",
+            storeInVault: true,
+            sessionCount: 3,
+            deviceSessionCount: 0,
+            vaultSessionCount: 3,
+        });
+
+        renderComponent(<SettingsPanel standalone onClose={() => {}} />);
+        fireEvent.click(screen.getByRole("button", { name: "AI" }));
+
+        const label = await screen.findByText("Store AI chats inside this vault");
+        const row = label.parentElement?.parentElement;
+        const toggle = within(row as HTMLElement).getByRole("switch");
+        await waitFor(() => {
+            expect(aiApiMocks.aiGetHistoryStorage).toHaveBeenCalledWith(
+                "/old-vault",
+            );
+            expect(toggle).toBeEnabled();
+            expect(toggle).toHaveAttribute("aria-checked", "true");
+        });
+        window.history.pushState({}, "", "/");
     });
 
     it("renders and persists the wikilink hover preview toggle in editor settings", () => {

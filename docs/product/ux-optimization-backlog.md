@@ -11,7 +11,7 @@
 | **第 2 轮** | [ux-optimization-plan-r2.md](ux-optimization-plan-r2.md) | 6 | **已完成** | Agent 高频决策与操作中文 |
 | **第 3 轮** | [ux-optimization-plan-r3.md](ux-optimization-plan-r3.md) | 10 | **已完成** | 导航、历史、侧栏次面板、设置入口、终端 |
 | **第 4 轮** | 本页 §4 | ~8（草案） | **已跳过**（暂不排期） | 整页 Settings、搜索、笔记周边长尾 |
-| **工程线** | [eng-track-plan.md](eng-track-plan.md) | 5 | **进行中（第 3 项待验）** | ACP 自愈、诊断、自定义 runtime、本地历史 |
+| **工程线** | [eng-track-plan.md](eng-track-plan.md) | 7 | **已结束**（第 2、3 项跳过） | 快捷键可改、聊天宽度已通过 |
 
 另：第 2 轮期间插队修复 **Cursor 重连堆空「New chat」**（resume 删旧 ACP + initialize GC），属稳定性，不计入某一「文案项」序号。
 
@@ -91,11 +91,11 @@
 |--------|----|------|------|
 | P0 | ACP 空闲断线自动恢复一次 | Cursor/OpenCode 挂死可自愈 | eng #1 **已通过** |
 | P0 | 启动 / stderr 诊断（脱敏中文） | 超时/exit 能看懂原因 | eng #2 **已跳过** |
-| P0 | 自定义 ACP runtime（设置里加可执行文件） | Cursor 收成预设 + 通用自定义 | **eng #3 待验** |
-| P1 | 设备本地聊天历史（新库默认） | 团队 Git 不脏 vault | eng #4 |
-| P1 | Claude ACP vendor 升级 | 权限/配置更稳 | eng #5 |
-| P2 | 可自定义全局快捷键（能力，不只是标签中文） | 体验加分 | 第 3 轮只做 label |
-| P2 | 聊天宽度 / 半透明 composer / 流式 fence | UI 打磨 | 可能与分栏打架 |
+| P0 | 自定义 ACP runtime（设置里加可执行文件） | Cursor 收成预设 + 通用自定义 | eng #3 **已跳过** |
+| P1 | 设备本地聊天历史（新库默认） | 团队 Git 不脏 vault | eng #4 **已通过** |
+| P1 | Claude ACP vendor 升级 | 权限/配置更稳 | eng #5 **已通过**（0.66，不含 Vertex） |
+| P2 | 可自定义全局快捷键（能力，不只是标签中文） | 体验加分 | eng #6 **已通过** |
+| P2 | 聊天内容宽度 | UI 打磨 | eng #7 **已通过**（半透明 composer / 流式 fence 仍不做） |
 | 暂缓 | Codex embedded → 0.147 | 打包/V8 成本高 | 等 ACP 稳后再评 |
 | 持续 | 依赖安全补丁 | 安全 | 不与功能 PR 绑死 |
 
@@ -128,4 +128,4 @@
 ## 当前停在哪里
 
 - **第 1–3 轮**：已完成；**第 4 轮已跳过**。  
-- **工程线**：见 [eng-track-plan.md](eng-track-plan.md) — **第 3 项（自定义 ACP runtime）待你验证**。
+- **工程线**：见 [eng-track-plan.md](eng-track-plan.md) — **第 1–7 项本表已结束**（第 2、3 项已跳过，第 1、4、5、6、7 项已通过）。
