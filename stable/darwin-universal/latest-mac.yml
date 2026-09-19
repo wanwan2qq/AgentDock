@@ -1,11 +1,11 @@
-version: 0.5.1
+version: 0.6.0
 files:
-  - url: https://github.com/wanwan2qq/AgentDock/releases/download/v0.5.1/AgentDock_0.5.1_macOS_ARM64.zip
-    sha512: VJ0llh+7Rrz+gyMxI2Z+7uzhX9YK34ftdd5pKRFaUjS1sCAMmrGVjJxxv4reQtF1wbn8KiXRExydvvs8pgk3/w==
-    size: 354657184
-  - url: https://github.com/wanwan2qq/AgentDock/releases/download/v0.5.1/AgentDock_0.5.1_macOS_ARM64.dmg
-    sha512: PGfGRdPKYUIIVGOTC0PsZldp84XaHXNRUMYQ/Rpa8aVwsBI7phnnhW2S0lpzMG3StWMrY7gykn9OCVZ/8aOWQw==
-    size: 450748681
-path: https://github.com/wanwan2qq/AgentDock/releases/download/v0.5.1/AgentDock_0.5.1_macOS_ARM64.zip
-sha512: VJ0llh+7Rrz+gyMxI2Z+7uzhX9YK34ftdd5pKRFaUjS1sCAMmrGVjJxxv4reQtF1wbn8KiXRExydvvs8pgk3/w==
-releaseDate: '2026-09-18T11:58:02.882Z'
+  - url: https://github.com/wanwan2qq/AgentDock/releases/download/v0.6.0/AgentDock_0.6.0_macOS_ARM64.zip
+    sha512: 45X04IVedRR7dnIQgLSxlVB+UPNZOKdRtshzyTu4owyNZYcKkFHOmUcM5g9d/6VMoc0FdE6BiIz3AloDcw4nvQ==
+    size: 358594072
+  - url: https://github.com/wanwan2qq/AgentDock/releases/download/v0.6.0/AgentDock_0.6.0_macOS_ARM64.dmg
+    sha512: LgOr4B3MZOp74+w8b/Fu7j4EHcZ26Opo02nlT+GTptchA+OlPG8qCNuzGf/KhZseCkUlobnxRb6y8ip1nrqm5g==
+    size: 459146725
+path: https://github.com/wanwan2qq/AgentDock/releases/download/v0.6.0/AgentDock_0.6.0_macOS_ARM64.zip
+sha512: 45X04IVedRR7dnIQgLSxlVB+UPNZOKdRtshzyTu4owyNZYcKkFHOmUcM5g9d/6VMoc0FdE6BiIz3AloDcw4nvQ==
+releaseDate: '2026-09-19T02:07:38.845Z'
