@@ -507,6 +507,34 @@ async function pruneClaudeEmbeddedRuntime(destinationClaudeRoot) {
     }
 }
 
+async function assertClaudeDistImportsResolve(destinationClaudeRoot) {
+    const distDir = path.join(destinationClaudeRoot, "dist");
+    const entryCandidates = ["acp-agent.js", "index.js"];
+    const missing = [];
+
+    for (const entryName of entryCandidates) {
+        const entryPath = path.join(distDir, entryName);
+        if (!(await pathExists(entryPath))) {
+            continue;
+        }
+        const source = await fs.readFile(entryPath, "utf8");
+        for (const match of source.matchAll(
+            /from\s+["'](\.\/[^"']+\.js)["']/g,
+        )) {
+            const imported = path.join(distDir, match[1]);
+            if (!(await pathExists(imported))) {
+                missing.push(`${entryName} -> ${match[1]}`);
+            }
+        }
+    }
+
+    if (missing.length > 0) {
+        throw new Error(
+            `Claude embedded runtime dist is missing imported modules (force-add vendor dist files if gitignored): ${missing.join(", ")}`,
+        );
+    }
+}
+
 async function stageEmbeddedNodeRuntime(nodeSource) {
     const destinationNodeRoot = path.join(embeddedDir, "node");
 
@@ -831,6 +859,7 @@ await fs.cp(claudeEmbeddedSource, stagedClaudeRoot, {
     dereference: true,
 });
 await pruneClaudeEmbeddedRuntime(stagedClaudeRoot);
+await assertClaudeDistImportsResolve(stagedClaudeRoot);
 
 await ensureExecutableIfNeeded(stagedPath);
 for (const binary of stagingCodexRuntime) {

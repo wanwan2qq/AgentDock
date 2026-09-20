@@ -1,7 +1,7 @@
 {
     "name": "desktop",
     "private": true,
-    "version": "0.6.0",
+    "version": "0.6.1",
     "homepage": "https://github.com/wanwan2qq/AgentDock",
     "type": "module",
     "main": "out/electron/main/index.js",

@@ -7,6 +7,9 @@ const electronAppMock = vi.hoisted(() => ({
 
 vi.mock("electron", () => ({
     app: electronAppMock,
+    shell: {
+        openExternal: vi.fn(async () => undefined),
+    },
 }));
 
 vi.mock("electron-updater", () => ({

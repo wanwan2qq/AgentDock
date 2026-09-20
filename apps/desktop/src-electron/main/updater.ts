@@ -1,4 +1,6 @@
-import { app } from "electron";
+import { app, shell } from "electron";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import {
     AppImageUpdater,
     MacUpdater,
@@ -564,6 +566,76 @@ function resolvePrimaryDownloadUrl(
     return new URL(candidate.url, config.feedDirectoryUrl);
 }
 
+function resolveManualInstallerUrl(
+    update: AvailableAppUpdateDto,
+    config: UpdaterRuntimeConfig,
+) {
+    const raw = update.rawJson as UpdateInfo | null;
+    if (raw?.files && config.feedDirectoryUrl) {
+        const preferred =
+            raw.files.find((file) => /\.dmg$/i.test(file.url)) ??
+            raw.files.find(
+                (file) =>
+                    !file.url.endsWith(".blockmap") &&
+                    !/\.zip$/i.test(file.url),
+            );
+        if (preferred) {
+            return new URL(preferred.url, config.feedDirectoryUrl).toString();
+        }
+    }
+    return update.downloadUrl;
+}
+
+function resolveMacAppBundlePath() {
+    return path.resolve(path.dirname(process.execPath), "..", "..");
+}
+
+export function isMacAppSignedForAutoUpdate() {
+    if (process.platform !== "darwin") {
+        return true;
+    }
+    if (!app.isPackaged) {
+        return false;
+    }
+
+    const result = spawnSync(
+        "codesign",
+        ["-dv", "--verbose=2", resolveMacAppBundlePath()],
+        {
+            encoding: "utf8",
+            timeout: 5_000,
+        },
+    );
+    const text = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+    if (/Signature=adhoc/i.test(text) || /TeamIdentifier=not set/i.test(text)) {
+        return false;
+    }
+    if (/Authority=Developer ID Application/i.test(text)) {
+        return true;
+    }
+    return /Authority=/i.test(text) && !/Signature=adhoc/i.test(text);
+}
+
+function isMacCodeSignatureUpdateError(reason: unknown) {
+    const message = reason instanceof Error ? reason.message : String(reason ?? "");
+    return (
+        /code signature/i.test(message) ||
+        /代码未能满足指定的代码要求/.test(message) ||
+        /did not pass validation/i.test(message)
+    );
+}
+
+const UNSIGNED_MAC_UPDATE_MESSAGE =
+    "当前安装包未签名，macOS 无法完成应用内自动更新。已打开安装包下载页，请手动安装 .dmg，然后在终端执行：xattr -cr /Applications/AgentDock.app";
+
+async function openManualInstaller(url: string) {
+    try {
+        await shell.openExternal(url);
+    } catch (error) {
+        console.warn("[electron-updater] Failed to open installer URL", error);
+    }
+}
+
 function validateAvailableUpdate(
     updateInfo: UpdateInfo,
     config: UpdaterRuntimeConfig,
@@ -686,10 +758,34 @@ export class ElectronAppUpdater implements AppUpdaterBackend {
             );
         }
 
+        const installerUrl = resolveManualInstallerUrl(update, config);
+        if (process.platform === "darwin" && !isMacAppSignedForAutoUpdate()) {
+            await openManualInstaller(installerUrl);
+            throw new Error(UNSIGNED_MAC_UPDATE_MESSAGE);
+        }
+
         const updater = this.getOrCreateUpdater(config);
-        await updater.downloadUpdate();
+        try {
+            await updater.downloadUpdate();
+        } catch (error) {
+            if (process.platform === "darwin" && isMacCodeSignatureUpdateError(error)) {
+                await openManualInstaller(installerUrl);
+                throw new Error(UNSIGNED_MAC_UPDATE_MESSAGE);
+            }
+            throw error;
+        }
         setImmediate(() => {
-            updater.quitAndInstall();
+            try {
+                updater.quitAndInstall();
+            } catch (error) {
+                if (
+                    process.platform === "darwin" &&
+                    isMacCodeSignatureUpdateError(error)
+                ) {
+                    void openManualInstaller(installerUrl);
+                }
+                console.error("[electron-updater] quitAndInstall failed", error);
+            }
         });
     }
 

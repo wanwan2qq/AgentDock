@@ -34,6 +34,13 @@ refactors, dependency updates, CI changes, and code cleanup do not belong here.
 
 ---
 
+## [0.6.1] - 2026-09-20
+
+### Fixed
+
+- Fixed Claude ACP packaging so `goal-extension.js` is included. Unsigned 0.6.0 builds exited with status 1 when resuming or starting Claude chats.
+- Unsigned macOS builds no longer hang on **download and install**. AgentDock opens the installer download and explains that in-app updates need Apple signing.
+
 ## [0.6.0] - 2026-09-19
 
 ### Added
