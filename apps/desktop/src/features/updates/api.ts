@@ -1,6 +1,13 @@
 import { invoke } from "@neverwrite/runtime";
 import type { Update } from "@neverwrite/runtime";
 
+export type AppUpdateInstallMode = "in-app" | "manual-installer";
+export type AppUpdateDownloadState =
+    | "idle"
+    | "downloading"
+    | "ready"
+    | "error";
+
 export interface AvailableAppUpdate extends Pick<
     Update,
     "body" | "currentVersion" | "version" | "date" | "rawJson"
@@ -9,12 +16,21 @@ export interface AvailableAppUpdate extends Pick<
     downloadUrl: string;
 }
 
+export interface AppUpdateDownload {
+    state: AppUpdateDownloadState;
+    progress: number | null;
+    localPath: string | null;
+    error: string | null;
+}
+
 export interface AppUpdateStatus {
     enabled: boolean;
     currentVersion: string;
     channel: string;
     endpoint: string | null;
     message: string | null;
+    installMode: AppUpdateInstallMode;
+    download: AppUpdateDownload;
     update: AvailableAppUpdate | null;
 }
 

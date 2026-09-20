@@ -34,6 +34,16 @@ refactors, dependency updates, CI changes, and code cleanup do not belong here.
 
 ---
 
+## [0.6.2] - 2026-09-20
+
+### Added
+
+- Startup and periodic update checks now open a dialog when a new version is available, and prefetch the installer in the background before you confirm.
+
+### Fixed
+
+- OpenCode again resolves the official CLI under `~/.opencode/bin` when AgentDock is launched from the Dock or Finder (PATH was incomplete after the 0.6.0 package update).
+
 ## [0.6.1] - 2026-09-20
 
 ### Fixed

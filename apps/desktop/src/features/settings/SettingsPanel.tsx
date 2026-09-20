@@ -2679,7 +2679,7 @@ function UpdatesSettings({
     const effectiveError = error ?? null;
     const updaterConfigured = Boolean(status?.enabled);
     const automaticUpdatesDescription = updaterConfigured
-        ? "NeverWrite does not update automatically. It only downloads and installs updates when you choose it."
+        ? "启动时会自动检查更新并预下载安装包；发现新版本会弹窗提示，需你确认后再安装。"
         : "Not available in this build.";
     const stateKind = resolveUpdateStateKind({
         checking,
@@ -2764,8 +2764,9 @@ function UpdatesSettings({
             [
                 "Automatic updates",
                 automaticUpdatesDescription,
-                "manual install",
-                "no automatic install",
+                "notify",
+                "auto download",
+                "弹窗",
             ],
             [
                 "Update status",
@@ -2856,9 +2857,11 @@ function UpdatesSettings({
                 section="Version"
                 label="Automatic updates"
                 description={automaticUpdatesDescription}
-                keywords={["manual install", "no automatic install"]}
+                keywords={["notify", "auto download", "弹窗", "预下载"]}
                 control={
-                    <VersionPill label={updaterConfigured ? "Manual" : "Off"} />
+                    <VersionPill
+                        label={updaterConfigured ? "Notify + download" : "Off"}
+                    />
                 }
             />
             <SearchableRow
@@ -4759,7 +4762,7 @@ const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
     appearance: "Themes and visual preferences",
     editor: "Typography and text editing behavior",
     spellcheck: "Languages and dictionary management",
-    updates: "Manual update checks and appcast configuration",
+    updates: "Checks for updates, auto-downloads installers, and prompts before install",
     terminal: "Font, size, and shell environment settings",
     developers: "Control which vault files appear in the file tree and pickers",
     vault: "Current vault and recent history",

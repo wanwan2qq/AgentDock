@@ -7377,7 +7377,8 @@ fn runtime_binary_name(base: &str) -> String {
 }
 
 fn resolve_known_runtime_fallback(runtime_id: &str) -> Option<PathBuf> {
-    resolve_grok_official_runtime_fallback(runtime_id)
+    resolve_opencode_official_runtime_fallback(runtime_id)
+        .or_else(|| resolve_grok_official_runtime_fallback(runtime_id))
         .or_else(|| resolve_cursor_official_runtime_fallback(runtime_id))
         .or_else(|| resolve_macos_homebrew_runtime_fallback(runtime_id))
 }
@@ -7389,6 +7390,18 @@ fn resolve_cursor_official_runtime_fallback(runtime_id: &str) -> Option<PathBuf>
     let home = home_dir()?;
     let candidate = home
         .join(".local")
+        .join("bin")
+        .join(runtime_binary_name(default_executable_name(runtime_id)));
+    find_executable_candidate(candidate, &executable_extensions_for_path_lookup())
+}
+
+fn resolve_opencode_official_runtime_fallback(runtime_id: &str) -> Option<PathBuf> {
+    if runtime_id != OPENCODE_RUNTIME_ID {
+        return None;
+    }
+    let home = home_dir()?;
+    let candidate = home
+        .join(".opencode")
         .join("bin")
         .join(runtime_binary_name(default_executable_name(runtime_id)));
     find_executable_candidate(candidate, &executable_extensions_for_path_lookup())
@@ -10500,6 +10513,75 @@ mod tests {
         assert_eq!(
             spec.args,
             GROK_ACP_ARGS
+                .iter()
+                .map(|arg| (*arg).to_string())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn opencode_setup_status_finds_official_user_install_path() {
+        let _guard = ENV_TEST_LOCK.lock().unwrap();
+        let previous_path = std::env::var_os("PATH");
+        let previous_home = std::env::var_os("HOME");
+        let previous_userprofile = std::env::var_os("USERPROFILE");
+        let previous_override = std::env::var_os("NEVERWRITE_OPENCODE_ACP_BIN");
+        let temp = tempfile::tempdir().unwrap();
+        let opencode_bin = temp
+            .path()
+            .join(".opencode")
+            .join("bin")
+            .join(runtime_binary_name("opencode"));
+        fs::create_dir_all(opencode_bin.parent().unwrap()).unwrap();
+        fs::write(&opencode_bin, "").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&opencode_bin, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        std::env::set_var("PATH", "");
+        std::env::set_var("HOME", temp.path());
+        std::env::set_var("USERPROFILE", temp.path());
+        std::env::remove_var("NEVERWRITE_OPENCODE_ACP_BIN");
+
+        let status = setup_status_for(OPENCODE_RUNTIME_ID, RuntimeSetupState::default());
+        let spec = acp_process_spec(
+            OPENCODE_RUNTIME_ID,
+            &RuntimeSetupState::default(),
+            temp.path().into(),
+        );
+
+        match previous_path {
+            Some(value) => std::env::set_var("PATH", value),
+            None => std::env::remove_var("PATH"),
+        }
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+        match previous_userprofile {
+            Some(value) => std::env::set_var("USERPROFILE", value),
+            None => std::env::remove_var("USERPROFILE"),
+        }
+        match previous_override {
+            Some(value) => std::env::set_var("NEVERWRITE_OPENCODE_ACP_BIN", value),
+            None => std::env::remove_var("NEVERWRITE_OPENCODE_ACP_BIN"),
+        }
+
+        let status = status.unwrap();
+        let spec = spec.unwrap();
+        assert!(status.binary_ready);
+        assert_eq!(status.binary_source, AiRuntimeBinarySource::Env);
+        let opencode_bin_display = opencode_bin.to_string_lossy().into_owned();
+        assert_eq!(
+            status.binary_path.as_deref(),
+            Some(opencode_bin_display.as_str())
+        );
+        assert_eq!(spec.program, opencode_bin);
+        assert_eq!(
+            spec.args,
+            SHELL_ACP_ARGS
                 .iter()
                 .map(|arg| (*arg).to_string())
                 .collect::<Vec<_>>()

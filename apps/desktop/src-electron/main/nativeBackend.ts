@@ -276,6 +276,7 @@ function buildSidecarPath() {
         "/bin",
         "/usr/sbin",
         "/sbin",
+        path.join(home, ".opencode", "bin"),
         path.join(home, ".grok", "bin"),
         path.join(home, ".local", "bin"),
         path.join(home, ".bun", "bin"),

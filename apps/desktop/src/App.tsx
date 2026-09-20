@@ -26,6 +26,7 @@ import { MultiPaneWorkspace } from "./features/editor/MultiPaneWorkspace";
 import { EditorChromeBar } from "./features/editor/EditorChromeBar";
 import { GitStatusBar } from "./features/git/GitStatusBar";
 import { VaultOpenDispositionDialog } from "./features/vault/VaultOpenDispositionDialog";
+import { AppUpdateAvailableDialog } from "./features/updates/AppUpdateAvailableDialog";
 import { openUntitledMarkdownNote } from "./features/editor/markdownNoteCreation";
 import { useBookmarkStore } from "./app/store/bookmarkStore";
 import { CommandPalette } from "./features/command-palette/CommandPalette";
@@ -2301,6 +2302,7 @@ export default function App() {
                 />
                 <VaultOpeningOverlay />
                 <VaultOpenDispositionDialog />
+                <AppUpdateAvailableDialog />
             </div>
 
             <YouTubeModalHost />

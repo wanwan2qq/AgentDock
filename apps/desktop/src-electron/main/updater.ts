@@ -1,15 +1,24 @@
-import { app, shell } from "electron";
+import { app, net, shell } from "electron";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import {
     AppImageUpdater,
     MacUpdater,
     NsisUpdater,
     type AppUpdater,
+    type ProgressInfo,
     type UpdateInfo,
 } from "electron-updater";
 
 type UpdaterRuntimeMode = "production" | "non-production";
+
+export type AppUpdateInstallMode = "in-app" | "manual-installer";
+export type AppUpdateDownloadState =
+    | "idle"
+    | "downloading"
+    | "ready"
+    | "error";
 
 export interface AvailableAppUpdateDto {
     body: string | null;
@@ -21,12 +30,21 @@ export interface AvailableAppUpdateDto {
     rawJson: unknown;
 }
 
+export interface AppUpdateDownloadDto {
+    state: AppUpdateDownloadState;
+    progress: number | null;
+    localPath: string | null;
+    error: string | null;
+}
+
 export interface AppUpdateStatusDto {
     enabled: boolean;
     currentVersion: string;
     channel: string;
     endpoint: string | null;
     message: string | null;
+    installMode: AppUpdateInstallMode;
+    download: AppUpdateDownloadDto;
     update: AvailableAppUpdateDto | null;
 }
 
@@ -464,9 +482,26 @@ function ensureTrailingSlashUrl(url: URL) {
     return next;
 }
 
+function createIdleDownloadState(): AppUpdateDownloadDto {
+    return {
+        state: "idle",
+        progress: null,
+        localPath: null,
+        error: null,
+    };
+}
+
+function resolveInstallMode(): AppUpdateInstallMode {
+    if (process.platform === "darwin" && !isMacAppSignedForAutoUpdate()) {
+        return "manual-installer";
+    }
+    return "in-app";
+}
+
 function buildUpdateStatus(
     config: UpdaterRuntimeConfig,
     update: AvailableAppUpdateDto | null,
+    download: AppUpdateDownloadDto = createIdleDownloadState(),
 ): AppUpdateStatusDto {
     return {
         enabled: config.endpoint !== null && config.endpointError === null,
@@ -474,8 +509,96 @@ function buildUpdateStatus(
         channel: config.channel,
         endpoint: config.endpointDisplay,
         message: config.endpointError,
+        installMode: resolveInstallMode(),
+        download,
         update,
     };
+}
+
+export function resolveInstallerFileName(url: string, version: string) {
+    try {
+        const fileName = path.basename(new URL(url).pathname);
+        if (
+            fileName &&
+            fileName !== "/" &&
+            fileName !== "." &&
+            /\.[A-Za-z0-9]+$/.test(fileName)
+        ) {
+            return fileName;
+        }
+    } catch {
+        // Fall through to a stable default name.
+    }
+    return `AgentDock_${version}_update.dmg`;
+}
+
+export async function downloadUrlToFile(
+    url: string,
+    destinationPath: string,
+    onProgress?: (progress: number | null) => void,
+) {
+    const partialPath = `${destinationPath}.partial`;
+    await fs.promises.mkdir(path.dirname(destinationPath), { recursive: true });
+    await fs.promises.rm(partialPath, { force: true });
+
+    await new Promise<void>((resolve, reject) => {
+        const request = net.request(url);
+        const file = fs.createWriteStream(partialPath);
+        let settled = false;
+        let received = 0;
+        let total = 0;
+
+        const fail = (error: unknown) => {
+            if (settled) return;
+            settled = true;
+            file.destroy();
+            void fs.promises.rm(partialPath, { force: true });
+            reject(error instanceof Error ? error : new Error(String(error)));
+        };
+
+        request.on("response", (response) => {
+            const statusCode = response.statusCode ?? 0;
+            if (statusCode < 200 || statusCode >= 300) {
+                fail(new Error(`Download failed with HTTP ${statusCode}.`));
+                return;
+            }
+
+            const lengthHeader = response.headers["content-length"];
+            const lengthValue = Array.isArray(lengthHeader)
+                ? lengthHeader[0]
+                : lengthHeader;
+            total = Number(lengthValue ?? 0);
+            if (!Number.isFinite(total) || total <= 0) {
+                total = 0;
+            }
+
+            response.on("data", (chunk: Buffer) => {
+                received += chunk.length;
+                file.write(chunk);
+                if (total > 0) {
+                    onProgress?.(Math.min(1, received / total));
+                } else {
+                    onProgress?.(null);
+                }
+            });
+            response.on("end", () => {
+                file.end(() => {
+                    if (settled) return;
+                    settled = true;
+                    void fs.promises
+                        .rename(partialPath, destinationPath)
+                        .then(() => {
+                            onProgress?.(1);
+                            resolve();
+                        })
+                        .catch(fail);
+                });
+            });
+            response.on("error", fail);
+        });
+        request.on("error", fail);
+        request.end();
+    });
 }
 
 function shouldLogVerboseUpdaterMessages() {
@@ -626,13 +749,23 @@ function isMacCodeSignatureUpdateError(reason: unknown) {
 }
 
 const UNSIGNED_MAC_UPDATE_MESSAGE =
-    "当前安装包未签名，macOS 无法完成应用内自动更新。已打开安装包下载页，请手动安装 .dmg，然后在终端执行：xattr -cr /Applications/AgentDock.app";
+    "当前安装包未签名，macOS 无法完成应用内自动替换。已打开安装包，请拖到「应用程序」完成安装，然后在终端执行：xattr -cr /Applications/AgentDock.app";
+
+const UNSIGNED_MAC_OPENED_LOCAL_MESSAGE =
+    "已打开下载的安装包。请拖到「应用程序」替换后，在终端执行：xattr -cr /Applications/AgentDock.app";
 
 async function openManualInstaller(url: string) {
     try {
         await shell.openExternal(url);
     } catch (error) {
         console.warn("[electron-updater] Failed to open installer URL", error);
+    }
+}
+
+async function openLocalInstaller(filePath: string) {
+    const openError = await shell.openPath(filePath);
+    if (openError) {
+        throw new Error(openError);
     }
 }
 
@@ -697,36 +830,41 @@ export class ElectronAppUpdater implements AppUpdaterBackend {
     private cachedUpdate: AvailableAppUpdateDto | null = null;
     private updater: AppUpdater | null = null;
     private feedDirectoryUrl: string | null = null;
+    private download: AppUpdateDownloadDto = createIdleDownloadState();
+    private prefetchVersion: string | null = null;
 
     getConfiguration() {
         const config = this.loadConfig();
-        return buildUpdateStatus(config, this.cachedUpdate);
+        return buildUpdateStatus(config, this.cachedUpdate, this.download);
     }
 
     async checkForUpdates() {
         const config = this.loadConfig();
-        const baseline = buildUpdateStatus(config, null);
+        const baseline = buildUpdateStatus(config, null, this.download);
         if (!baseline.enabled) {
             this.cachedUpdate = null;
-            return baseline;
+            this.resetDownload();
+            return buildUpdateStatus(config, null, this.download);
         }
 
         const updater = this.getOrCreateUpdater(config);
         const result = await updater.checkForUpdates();
         if (!result?.isUpdateAvailable) {
             this.cachedUpdate = null;
-            return buildUpdateStatus(config, null);
+            this.resetDownload();
+            return buildUpdateStatus(config, null, this.download);
         }
 
         validateAvailableUpdate(result.updateInfo, config);
         const serialized = serializeAvailableUpdate(result.updateInfo, config);
         this.cachedUpdate = serialized;
-        return buildUpdateStatus(config, serialized);
+        this.beginPrefetch(config, serialized, updater);
+        return buildUpdateStatus(config, serialized, this.download);
     }
 
     async downloadAndInstallUpdate(version: string, target: string) {
         const config = this.loadConfig();
-        const baseline = buildUpdateStatus(config, null);
+        const baseline = buildUpdateStatus(config, null, this.download);
         if (!baseline.enabled) {
             throw new Error(
                 baseline.message || "Updater is not enabled in this build.",
@@ -760,18 +898,51 @@ export class ElectronAppUpdater implements AppUpdaterBackend {
 
         const installerUrl = resolveManualInstallerUrl(update, config);
         if (process.platform === "darwin" && !isMacAppSignedForAutoUpdate()) {
+            await this.ensureManualInstallerReady(update, installerUrl);
+            if (this.download.state === "ready" && this.download.localPath) {
+                await openLocalInstaller(this.download.localPath);
+                throw new Error(UNSIGNED_MAC_OPENED_LOCAL_MESSAGE);
+            }
             await openManualInstaller(installerUrl);
             throw new Error(UNSIGNED_MAC_UPDATE_MESSAGE);
         }
 
         const updater = this.getOrCreateUpdater(config);
         try {
-            await updater.downloadUpdate();
+            if (this.download.state !== "ready") {
+                this.download = {
+                    state: "downloading",
+                    progress: this.download.progress,
+                    localPath: null,
+                    error: null,
+                };
+                await updater.downloadUpdate();
+                this.download = {
+                    state: "ready",
+                    progress: 1,
+                    localPath: null,
+                    error: null,
+                };
+            }
         } catch (error) {
             if (process.platform === "darwin" && isMacCodeSignatureUpdateError(error)) {
+                await this.ensureManualInstallerReady(update, installerUrl);
+                if (this.download.state === "ready" && this.download.localPath) {
+                    await openLocalInstaller(this.download.localPath);
+                    throw new Error(UNSIGNED_MAC_OPENED_LOCAL_MESSAGE);
+                }
                 await openManualInstaller(installerUrl);
                 throw new Error(UNSIGNED_MAC_UPDATE_MESSAGE);
             }
+            this.download = {
+                state: "error",
+                progress: null,
+                localPath: null,
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to download update.",
+            };
             throw error;
         }
         setImmediate(() => {
@@ -793,6 +964,149 @@ export class ElectronAppUpdater implements AppUpdaterBackend {
         return loadUpdaterRuntimeConfig();
     }
 
+    private resetDownload() {
+        this.download = createIdleDownloadState();
+        this.prefetchVersion = null;
+    }
+
+    private beginPrefetch(
+        config: UpdaterRuntimeConfig,
+        update: AvailableAppUpdateDto,
+        updater: AppUpdater,
+    ) {
+        if (
+            this.prefetchVersion === update.version &&
+            (this.download.state === "downloading" ||
+                this.download.state === "ready")
+        ) {
+            return;
+        }
+
+        this.prefetchVersion = update.version;
+        const installerUrl = resolveManualInstallerUrl(update, config);
+
+        if (process.platform === "darwin" && !isMacAppSignedForAutoUpdate()) {
+            void this.ensureManualInstallerReady(update, installerUrl).catch(
+                (error) => {
+                    console.warn(
+                        "[electron-updater] Prefetch installer failed",
+                        error,
+                    );
+                },
+            );
+            return;
+        }
+
+        this.download = {
+            state: "downloading",
+            progress: 0,
+            localPath: null,
+            error: null,
+        };
+        void updater
+            .downloadUpdate()
+            .then(() => {
+                if (this.prefetchVersion !== update.version) {
+                    return;
+                }
+                this.download = {
+                    state: "ready",
+                    progress: 1,
+                    localPath: null,
+                    error: null,
+                };
+            })
+            .catch((error) => {
+                if (this.prefetchVersion !== update.version) {
+                    return;
+                }
+                if (
+                    process.platform === "darwin" &&
+                    isMacCodeSignatureUpdateError(error)
+                ) {
+                    return this.ensureManualInstallerReady(update, installerUrl);
+                }
+                this.download = {
+                    state: "error",
+                    progress: null,
+                    localPath: null,
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "Failed to download update.",
+                };
+            });
+    }
+
+    private async ensureManualInstallerReady(
+        update: AvailableAppUpdateDto,
+        installerUrl: string,
+    ) {
+        if (
+            this.download.state === "ready" &&
+            this.download.localPath &&
+            fs.existsSync(this.download.localPath)
+        ) {
+            return;
+        }
+
+        const fileName = resolveInstallerFileName(installerUrl, update.version);
+        const destinationPath = path.join(app.getPath("downloads"), fileName);
+        if (fs.existsSync(destinationPath)) {
+            this.download = {
+                state: "ready",
+                progress: 1,
+                localPath: destinationPath,
+                error: null,
+            };
+            return;
+        }
+
+        this.download = {
+            state: "downloading",
+            progress: 0,
+            localPath: null,
+            error: null,
+        };
+
+        try {
+            await downloadUrlToFile(installerUrl, destinationPath, (progress) => {
+                if (this.prefetchVersion !== update.version) {
+                    return;
+                }
+                this.download = {
+                    state: "downloading",
+                    progress,
+                    localPath: null,
+                    error: null,
+                };
+            });
+            if (this.prefetchVersion !== update.version) {
+                return;
+            }
+            this.download = {
+                state: "ready",
+                progress: 1,
+                localPath: destinationPath,
+                error: null,
+            };
+        } catch (error) {
+            if (this.prefetchVersion !== update.version) {
+                return;
+            }
+            this.download = {
+                state: "error",
+                progress: null,
+                localPath: null,
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to download installer.",
+            };
+            throw error;
+        }
+    }
+
     private getOrCreateUpdater(config: UpdaterRuntimeConfig) {
         if (!config.feedDirectoryUrl) {
             throw new Error("Updater feed directory is missing at runtime.");
@@ -802,6 +1116,32 @@ export class ElectronAppUpdater implements AppUpdaterBackend {
             this.updater = createPlatformUpdater(config.feedDirectoryUrl);
             this.feedDirectoryUrl = config.feedDirectoryUrl;
             this.cachedUpdate = null;
+            this.resetDownload();
+            this.updater.on("download-progress", (progress: ProgressInfo) => {
+                if (resolveInstallMode() === "manual-installer") {
+                    return;
+                }
+                this.download = {
+                    state: "downloading",
+                    progress: Math.min(
+                        1,
+                        Math.max(0, Number(progress.percent ?? 0) / 100),
+                    ),
+                    localPath: null,
+                    error: null,
+                };
+            });
+            this.updater.on("update-downloaded", () => {
+                if (resolveInstallMode() === "manual-installer") {
+                    return;
+                }
+                this.download = {
+                    state: "ready",
+                    progress: 1,
+                    localPath: null,
+                    error: null,
+                };
+            });
         }
 
         return this.updater;

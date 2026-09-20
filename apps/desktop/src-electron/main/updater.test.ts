@@ -3,12 +3,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const electronAppMock = vi.hoisted(() => ({
     getVersion: vi.fn(() => "0.2.0"),
     isPackaged: true,
+    getPath: vi.fn(() => "/tmp"),
 }));
 
 vi.mock("electron", () => ({
     app: electronAppMock,
     shell: {
         openExternal: vi.fn(async () => undefined),
+        openPath: vi.fn(async () => ""),
+    },
+    net: {
+        request: vi.fn(),
     },
 }));
 
@@ -20,6 +25,9 @@ vi.mock("electron-updater", () => ({
         logger: unknown = null;
 
         constructor(_options: unknown) {}
+        on() {
+            return this;
+        }
     },
     MacUpdater: class {
         autoDownload = false;
@@ -28,6 +36,9 @@ vi.mock("electron-updater", () => ({
         logger: unknown = null;
 
         constructor(_options: unknown) {}
+        on() {
+            return this;
+        }
     },
     NsisUpdater: class {
         autoDownload = false;
@@ -36,10 +47,13 @@ vi.mock("electron-updater", () => ({
         logger: unknown = null;
 
         constructor(_options: unknown) {}
+        on() {
+            return this;
+        }
     },
 }));
 
-import { ElectronAppUpdater } from "./updater";
+import { ElectronAppUpdater, resolveInstallerFileName } from "./updater";
 
 const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
 const originalArch = Object.getOwnPropertyDescriptor(process, "arch");
@@ -93,8 +107,27 @@ describe("ElectronAppUpdater configuration", () => {
             endpoint:
                 "https://wanwan2qq.github.io/AgentDock/stable/darwin-universal/latest-mac.yml",
             message: null,
+            installMode: "manual-installer",
+            download: {
+                state: "idle",
+                progress: null,
+                localPath: null,
+                error: null,
+            },
             update: null,
         });
+    });
+
+    it("resolves installer file names from download URLs", () => {
+        expect(
+            resolveInstallerFileName(
+                "https://example.com/releases/AgentDock_0.6.1_macOS_ARM64.dmg",
+                "0.6.1",
+            ),
+        ).toBe("AgentDock_0.6.1_macOS_ARM64.dmg");
+        expect(resolveInstallerFileName("https://example.com/releases/", "0.6.1")).toBe(
+            "AgentDock_0.6.1_update.dmg",
+        );
     });
 
     it("keeps non-packaged builds local unless an updater endpoint is configured", () => {

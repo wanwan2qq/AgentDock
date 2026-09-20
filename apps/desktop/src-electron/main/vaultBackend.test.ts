@@ -55,6 +55,13 @@ function createUpdater(): AppUpdaterBackend & {
             channel: "stable",
             endpoint: "https://updates.example.test/latest.yml",
             message: null,
+            installMode: "in-app" as const,
+            download: {
+                state: "idle" as const,
+                progress: null,
+                localPath: null,
+                error: null,
+            },
             update: null,
         })),
         checkForUpdates: vi.fn(() =>
@@ -64,6 +71,13 @@ function createUpdater(): AppUpdaterBackend & {
                 channel: "stable",
                 endpoint: "https://updates.example.test/latest.yml",
                 message: null,
+                installMode: "in-app" as const,
+                download: {
+                    state: "downloading" as const,
+                    progress: 0.1,
+                    localPath: null,
+                    error: null,
+                },
                 update: {
                     body: null,
                     currentVersion: "0.2.0",
